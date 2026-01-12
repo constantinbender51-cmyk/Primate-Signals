@@ -232,6 +232,25 @@ const authenticate = async (req, res, next) => {
     // --- PATH C: REJECT ---
     return res.status(401).json({ error: 'Authentication required (API Key or Login)' });
 };
+// --- 2.5. SUBSCRIPTION CHECK MIDDLEWARE ---
+const requireSubscription = (req, res, next) => {
+    // 1. Safety check: Ensure authenticate ran first
+    if (!req.user) {
+        return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // 2. Check status
+    // We allow 'active' (paid) or 'trialing' (if you add trials later)
+    if (req.user.subscription_status !== 'active' && req.user.subscription_status !== 'trialing') {
+        return res.status(403).json({ 
+            error: 'Subscription required', 
+            code: 'SUBSCRIPTION_REQUIRED' // Frontend can use this code to show a popup
+        });
+    }
+
+    // 3. User is paid up, proceed!
+    next();
+};
 
 // --- 3. ROUTES ---
 
