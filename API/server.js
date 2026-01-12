@@ -369,7 +369,7 @@ app.post('/create-checkout-session', authenticate, async (req, res) => {
     try {
         // 1. Get the price ID from the frontend (or hardcode it if you have only 1 plan)
         // const { priceId } = req.body; 
-        const priceId = 'price_1234567890'; // REPLACE THIS with your actual Stripe Price ID
+        const priceId = process.env.STRIPE_PRICE_ID; // REPLACE THIS with your actual Stripe Price ID
 
         // 2. Create the session
         const session = await stripe.checkout.sessions.create({
