@@ -253,12 +253,12 @@ const requireSubscription = (req, res, next) => {
 };
 
 // --- 3. ROUTES ---
-
 app.get('/', (req, res) => {
     res.send('API is live and Database is ready.');
 });
 
-app.get('/live_matrix', authenticate, async (req, res) => {
+// Protect this route with BOTH middlewares
+app.get('/live_matrix', authenticate, requireSubscription, async (req, res) => {
     try {
         const client = await pool.connect();
         const result = await client.query('SELECT * FROM live_matrix');
@@ -270,7 +270,7 @@ app.get('/live_matrix', authenticate, async (req, res) => {
     }
 });
 
-app.get('/signal_history', authenticate, async (req, res) => {
+app.get('/signal_history', authenticate, requireSubscription, async (req, res) => {
     try {
         const client = await pool.connect();
         const result = await client.query('SELECT * FROM signal_history');
