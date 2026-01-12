@@ -12,6 +12,9 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
+const jwt = require('jsonwebtoken');
+
+
 // --- 1. AUTO-SETUP FUNCTION ---
 // This runs once every time the server starts
 // --- 1. AUTO-SETUP FUNCTION ---
@@ -115,31 +118,119 @@ app.post('/auth/register', async (req, res) => {
     }
 });
 
+// POST /auth/login
+app.post('/auth/login', async (req, res) => {
+    const { email, password } = req.body;
 
-// --- 2. AUTH MIDDLEWARE ---
-const authenticate = async (req, res, next) => {
-    const apiKey = req.headers['x-api-key'];
-
-    if (!apiKey) {
-        return res.status(401).json({ error: 'API Key missing' });
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required' });
     }
 
     try {
-        const result = await pool.query(
-            'SELECT id, email FROM users WHERE api_key = $1 AND is_active = true', 
-            [apiKey]
-        );
+        const client = await pool.connect();
 
-        if (result.rows.length === 0) {
-            return res.status(403).json({ error: 'Invalid or inactive API Key' });
+        // 1. Find user by email
+        const result = await client.query('SELECT * FROM users WHERE email = $1', [email]);
+        const user = result.rows[0];
+        client.release();
+
+        // 2. User not found?
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        req.user = result.rows[0]; 
-        next();
+        // 3. Password doesn't match?
+        // We compare the plain text password with the stored hash
+        const isValid = await bcrypt.compare(password, user.password_hash || '');
+        if (!isValid) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        // 4. Generate JWT Token
+        // This token contains the user's ID and current subscription status.
+        // It expires in 1 hour (common for security).
+        const token = jwt.sign(
+            { 
+                userId: user.id, 
+                email: user.email,
+                role: 'user' 
+            }, 
+            process.env.JWT_SECRET, 
+            { expiresIn: '1h' }
+        );
+
+        // 5. Respond with Token and User Info
+        res.json({
+            message: 'Login successful',
+            token: token,
+            user: {
+                email: user.email,
+                subscription_status: user.subscription_status,
+                stripe_customer_id: user.stripe_customer_id
+            }
+        });
+
     } catch (err) {
-        console.error(err);
-        return res.status(500).json({ error: 'Auth Error' });
+        console.error("Login Error:", err);
+        res.status(500).json({ error: 'Server error during login' });
     }
+});
+
+// --- 2. DUAL AUTH MIDDLEWARE ---
+const authenticate = async (req, res, next) => {
+    const apiKey = req.headers['x-api-key']; // Method A: API Key
+    const authHeader = req.headers['authorization']; // Method B: JWT Token
+
+    // --- PATH A: API KEY (For Scripts) ---
+    if (apiKey) {
+        try {
+            const result = await pool.query(
+                'SELECT id, email, subscription_status FROM users WHERE api_key = $1 AND is_active = true', 
+                [apiKey]
+            );
+
+            if (result.rows.length === 0) {
+                return res.status(403).json({ error: 'Invalid or inactive API Key' });
+            }
+
+            req.user = result.rows[0]; 
+            return next(); // Success!
+        } catch (err) {
+            console.error(err);
+            return res.status(500).json({ error: 'Auth Error' });
+        }
+    }
+
+    // --- PATH B: JWT (For Website Users) ---
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1]; // Remove "Bearer " prefix
+
+        try {
+            // 1. Verify the signature
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+            // 2. Fetch fresh user data (Important!)
+            // We fetch from DB again to ensure they haven't been banned 
+            // or had their subscription canceled since the token was issued.
+            const result = await pool.query(
+                'SELECT id, email, subscription_status, stripe_customer_id FROM users WHERE id = $1 AND is_active = true',
+                [decoded.userId]
+            );
+
+            if (result.rows.length === 0) {
+                return res.status(401).json({ error: 'User no longer exists or is inactive' });
+            }
+
+            req.user = result.rows[0];
+            return next(); // Success!
+
+        } catch (err) {
+            return res.status(401).json({ error: 'Invalid or expired token' });
+        }
+    }
+
+    // --- PATH C: REJECT ---
+    return res.status(401).json({ error: 'Authentication required (API Key or Login)' });
 };
 
 // --- 3. ROUTES ---
