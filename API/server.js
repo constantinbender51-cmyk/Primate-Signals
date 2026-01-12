@@ -410,6 +410,15 @@ app.post('/create-portal-session', authenticate, async (req, res) => {
         res.status(500).json({ error: 'Failed to create portal session' });
     }
 });
+const path = require('path');
+
+// 1. Serve static files from the React app build folder
+app.use(express.static(path.join(__dirname, 'client/dist')));
+
+// 2. Catch-all handler: Send React's index.html for any request not matching an API route
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client/dist', 'index.html'));
+});
 
 // --- 4. START SERVER ---
 // We wait for the DB setup to finish before listening
