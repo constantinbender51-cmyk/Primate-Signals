@@ -3,10 +3,6 @@ const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
 
-const app = express();
-app.use(express.json());
-app.use(cors());
-
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
@@ -175,6 +171,88 @@ app.post('/auth/login', async (req, res) => {
         res.status(500).json({ error: 'Server error during login' });
     }
 });
+
+const app = express();
+
+// --- WEBHOOK ROUTE (MUST BE BEFORE express.json) ---
+// This route needs the raw body to verify the Stripe signature
+app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    let event;
+
+    try {
+        // 1. Verify the event came from Stripe
+        event = stripe.webhooks.constructEvent(
+            req.body, 
+            sig, 
+            process.env.STRIPE_WEBHOOK_SECRET
+        );
+    } catch (err) {
+        console.error(`Webhook signature verification failed.`, err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // 2. Handle the specific event
+    const client = await pool.connect();
+    
+    try {
+        switch (event.type) {
+            
+            // A. User just paid successfully
+            case 'checkout.session.completed': {
+                const session = event.data.object;
+                
+                // Update DB to 'active'
+                await client.query(
+                    `UPDATE users SET subscription_status = 'active' WHERE stripe_customer_id = $1`,
+                    [session.customer]
+                );
+                console.log(`✅ User ${session.customer} activated.`);
+                break;
+            }
+
+            // B. Subscription deleted (canceled or failed payments)
+            case 'customer.subscription.deleted': {
+                const subscription = event.data.object;
+                
+                // Update DB to 'inactive'
+                await client.query(
+                    `UPDATE users SET subscription_status = 'inactive' WHERE stripe_customer_id = $1`,
+                    [subscription.customer]
+                );
+                console.log(`❌ User ${subscription.customer} subscription ended.`);
+                break;
+            }
+            
+            // C. Payment failed (e.g. expired card)
+            case 'invoice.payment_failed': {
+                 const invoice = event.data.object;
+                 await client.query(
+                    `UPDATE users SET subscription_status = 'past_due' WHERE stripe_customer_id = $1`,
+                    [invoice.customer]
+                );
+                break;
+            }
+
+            default:
+                console.log(`Unhandled event type ${event.type}`);
+        }
+        
+        // Return 200 to acknowledge receipt to Stripe
+        res.json({ received: true });
+        
+    } catch (err) {
+        console.error('Webhook handler failed:', err);
+        res.status(500).send('Server Error');
+    } finally {
+        client.release();
+    }
+});
+
+// --- STANDARD MIDDLEWARE ---
+// Now we can use the standard parsers for all other routes
+app.use(express.json()); 
+app.use(cors());
 
 // --- 2. DUAL AUTH MIDDLEWARE ---
 const authenticate = async (req, res, next) => {
