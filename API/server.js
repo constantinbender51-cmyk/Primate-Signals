@@ -14,35 +14,51 @@ const pool = new Pool({
 
 // --- 1. AUTO-SETUP FUNCTION ---
 // This runs once every time the server starts
+// --- 1. AUTO-SETUP FUNCTION ---
 const initDB = async () => {
     try {
         const client = await pool.connect();
         
-        // A. Create Users Table if it doesn't exist
+        // A. Create Users Table (For fresh installs)
+        // We added password_hash, stripe_customer_id, and subscription_status
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 email VARCHAR(255) UNIQUE NOT NULL,
-                api_key VARCHAR(255) UNIQUE NOT NULL,
+                api_key VARCHAR(255) UNIQUE, 
+                password_hash VARCHAR(255),
+                stripe_customer_id VARCHAR(255),
+                subscription_status VARCHAR(50) DEFAULT 'inactive',
                 is_active BOOLEAN DEFAULT true,
                 created_at TIMESTAMP DEFAULT NOW()
             );
         `);
 
-        // B. Create Default Admin User (So you can log in immediately)
-        // The "ON CONFLICT" part prevents errors if you restart the server
+        // B. Database Migration (For your EXISTING live database)
+        // These lines ensure your current table gets the new columns safely.
+        await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);`);
+        await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255);`);
+        await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'inactive';`);
+        
+        // Make api_key nullable if it was previously NOT NULL, because web-only users might not need one immediately.
+        // (Optional: Only run if you want to allow users without API keys)
+        await client.query(`ALTER TABLE users ALTER COLUMN api_key DROP NOT NULL;`);
+
+        // C. Create Default Admin User
+        // We now include a placeholder for password_hash and set status to active
         await client.query(`
-            INSERT INTO users (email, api_key) 
-            VALUES ('admin@test.com', 'super_secret_123') 
+            INSERT INTO users (email, api_key, subscription_status) 
+            VALUES ('admin@test.com', 'super_secret_123', 'active') 
             ON CONFLICT (email) DO NOTHING;
         `);
 
-        console.log("✅ Database tables checked/created successfully.");
+        console.log("✅ Database tables checked/migrated successfully.");
         client.release();
     } catch (err) {
         console.error("❌ Database setup failed:", err);
     }
 };
+
 
 // --- 2. AUTH MIDDLEWARE ---
 const authenticate = async (req, res, next) => {
