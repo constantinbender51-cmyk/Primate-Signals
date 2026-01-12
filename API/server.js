@@ -58,6 +58,62 @@ const initDB = async () => {
         console.error("❌ Database setup failed:", err);
     }
 };
+const bcrypt = require('bcrypt');
+// Replace 'sk_test_...' with your actual Stripe Secret Key
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); 
+// --- AUTH ROUTES ---
+
+// POST /auth/register
+app.post('/auth/register', async (req, res) => {
+    const { email, password } = req.body;
+
+    // 1. Basic Validation
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    try {
+        const client = await pool.connect();
+
+        // 2. Check if user already exists
+        const checkUser = await client.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (checkUser.rows.length > 0) {
+            client.release();
+            return res.status(409).json({ error: 'User already exists' });
+        }
+
+        // 3. Hash the password
+        const saltRounds = 10;
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+
+        // 4. Create Customer in Stripe
+        // We do this NOW so every user has a Stripe ID ready for when they want to pay.
+        const customer = await stripe.customers.create({
+            email: email,
+        });
+
+        // 5. Insert into Database
+        // Note: subscription_status defaults to 'inactive' via the table definition
+        const newUser = await client.query(
+            `INSERT INTO users (email, password_hash, stripe_customer_id) 
+             VALUES ($1, $2, $3) 
+             RETURNING id, email, subscription_status`,
+            [email, passwordHash, customer.id]
+        );
+
+        client.release();
+
+        // 6. Respond (Exclude password hash!)
+        res.status(201).json({ 
+            message: 'User registered successfully',
+            user: newUser.rows[0] 
+        });
+
+    } catch (err) {
+        console.error("Registration Error:", err);
+        res.status(500).json({ error: 'Server error during registration' });
+    }
+});
 
 
 // --- 2. AUTH MIDDLEWARE ---
