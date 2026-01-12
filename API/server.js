@@ -31,7 +31,8 @@ app.get('/', (req, res) => {
 app.get('/users', authenticate, async (req, res) => {
     try {
         const client = await pool.connect();
-        const result = await client.query('SELECT * FROM users'); // Change 'users' to your actual table
+        const result = await client.query('SELECT * FROM live_matrix');
+
         const results = { 'results': (result) ? result.rows : null};
         res.json(results);
         client.release();
