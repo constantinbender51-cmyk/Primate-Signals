@@ -281,6 +281,57 @@ app.get('/signal_history', authenticate, requireSubscription, async (req, res) =
         res.status(500).json({ error: 'Database error' });
     }
 });
+// --- PAYMENT ROUTES ---
+
+// POST /create-checkout-session
+// 1. User clicks "Subscribe" on your site
+// 2. Frontend calls this endpoint
+// 3. We return a URL to redirect the user to Stripe
+app.post('/create-checkout-session', authenticate, async (req, res) => {
+    try {
+        // 1. Get the price ID from the frontend (or hardcode it if you have only 1 plan)
+        // const { priceId } = req.body; 
+        const priceId = 'price_1234567890'; // REPLACE THIS with your actual Stripe Price ID
+
+        // 2. Create the session
+        const session = await stripe.checkout.sessions.create({
+            mode: 'subscription',
+            payment_method_types: ['card'],
+            customer: req.user.stripe_customer_id, // We attached this during registration!
+            line_items: [
+                {
+                    price: priceId,
+                    quantity: 1,
+                },
+            ],
+            // 3. Where to send the user after payment
+            success_url: `${process.env.CLIENT_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${process.env.CLIENT_URL}/pricing`,
+        });
+
+        // 4. Send the URL back to the frontend
+        res.json({ url: session.url });
+
+    } catch (err) {
+        console.error("Stripe Error:", err);
+        res.status(500).json({ error: 'Failed to create checkout session' });
+    }
+});
+// POST /create-portal-session
+// Allows users to manage their billing (Cancel sub, update card)
+app.post('/create-portal-session', authenticate, async (req, res) => {
+    try {
+        const portalSession = await stripe.billingPortal.sessions.create({
+            customer: req.user.stripe_customer_id,
+            return_url: `${process.env.CLIENT_URL}/dashboard`,
+        });
+
+        res.json({ url: portalSession.url });
+    } catch (err) {
+        console.error("Portal Error:", err);
+        res.status(500).json({ error: 'Failed to create portal session' });
+    }
+});
 
 // --- 4. START SERVER ---
 // We wait for the DB setup to finish before listening
