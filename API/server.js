@@ -2,24 +2,23 @@ require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const path = require('path');
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
-const jwt = require('jsonwebtoken');
+const app = express();
 
-
-// --- 1. AUTO-SETUP FUNCTION ---
-// This runs once every time the server starts
 // --- 1. AUTO-SETUP FUNCTION ---
 const initDB = async () => {
     try {
         const client = await pool.connect();
         
-        // A. Create Users Table (For fresh installs)
-        // We added password_hash, stripe_customer_id, and subscription_status
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -33,18 +32,11 @@ const initDB = async () => {
             );
         `);
 
-        // B. Database Migration (For your EXISTING live database)
-        // These lines ensure your current table gets the new columns safely.
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);`);
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255);`);
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'inactive';`);
-        
-        // Make api_key nullable if it was previously NOT NULL, because web-only users might not need one immediately.
-        // (Optional: Only run if you want to allow users without API keys)
         await client.query(`ALTER TABLE users ALTER COLUMN api_key DROP NOT NULL;`);
 
-        // C. Create Default Admin User
-        // We now include a placeholder for password_hash and set status to active
         await client.query(`
             INSERT INTO users (email, api_key, subscription_status) 
             VALUES ('admin@test.com', 'super_secret_123', 'active') 
@@ -57,131 +49,13 @@ const initDB = async () => {
         console.error("❌ Database setup failed:", err);
     }
 };
-const bcrypt = require('bcrypt');
-// Replace 'sk_test_...' with your actual Stripe Secret Key
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); 
-// --- AUTH ROUTES ---
 
-// POST /auth/register
-app.post('/auth/register', async (req, res) => {
-    const { email, password } = req.body;
-
-    // 1. Basic Validation
-    if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required' });
-    }
-
-    try {
-        const client = await pool.connect();
-
-        // 2. Check if user already exists
-        const checkUser = await client.query('SELECT * FROM users WHERE email = $1', [email]);
-        if (checkUser.rows.length > 0) {
-            client.release();
-            return res.status(409).json({ error: 'User already exists' });
-        }
-
-        // 3. Hash the password
-        const saltRounds = 10;
-        const passwordHash = await bcrypt.hash(password, saltRounds);
-
-        // 4. Create Customer in Stripe
-        // We do this NOW so every user has a Stripe ID ready for when they want to pay.
-        const customer = await stripe.customers.create({
-            email: email,
-        });
-
-        // 5. Insert into Database
-        // Note: subscription_status defaults to 'inactive' via the table definition
-        const newUser = await client.query(
-            `INSERT INTO users (email, password_hash, stripe_customer_id) 
-             VALUES ($1, $2, $3) 
-             RETURNING id, email, subscription_status`,
-            [email, passwordHash, customer.id]
-        );
-
-        client.release();
-
-        // 6. Respond (Exclude password hash!)
-        res.status(201).json({ 
-            message: 'User registered successfully',
-            user: newUser.rows[0] 
-        });
-
-    } catch (err) {
-        console.error("Registration Error:", err);
-        res.status(500).json({ error: 'Server error during registration' });
-    }
-});
-
-// POST /auth/login
-app.post('/auth/login', async (req, res) => {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required' });
-    }
-
-    try {
-        const client = await pool.connect();
-
-        // 1. Find user by email
-        const result = await client.query('SELECT * FROM users WHERE email = $1', [email]);
-        const user = result.rows[0];
-        client.release();
-
-        // 2. User not found?
-        if (!user) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-
-        // 3. Password doesn't match?
-        // We compare the plain text password with the stored hash
-        const isValid = await bcrypt.compare(password, user.password_hash || '');
-        if (!isValid) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-
-        // 4. Generate JWT Token
-        // This token contains the user's ID and current subscription status.
-        // It expires in 1 hour (common for security).
-        const token = jwt.sign(
-            { 
-                userId: user.id, 
-                email: user.email,
-                role: 'user' 
-            }, 
-            process.env.JWT_SECRET, 
-            { expiresIn: '1h' }
-        );
-
-        // 5. Respond with Token and User Info
-        res.json({
-            message: 'Login successful',
-            token: token,
-            user: {
-                email: user.email,
-                subscription_status: user.subscription_status,
-                stripe_customer_id: user.stripe_customer_id
-            }
-        });
-
-    } catch (err) {
-        console.error("Login Error:", err);
-        res.status(500).json({ error: 'Server error during login' });
-    }
-});
-
-const app = express();
-
-// --- WEBHOOK ROUTE (MUST BE BEFORE express.json) ---
-// This route needs the raw body to verify the Stripe signature
+// --- 2. WEBHOOK ROUTE (MUST BE BEFORE express.json) ---
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
 
     try {
-        // 1. Verify the event came from Stripe
         event = stripe.webhooks.constructEvent(
             req.body, 
             sig, 
@@ -192,17 +66,12 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-    // 2. Handle the specific event
     const client = await pool.connect();
     
     try {
         switch (event.type) {
-            
-            // A. User just paid successfully
             case 'checkout.session.completed': {
                 const session = event.data.object;
-                
-                // Update DB to 'active'
                 await client.query(
                     `UPDATE users SET subscription_status = 'active' WHERE stripe_customer_id = $1`,
                     [session.customer]
@@ -210,12 +79,8 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
                 console.log(`✅ User ${session.customer} activated.`);
                 break;
             }
-
-            // B. Subscription deleted (canceled or failed payments)
             case 'customer.subscription.deleted': {
                 const subscription = event.data.object;
-                
-                // Update DB to 'inactive'
                 await client.query(
                     `UPDATE users SET subscription_status = 'inactive' WHERE stripe_customer_id = $1`,
                     [subscription.customer]
@@ -223,8 +88,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
                 console.log(`❌ User ${subscription.customer} subscription ended.`);
                 break;
             }
-            
-            // C. Payment failed (e.g. expired card)
             case 'invoice.payment_failed': {
                  const invoice = event.data.object;
                  await client.query(
@@ -233,14 +96,10 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
                 );
                 break;
             }
-
             default:
                 console.log(`Unhandled event type ${event.type}`);
         }
-        
-        // Return 200 to acknowledge receipt to Stripe
         res.json({ received: true });
-        
     } catch (err) {
         console.error('Webhook handler failed:', err);
         res.status(500).send('Server Error');
@@ -249,103 +108,112 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
     }
 });
 
-// --- STANDARD MIDDLEWARE ---
-// Now we can use the standard parsers for all other routes
+// --- 3. STANDARD MIDDLEWARE ---
 app.use(express.json()); 
 app.use(cors());
 
-// --- 2. DUAL AUTH MIDDLEWARE ---
+// --- 4. AUTH MIDDLEWARE ---
 const authenticate = async (req, res, next) => {
-    const apiKey = req.headers['x-api-key']; // Method A: API Key
-    const authHeader = req.headers['authorization']; // Method B: JWT Token
+    const apiKey = req.headers['x-api-key'];
+    const authHeader = req.headers['authorization'];
 
-    // --- PATH A: API KEY (For Scripts) ---
     if (apiKey) {
         try {
             const result = await pool.query(
                 'SELECT id, email, subscription_status FROM users WHERE api_key = $1 AND is_active = true', 
                 [apiKey]
             );
-
-            if (result.rows.length === 0) {
-                return res.status(403).json({ error: 'Invalid or inactive API Key' });
-            }
-
+            if (result.rows.length === 0) return res.status(403).json({ error: 'Invalid or inactive API Key' });
             req.user = result.rows[0]; 
-            return next(); // Success!
+            return next();
         } catch (err) {
-            console.error(err);
             return res.status(500).json({ error: 'Auth Error' });
         }
     }
 
-    // --- PATH B: JWT (For Website Users) ---
     if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1]; // Remove "Bearer " prefix
-
+        const token = authHeader.split(' ')[1];
         try {
-            // 1. Verify the signature
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-            // 2. Fetch fresh user data (Important!)
-            // We fetch from DB again to ensure they haven't been banned 
-            // or had their subscription canceled since the token was issued.
             const result = await pool.query(
                 'SELECT id, email, subscription_status, stripe_customer_id FROM users WHERE id = $1 AND is_active = true',
                 [decoded.userId]
             );
-
-            if (result.rows.length === 0) {
-                return res.status(401).json({ error: 'User no longer exists or is inactive' });
-            }
-
+            if (result.rows.length === 0) return res.status(401).json({ error: 'User no longer exists or is inactive' });
             req.user = result.rows[0];
-            return next(); // Success!
-
+            return next();
         } catch (err) {
             return res.status(401).json({ error: 'Invalid or expired token' });
         }
     }
 
-    // --- PATH C: REJECT ---
     return res.status(401).json({ error: 'Authentication required (API Key or Login)' });
 };
-// --- 2.5. SUBSCRIPTION CHECK MIDDLEWARE ---
+
 const requireSubscription = (req, res, next) => {
-    // 1. Safety check: Ensure authenticate ran first
-    if (!req.user) {
-        return res.status(401).json({ error: 'User not authenticated' });
-    }
-
-    // 2. Check status
-    // We allow 'active' (paid) or 'trialing' (if you add trials later)
+    if (!req.user) return res.status(401).json({ error: 'User not authenticated' });
     if (req.user.subscription_status !== 'active' && req.user.subscription_status !== 'trialing') {
-        return res.status(403).json({ 
-            error: 'Subscription required', 
-            code: 'SUBSCRIPTION_REQUIRED' // Frontend can use this code to show a popup
-        });
+        return res.status(403).json({ error: 'Subscription required', code: 'SUBSCRIPTION_REQUIRED' });
     }
-
-    // 3. User is paid up, proceed!
     next();
 };
 
-// --- 3. ROUTES ---
-app.get('/', (req, res) => {
-    res.send('API is live and Database is ready.');
+// --- 5. AUTH ROUTES ---
+app.post('/auth/register', async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+
+    try {
+        const client = await pool.connect();
+        const checkUser = await client.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (checkUser.rows.length > 0) {
+            client.release();
+            return res.status(409).json({ error: 'User already exists' });
+        }
+
+        const passwordHash = await bcrypt.hash(password, 10);
+        const customer = await stripe.customers.create({ email: email });
+        const newUser = await client.query(
+            `INSERT INTO users (email, password_hash, stripe_customer_id) VALUES ($1, $2, $3) RETURNING id, email, subscription_status`,
+            [email, passwordHash, customer.id]
+        );
+        client.release();
+        res.status(201).json({ message: 'User registered successfully', user: newUser.rows[0] });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error during registration' });
+    }
 });
 
-// Protect this route with BOTH middlewares
+app.post('/auth/login', async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+
+    try {
+        const client = await pool.connect();
+        const result = await client.query('SELECT * FROM users WHERE email = $1', [email]);
+        const user = result.rows[0];
+        client.release();
+
+        if (!user || !(await bcrypt.compare(password, user.password_hash || ''))) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.json({ token, user: { email: user.email, subscription_status: user.subscription_status } });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error during login' });
+    }
+});
+
+// --- 6. DATA ROUTES ---
 app.get('/live_matrix', authenticate, requireSubscription, async (req, res) => {
     try {
         const client = await pool.connect();
         const result = await client.query('SELECT * FROM live_matrix');
         client.release();
         res.json({ results: result.rows });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Database error' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Database error' }); }
 });
 
 app.get('/signal_history', authenticate, requireSubscription, async (req, res) => {
@@ -354,76 +222,43 @@ app.get('/signal_history', authenticate, requireSubscription, async (req, res) =
         const result = await client.query('SELECT * FROM signal_history');
         client.release();
         res.json({ results: result.rows });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Database error' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Database error' }); }
 });
-// --- PAYMENT ROUTES ---
 
-// POST /create-checkout-session
-// 1. User clicks "Subscribe" on your site
-// 2. Frontend calls this endpoint
-// 3. We return a URL to redirect the user to Stripe
+// --- 7. STRIPE ROUTES ---
 app.post('/create-checkout-session', authenticate, async (req, res) => {
     try {
-        // 1. Get the price ID from the frontend (or hardcode it if you have only 1 plan)
-        // const { priceId } = req.body; 
-        const priceId = process.env.STRIPE_PRICE_ID; // REPLACE THIS with your actual Stripe Price ID
-
-        // 2. Create the session
         const session = await stripe.checkout.sessions.create({
             mode: 'subscription',
             payment_method_types: ['card'],
-            customer: req.user.stripe_customer_id, // We attached this during registration!
-            line_items: [
-                {
-                    price: priceId,
-                    quantity: 1,
-                },
-            ],
-            // 3. Where to send the user after payment
-            success_url: `${process.env.CLIENT_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${process.env.CLIENT_URL}/pricing`,
+            customer: req.user.stripe_customer_id,
+            line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+            success_url: `${process.env.CLIENT_URL}/?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${process.env.CLIENT_URL}/`,
         });
-
-        // 4. Send the URL back to the frontend
         res.json({ url: session.url });
-
-    } catch (err) {
-        console.error("Stripe Error:", err);
-        res.status(500).json({ error: 'Failed to create checkout session' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Failed to create checkout session' }); }
 });
-// POST /create-portal-session
-// Allows users to manage their billing (Cancel sub, update card)
+
 app.post('/create-portal-session', authenticate, async (req, res) => {
     try {
         const portalSession = await stripe.billingPortal.sessions.create({
             customer: req.user.stripe_customer_id,
-            return_url: `${process.env.CLIENT_URL}/dashboard`,
+            return_url: `${process.env.CLIENT_URL}/`,
         });
-
         res.json({ url: portalSession.url });
-    } catch (err) {
-        console.error("Portal Error:", err);
-        res.status(500).json({ error: 'Failed to create portal session' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Failed to create portal session' }); }
 });
-const path = require('path');
 
-// 1. Serve static files from the React app build folder
+// --- 8. STATIC FILES & CATCH-ALL ---
 app.use(express.static(path.join(__dirname, 'client/dist')));
-
-// 2. Catch-all handler: Send React's index.html for any request not matching an API route
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'client/dist', 'index.html'));
 });
 
-// --- 4. START SERVER ---
-// We wait for the DB setup to finish before listening
+// --- 9. START SERVER ---
 initDB().then(() => {
     app.listen(process.env.PORT || 3000, () => {
-        console.log(`Server running`);
+        console.log(`Server running on port ${process.env.PORT || 3000}`);
     });
 });
