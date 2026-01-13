@@ -67,15 +67,22 @@ export default function Dashboard() {
                 <thead>
                     <tr>
                         <th>ID</th>
-                        <th>Data Field</th>
-                        {/* Add your actual columns here */}
+                        <th>Symbol</th>
+                        <th>Timeframe</th>
+                        <th>Signal</th>
+                        <th>Price</th>
+                        <th>Time</th>
                     </tr>
                 </thead>
                 <tbody>
                     {data.map((row, i) => (
                         <tr key={i}>
                             <td>{row.id}</td>
-                            <td>{JSON.stringify(row)}</td> 
+                            <td>{row.symbol}</td>
+                            <td>{row.timeframe}</td>
+                            <td>{row.signal_type}</td>
+                            <td>{row.price}</td>
+                            <td>{new Date(row.created_at).toLocaleString()}</td>
                         </tr>
                     ))}
                 </tbody>
