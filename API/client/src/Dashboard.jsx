@@ -10,31 +10,27 @@ const TEASER_MATRIX = [
     { asset: 'SOLUSDT', tf: '1d', signal_val: 1 },
 ];
 
-// Helper to map numeric signals to UI
 const getSignalUI = (val) => {
     if (val === 1) return { text: 'BUY', className: 'badge badge-buy' };
     if (val === -1) return { text: 'SELL', className: 'badge badge-sell' };
-    return { text: '-', className: '' }; // 0 or unknown
+    return { text: '-', className: '' };
 };
 
-// Custom sort order for timeframes
 const TF_ORDER = ['15m', '30m', '60m', '240m', '1d'];
 
 export default function Dashboard() {
     const [matrixData, setMatrixData] = useState([]);
     const [historyData, setHistoryData] = useState([]);
-    const [status, setStatus] = useState('loading'); // loading | active | unpaid
+    const [status, setStatus] = useState('loading');
     const navigate = useNavigate();
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Fetch both Live Matrix and History
                 const [matrixRes, historyRes] = await Promise.all([
                     api.get('/live_matrix'),
                     api.get('/signal_history')
                 ]);
-
                 setMatrixData(matrixRes.data.results);
                 setHistoryData(historyRes.data.results);
                 setStatus('active');
@@ -51,25 +47,17 @@ export default function Dashboard() {
         fetchData();
     }, [navigate]);
 
-    // --- Transform Flat Data into Matrix Grid ---
+    // --- Matrix Pivot Logic ---
     const { assets, timeframes, grid } = useMemo(() => {
         if (!matrixData.length) return { assets: [], timeframes: [], grid: {} };
-
-        // 1. Get unique assets (Columns)
         const uniqueAssets = [...new Set(matrixData.map(d => d.asset))].sort();
-
-        // 2. Get unique timeframes (Rows) and sort them by custom logic
         const rawTfs = [...new Set(matrixData.map(d => d.tf))];
-        const sortedTfs = rawTfs.sort((a, b) => {
-            return TF_ORDER.indexOf(a) - TF_ORDER.indexOf(b);
-        });
+        const sortedTfs = rawTfs.sort((a, b) => TF_ORDER.indexOf(a) - TF_ORDER.indexOf(b));
 
-        // 3. Build Lookup Table: grid[timeframe][asset] = signal_val
         const lookup = {};
         sortedTfs.forEach(tf => {
             lookup[tf] = {};
             uniqueAssets.forEach(asset => {
-                // Find the data point for this specific Cell
                 const point = matrixData.find(d => d.asset === asset && d.tf === tf);
                 lookup[tf][asset] = point ? point.signal_val : 0;
             });
@@ -78,8 +66,19 @@ export default function Dashboard() {
         return { assets: uniqueAssets, timeframes: sortedTfs, grid: lookup };
     }, [matrixData]);
 
-    const handleSubscribe = async () => { /* ... existing stripe logic ... */ };
-    const handleManage = async () => { /* ... existing portal logic ... */ };
+    const handleSubscribe = async () => { 
+        try {
+            const res = await api.post('/create-checkout-session');
+            window.location.href = res.data.url;
+        } catch (err) { toast.error("Payment Error"); }
+    };
+    
+    const handleManage = async () => { 
+        try {
+            const res = await api.post('/create-portal-session');
+            window.location.href = res.data.url;
+        } catch (err) { toast.error("Portal Error"); }
+    };
 
     if (status === 'loading') return <div style={{ textAlign: 'center', marginTop: '50px' }}>Loading Data...</div>;
 
@@ -92,28 +91,22 @@ export default function Dashboard() {
                 {!isLocked && <button className="secondary" onClick={handleManage}>Manage Subscription</button>}
             </div>
 
-            {/* --- 1. LIVE MATRIX VIEW --- */}
+            {/* --- 1. LIVE MATRIX --- */}
             <div className="table-container" style={{ marginBottom: '3rem' }}>
                 {isLocked && (
                     <div className="paywall-overlay">
                         <h2>Subscription Required</h2>
-                        <p style={{ marginBottom: '20px', color: '#64748b' }}>Unlock real-time signals</p>
                         <button onClick={handleSubscribe}>Unlock Now</button>
                     </div>
                 )}
-
                 <table className={isLocked ? 'blurred-content' : ''}>
                     <thead>
                         <tr>
                             <th>Timeframe</th>
-                            {/* Render Assets as Column Headers */}
-                            {assets.map(asset => (
-                                <th key={asset} style={{ textAlign: 'center' }}>{asset}</th>
-                            ))}
+                            {assets.map(asset => <th key={asset} style={{textAlign:'center'}}>{asset}</th>)}
                         </tr>
                     </thead>
                     <tbody>
-                        {/* Render Timeframes as Rows */}
                         {timeframes.map(tf => (
                             <tr key={tf}>
                                 <td style={{ fontWeight: 'bold', color: '#64748b' }}>{tf}</td>
@@ -122,9 +115,7 @@ export default function Dashboard() {
                                     const ui = getSignalUI(val);
                                     return (
                                         <td key={`${tf}-${asset}`} style={{ textAlign: 'center' }}>
-                                            <span className={ui.className} style={{ minWidth: '40px', display: 'inline-block' }}>
-                                                {ui.text}
-                                            </span>
+                                            <span className={ui.className}>{ui.text}</span>
                                         </td>
                                     );
                                 })}
@@ -134,7 +125,7 @@ export default function Dashboard() {
                 </table>
             </div>
 
-            {/* --- 2. SIGNAL HISTORY VIEW --- */}
+            {/* --- 2. SIGNAL HISTORY --- */}
             <h2>Signal History</h2>
             <div className="table-container">
                 <table>
@@ -142,30 +133,39 @@ export default function Dashboard() {
                         <tr>
                             <th>Time</th>
                             <th>Symbol</th>
+                            <th>TF</th>
                             <th>Action</th>
                             <th>Entry</th>
                             <th>Exit</th>
-                            <th>P/L</th>
+                            <th>Result</th>
                         </tr>
                     </thead>
                     <tbody>
                         {historyData.length > 0 ? historyData.map((row, i) => (
                             <tr key={i}>
-                                <td>{new Date(row.created_at || Date.now()).toLocaleTimeString()}</td>
+                                {/* row[1] is the time string "2026-01-13 12:00" based on your sample */}
+                                <td>{row.time ? row.time : new Date().toLocaleTimeString()}</td>
                                 <td><b>{row.symbol}</b></td>
+                                <td>{row.tf}</td>
                                 <td>
                                     <span className={`badge ${row.action === 'BUY' ? 'badge-buy' : 'badge-sell'}`}>
                                         {row.action}
                                     </span>
                                 </td>
-                                <td>{row.entry_price}</td>
-                                <td>{row.exit_price || '-'}</td>
-                                <td style={{ color: row.profit_loss > 0 ? 'green' : 'red' }}>
-                                    {row.profit_loss ? `${row.profit_loss}%` : '-'}
+                                <td>{row.entry}</td>
+                                <td>{row.exit}</td>
+                                <td>
+                                    <span style={{ 
+                                        fontWeight: 'bold', 
+                                        color: row.result === 'WIN' ? 'var(--success)' : 
+                                               row.result === 'LOSS' ? 'var(--danger)' : '#64748b' 
+                                    }}>
+                                        {row.result}
+                                    </span>
                                 </td>
                             </tr>
                         )) : (
-                            <tr><td colSpan="6" style={{textAlign:'center', padding:'2rem'}}>No history found</td></tr>
+                            <tr><td colSpan="7" style={{textAlign:'center', padding:'2rem'}}>No history found</td></tr>
                         )}
                     </tbody>
                 </table>
