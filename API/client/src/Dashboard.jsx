@@ -28,7 +28,7 @@ export default function Dashboard() {
                     setStatus('unpaid'); 
                     setData(TEASER_DATA); // Show fake data for the blur effect
                 } else {
-                    [span_2](start_span)toast.error("Please log in to continue"); //[span_2](end_span)
+                    toast.error("Please log in to continue");
                     navigate('/login');
                 }
             });
@@ -41,7 +41,7 @@ export default function Dashboard() {
             window.location.href = res.data.url; 
         } catch (err) {
             toast.dismiss(loadingToast);
-            toast.error("Error starting payment"); [span_3](start_span)//[span_3](end_span)
+            toast.error("Error starting payment");
         }
     };
 
@@ -50,7 +50,7 @@ export default function Dashboard() {
             const res = await api.post('/create-portal-session');
             window.location.href = res.data.url; 
         } catch (err) {
-            toast.error("Error opening portal"); [span_4](start_span)//[span_4](end_span)
+            toast.error("Error opening portal");
         }
     };
 
