@@ -12,7 +12,7 @@ export default function Register() {
         e.preventDefault();
         try {
             await api.post('/auth/register', { email, password });
-            toast.success("Registration successful! Please log in."); [span_6](start_span)//[span_6](end_span)
+            toast.success("Registration successful! Please log in.");
             navigate('/login');
         } catch (err) {
             toast.error(err.response?.data?.error || "Registration failed");
