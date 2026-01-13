@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast'; // Import toast
 import api from './api';
 
 export default function Login() {
@@ -11,22 +12,37 @@ export default function Login() {
         e.preventDefault();
         try {
             const res = await api.post('/auth/login', { email, password });
-            localStorage.setItem('token', res.data.token); // Save JWT
-            navigate('/'); // Go to Dashboard
+            localStorage.setItem('token', res.data.token);
+            toast.success("Welcome back!"); // Friendly feedback
+            navigate('/');
         } catch (err) {
-            alert("Invalid Login");
+            toast.error("Invalid email or password"); [span_5](start_span)//[span_5](end_span)
         }
     };
 
     return (
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '50px' }}>
-            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <h2>Login</h2>
-                <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-                <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
-                <button type="submit">Log In</button>
-                <p>Don't have an account? <Link to="/register">Register</Link></p>
+        <div className="auth-card">
+            <h2 style={{marginTop: 0}}>Login</h2>
+            <form onSubmit={handleLogin}>
+                <input 
+                    type="email" 
+                    placeholder="Email" 
+                    value={email} 
+                    onChange={e => setEmail(e.target.value)} 
+                    required 
+                />
+                <input 
+                    type="password" 
+                    placeholder="Password" 
+                    value={password} 
+                    onChange={e => setPassword(e.target.value)} 
+                    required 
+                />
+                <button type="submit" style={{width: '100%'}}>Log In</button>
             </form>
+            <p style={{textAlign: 'center', marginTop: '1rem', fontSize: '0.9rem'}}>
+                Don't have an account? <Link to="/register">Register</Link>
+            </p>
         </div>
     );
 }
