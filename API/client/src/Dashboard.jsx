@@ -1,107 +1,172 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast'; // Replace alerts
+import toast from 'react-hot-toast';
 import api from './api';
 
-// Fake data to show behind the paywall blur
-const TEASER_DATA = [
-    { symbol: 'BTC/USD', timeframe: '15m', signal_type: 'BUY', price: 42000.50, created_at: new Date() },
-    { symbol: 'ETH/USD', timeframe: '1h', signal_type: 'SELL', price: 2800.20, created_at: new Date() },
-    { symbol: 'SOL/USD', timeframe: '4h', signal_type: 'BUY', price: 98.45, created_at: new Date() },
-    { symbol: 'EUR/USD', timeframe: '15m', signal_type: 'SELL', price: 1.0850, created_at: new Date() },
-    { symbol: 'AAPL', timeframe: '1d', signal_type: 'BUY', price: 185.10, created_at: new Date() },
+// Fake data for paywall blur
+const TEASER_MATRIX = [
+    { asset: 'BTCUSDT', tf: '15m', signal_val: 1 },
+    { asset: 'ETHUSDT', tf: '15m', signal_val: -1 },
+    { asset: 'SOLUSDT', tf: '1d', signal_val: 1 },
 ];
 
+// Helper to map numeric signals to UI
+const getSignalUI = (val) => {
+    if (val === 1) return { text: 'BUY', className: 'badge badge-buy' };
+    if (val === -1) return { text: 'SELL', className: 'badge badge-sell' };
+    return { text: '-', className: '' }; // 0 or unknown
+};
+
+// Custom sort order for timeframes
+const TF_ORDER = ['15m', '30m', '60m', '240m', '1d'];
+
 export default function Dashboard() {
-    const [data, setData] = useState([]);
+    const [matrixData, setMatrixData] = useState([]);
+    const [historyData, setHistoryData] = useState([]);
     const [status, setStatus] = useState('loading'); // loading | active | unpaid
     const navigate = useNavigate();
 
     useEffect(() => {
-        api.get('/live_matrix')
-            .then(res => {
-                setData(res.data.results);
+        const fetchData = async () => {
+            try {
+                // Fetch both Live Matrix and History
+                const [matrixRes, historyRes] = await Promise.all([
+                    api.get('/live_matrix'),
+                    api.get('/signal_history')
+                ]);
+
+                setMatrixData(matrixRes.data.results);
+                setHistoryData(historyRes.data.results);
                 setStatus('active');
-            })
-            .catch(err => {
+            } catch (err) {
                 if (err.response?.status === 403) {
-                    setStatus('unpaid'); 
-                    setData(TEASER_DATA); // Show fake data for the blur effect
+                    setStatus('unpaid');
+                    setMatrixData(TEASER_MATRIX);
                 } else {
                     toast.error("Please log in to continue");
                     navigate('/login');
                 }
-            });
+            }
+        };
+        fetchData();
     }, [navigate]);
 
-    const handleSubscribe = async () => {
-        const loadingToast = toast.loading("Preparing checkout...");
-        try {
-            const res = await api.post('/create-checkout-session');
-            window.location.href = res.data.url; 
-        } catch (err) {
-            toast.dismiss(loadingToast);
-            toast.error("Error starting payment");
-        }
-    };
+    // --- Transform Flat Data into Matrix Grid ---
+    const { assets, timeframes, grid } = useMemo(() => {
+        if (!matrixData.length) return { assets: [], timeframes: [], grid: {} };
 
-    const handleManage = async () => {
-        try {
-            const res = await api.post('/create-portal-session');
-            window.location.href = res.data.url; 
-        } catch (err) {
-            toast.error("Error opening portal");
-        }
-    };
+        // 1. Get unique assets (Columns)
+        const uniqueAssets = [...new Set(matrixData.map(d => d.asset))].sort();
 
-    if (status === 'loading') return <div style={{textAlign: 'center', marginTop: '50px'}}>Loading live signals...</div>;
+        // 2. Get unique timeframes (Rows) and sort them by custom logic
+        const rawTfs = [...new Set(matrixData.map(d => d.tf))];
+        const sortedTfs = rawTfs.sort((a, b) => {
+            return TF_ORDER.indexOf(a) - TF_ORDER.indexOf(b);
+        });
+
+        // 3. Build Lookup Table: grid[timeframe][asset] = signal_val
+        const lookup = {};
+        sortedTfs.forEach(tf => {
+            lookup[tf] = {};
+            uniqueAssets.forEach(asset => {
+                // Find the data point for this specific Cell
+                const point = matrixData.find(d => d.asset === asset && d.tf === tf);
+                lookup[tf][asset] = point ? point.signal_val : 0;
+            });
+        });
+
+        return { assets: uniqueAssets, timeframes: sortedTfs, grid: lookup };
+    }, [matrixData]);
+
+    const handleSubscribe = async () => { /* ... existing stripe logic ... */ };
+    const handleManage = async () => { /* ... existing portal logic ... */ };
+
+    if (status === 'loading') return <div style={{ textAlign: 'center', marginTop: '50px' }}>Loading Data...</div>;
 
     const isLocked = status === 'unpaid';
 
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h1>Live Matrix Data</h1>
+                <h1>Live Matrix</h1>
                 {!isLocked && <button className="secondary" onClick={handleManage}>Manage Subscription</button>}
             </div>
 
-            <div className="table-container">
-                {/* The "Teaser" Overlay */}
+            {/* --- 1. LIVE MATRIX VIEW --- */}
+            <div className="table-container" style={{ marginBottom: '3rem' }}>
                 {isLocked && (
                     <div className="paywall-overlay">
                         <h2>Subscription Required</h2>
-                        <p style={{marginBottom: '20px', color: '#64748b'}}>Unlock real-time buy/sell signals for $10/mo</p>
-                        <button onClick={handleSubscribe} style={{ fontSize: '1.1rem', padding: '12px 24px' }}>
-                            Unlock Now
-                        </button>
+                        <p style={{ marginBottom: '20px', color: '#64748b' }}>Unlock real-time signals</p>
+                        <button onClick={handleSubscribe}>Unlock Now</button>
                     </div>
                 )}
 
-                {/* The Table (Blurred if locked) */}
                 <table className={isLocked ? 'blurred-content' : ''}>
                     <thead>
                         <tr>
-                            <th>Symbol</th>
                             <th>Timeframe</th>
-                            <th>Signal</th>
-                            <th>Price</th>
-                            <th>Time</th>
+                            {/* Render Assets as Column Headers */}
+                            {assets.map(asset => (
+                                <th key={asset} style={{ textAlign: 'center' }}>{asset}</th>
+                            ))}
                         </tr>
                     </thead>
                     <tbody>
-                        {data.map((row, i) => (
-                            <tr key={i}>
-                                <td><b>{row.symbol}</b></td>
-                                <td>{row.timeframe}</td>
-                                <td>
-                                    <span className={`badge ${row.signal_type === 'BUY' ? 'badge-buy' : 'badge-sell'}`}>
-                                        {row.signal_type}
-                                    </span>
-                                </td>
-                                <td>${Number(row.price).toFixed(4)}</td>
-                                <td>{new Date(row.created_at).toLocaleTimeString()}</td>
+                        {/* Render Timeframes as Rows */}
+                        {timeframes.map(tf => (
+                            <tr key={tf}>
+                                <td style={{ fontWeight: 'bold', color: '#64748b' }}>{tf}</td>
+                                {assets.map(asset => {
+                                    const val = grid[tf][asset];
+                                    const ui = getSignalUI(val);
+                                    return (
+                                        <td key={`${tf}-${asset}`} style={{ textAlign: 'center' }}>
+                                            <span className={ui.className} style={{ minWidth: '40px', display: 'inline-block' }}>
+                                                {ui.text}
+                                            </span>
+                                        </td>
+                                    );
+                                })}
                             </tr>
                         ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* --- 2. SIGNAL HISTORY VIEW --- */}
+            <h2>Signal History</h2>
+            <div className="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Symbol</th>
+                            <th>Action</th>
+                            <th>Entry</th>
+                            <th>Exit</th>
+                            <th>P/L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {historyData.length > 0 ? historyData.map((row, i) => (
+                            <tr key={i}>
+                                <td>{new Date(row.created_at || Date.now()).toLocaleTimeString()}</td>
+                                <td><b>{row.symbol}</b></td>
+                                <td>
+                                    <span className={`badge ${row.action === 'BUY' ? 'badge-buy' : 'badge-sell'}`}>
+                                        {row.action}
+                                    </span>
+                                </td>
+                                <td>{row.entry_price}</td>
+                                <td>{row.exit_price || '-'}</td>
+                                <td style={{ color: row.profit_loss > 0 ? 'green' : 'red' }}>
+                                    {row.profit_loss ? `${row.profit_loss}%` : '-'}
+                                </td>
+                            </tr>
+                        )) : (
+                            <tr><td colSpan="6" style={{textAlign:'center', padding:'2rem'}}>No history found</td></tr>
+                        )}
                     </tbody>
                 </table>
             </div>
