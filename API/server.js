@@ -234,7 +234,7 @@ app.post('/auth/login', async (req, res) => {
         }
 
         const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.json({ token, user: { email: user.email, subscription_status: user.subscription_status } });
+        res.json({ token, user: { email: user.email, subscription_status: user.subscription_status, api_key: user.api_key} });
     } catch (err) {
         res.status(500).json({ error: 'Server error during login' });
     }
