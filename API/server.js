@@ -37,6 +37,30 @@ const initDB = async () => {
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'inactive';`);
         await client.query(`ALTER TABLE users ALTER COLUMN api_key DROP NOT NULL;`);
 
+        // Create missing data tables
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS live_matrix (
+                id SERIAL PRIMARY KEY,
+                symbol VARCHAR(20),
+                timeframe VARCHAR(10),
+                signal_type VARCHAR(20),
+                price DECIMAL,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS signal_history (
+                id SERIAL PRIMARY KEY,
+                symbol VARCHAR(20),
+                action VARCHAR(10),
+                entry_price DECIMAL,
+                exit_price DECIMAL,
+                profit_loss DECIMAL,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+
         await client.query(`
             INSERT INTO users (email, api_key, subscription_status) 
             VALUES ('admin@test.com', 'super_secret_123', 'active') 
