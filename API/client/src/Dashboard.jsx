@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from './api';
 
 export default function Dashboard() {
     const [data, setData] = useState([]);
     const [status, setStatus] = useState('loading'); // loading | active | unpaid
+    const navigate = useNavigate();
 
     useEffect(() => {
         // Try to fetch the protected data
@@ -17,10 +19,10 @@ export default function Dashboard() {
                     setStatus('unpaid'); // User is logged in, but not subscribed
                 } else {
                     alert("Please log in");
-                    window.location.href = '/login';
+                    navigate('/login');
                 }
             });
-    }, []);
+    }, [navigate]);
 
     const handleSubscribe = async () => {
         try {
