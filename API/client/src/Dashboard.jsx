@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast'; // Replace alerts
 import api from './api';
+
+// Fake data to show behind the paywall blur
+const TEASER_DATA = [
+    { symbol: 'BTC/USD', timeframe: '15m', signal_type: 'BUY', price: 42000.50, created_at: new Date() },
+    { symbol: 'ETH/USD', timeframe: '1h', signal_type: 'SELL', price: 2800.20, created_at: new Date() },
+    { symbol: 'SOL/USD', timeframe: '4h', signal_type: 'BUY', price: 98.45, created_at: new Date() },
+    { symbol: 'EUR/USD', timeframe: '15m', signal_type: 'SELL', price: 1.0850, created_at: new Date() },
+    { symbol: 'AAPL', timeframe: '1d', signal_type: 'BUY', price: 185.10, created_at: new Date() },
+];
 
 export default function Dashboard() {
     const [data, setData] = useState([]);
@@ -8,7 +18,6 @@ export default function Dashboard() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Try to fetch the protected data
         api.get('/live_matrix')
             .then(res => {
                 setData(res.data.results);
@@ -16,79 +25,86 @@ export default function Dashboard() {
             })
             .catch(err => {
                 if (err.response?.status === 403) {
-                    setStatus('unpaid'); // User is logged in, but not subscribed
+                    setStatus('unpaid'); 
+                    setData(TEASER_DATA); // Show fake data for the blur effect
                 } else {
-                    alert("Please log in");
+                    [span_2](start_span)toast.error("Please log in to continue"); //[span_2](end_span)
                     navigate('/login');
                 }
             });
     }, [navigate]);
 
     const handleSubscribe = async () => {
+        const loadingToast = toast.loading("Preparing checkout...");
         try {
             const res = await api.post('/create-checkout-session');
-            window.location.href = res.data.url; // Redirect to Stripe
+            window.location.href = res.data.url; 
         } catch (err) {
-            alert("Error starting payment");
+            toast.dismiss(loadingToast);
+            toast.error("Error starting payment"); [span_3](start_span)//[span_3](end_span)
         }
     };
 
     const handleManage = async () => {
         try {
             const res = await api.post('/create-portal-session');
-            window.location.href = res.data.url; // Redirect to Portal
+            window.location.href = res.data.url; 
         } catch (err) {
-            alert("Error opening portal");
+            toast.error("Error opening portal"); [span_4](start_span)//[span_4](end_span)
         }
     };
 
-    if (status === 'loading') return <div>Loading...</div>;
+    if (status === 'loading') return <div style={{textAlign: 'center', marginTop: '50px'}}>Loading live signals...</div>;
 
-    if (status === 'unpaid') {
-        return (
-            <div style={{ textAlign: 'center', marginTop: '50px' }}>
-                <h1>Subscription Required</h1>
-                <p>You need an active subscription to view the Live Matrix.</p>
-                <button onClick={handleSubscribe} style={{ padding: '10px 20px', fontSize: '18px' }}>
-                    Subscribe Now ($10/mo)
-                </button>
-                <br /><br />
-                <button onClick={() => { localStorage.clear(); window.location.reload(); }}>Logout</button>
-            </div>
-        );
-    }
+    const isLocked = status === 'unpaid';
 
     return (
-        <div style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h1>Live Matrix Data</h1>
-                <button onClick={handleManage}>Manage Subscription</button>
+                {!isLocked && <button className="secondary" onClick={handleManage}>Manage Subscription</button>}
             </div>
-            
-            <table border="1" cellPadding="10" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Symbol</th>
-                        <th>Timeframe</th>
-                        <th>Signal</th>
-                        <th>Price</th>
-                        <th>Time</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {data.map((row, i) => (
-                        <tr key={i}>
-                            <td>{row.id}</td>
-                            <td>{row.symbol}</td>
-                            <td>{row.timeframe}</td>
-                            <td>{row.signal_type}</td>
-                            <td>{row.price}</td>
-                            <td>{new Date(row.created_at).toLocaleString()}</td>
+
+            <div className="table-container">
+                {/* The "Teaser" Overlay */}
+                {isLocked && (
+                    <div className="paywall-overlay">
+                        <h2>Subscription Required</h2>
+                        <p style={{marginBottom: '20px', color: '#64748b'}}>Unlock real-time buy/sell signals for $10/mo</p>
+                        <button onClick={handleSubscribe} style={{ fontSize: '1.1rem', padding: '12px 24px' }}>
+                            Unlock Now
+                        </button>
+                    </div>
+                )}
+
+                {/* The Table (Blurred if locked) */}
+                <table className={isLocked ? 'blurred-content' : ''}>
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Timeframe</th>
+                            <th>Signal</th>
+                            <th>Price</th>
+                            <th>Time</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {data.map((row, i) => (
+                            <tr key={i}>
+                                <td><b>{row.symbol}</b></td>
+                                <td>{row.timeframe}</td>
+                                <td>
+                                    <span className={`badge ${row.signal_type === 'BUY' ? 'badge-buy' : 'badge-sell'}`}>
+                                        {row.signal_type}
+                                    </span>
+                                </td>
+                                <td>${Number(row.price).toFixed(4)}</td>
+                                <td>{new Date(row.created_at).toLocaleTimeString()}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 }
