@@ -4,6 +4,7 @@ const { Pool } = require('pg');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const path = require('path');
 
@@ -197,10 +198,19 @@ app.post('/auth/register', async (req, res) => {
 
         const passwordHash = await bcrypt.hash(password, 10);
         const customer = await stripe.customers.create({ email: email });
+
+        // --- NEW: Generate Random API Key ---
+        const apiKey = crypto.randomBytes(24).toString('hex'); 
+        // ------------------------------------
+
+        // --- NEW: Update Query to include api_key ---
         const newUser = await client.query(
-            `INSERT INTO users (email, password_hash, stripe_customer_id) VALUES ($1, $2, $3) RETURNING id, email, subscription_status`,
-            [email, passwordHash, customer.id]
+            `INSERT INTO users (email, password_hash, stripe_customer_id, api_key) 
+             VALUES ($1, $2, $3, $4) 
+             RETURNING id, email, subscription_status, api_key`,
+            [email, passwordHash, customer.id, apiKey]
         );
+        
         client.release();
         res.status(201).json({ message: 'User registered successfully', user: newUser.rows[0] });
     } catch (err) {
