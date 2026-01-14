@@ -105,9 +105,6 @@ export default function Dashboard() {
                         <span className="tiny" style={{ marginRight: '10px' }}>
                             Updated: {matrixData.length > 0 ? new Date(matrixData[0].updated_at).toLocaleTimeString() : '-'}
                         </span>
-                        {!isMatrixLocked && (
-                            <button onClick={handleManage} style={{ marginLeft: '10px' }}>Manage Subscription</button>
-                        )}
                     </div>
                 </div>
 
