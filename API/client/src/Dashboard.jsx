@@ -161,7 +161,7 @@ export default function Dashboard() {
 
             {/* --- METHODOLOGY --- */}
             <div>
-                <p style={{ marginTop: 0 }}><strong>SUBSCRIPTION:</strong> 49.90€ / MO</p>
+                <p style={{ marginTop: 0 }}><strong>PRICING:</strong> 49.90€ / MO</p>
                 <br />
                 <p><strong>METHODOLOGY</strong></p>
                 <p style={{ color: 'var(--text-subtle)' }}>
