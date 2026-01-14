@@ -174,16 +174,17 @@ td {
   color: white;
 }
 
-/* BUY = GREEN */
+/* BUY = BLACK */
 .badge-buy {
-  background: var(--color-green);
-  border: 1px solid var(--color-green);
+  background: #000000;
+  border: 1px solid #000000;
 }
 
-/* SELL = RED */
+/* SELL = WHITE */
 .badge-sell {
-  background: var(--color-red);
-  border: 1px solid var(--color-red);
+  background: #ffffff;
+  border: 1px solid #000000;
+  color: #000000;
 }
 
 /* --- Paywall --- */
