@@ -12,6 +12,7 @@ export default defineConfig({
       '/create-checkout-session': 'http://localhost:3000',
       '/create-portal-session': 'http://localhost:3000',
       '/legal': 'http://localhost:3000', // Add proxy for legal documents
+      '/api-docs': 'http://localhost:3000' // Add proxy for API docs
     }
   }
 })
