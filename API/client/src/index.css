@@ -4,14 +4,19 @@
   --text-subtle: #555555;
   --border-color: #000000;
   --border-light: #e0e0e0;
+  
+  /* --- NEW COLOR PALETTE --- */
+  --color-teal: #008080;   /* Brand / Primary */
+  --color-green: #2e8b57;  /* Buy / Win */
+  --color-red: #d32f2f;    /* Sell / Loss */
 }
 
 body {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   background-color: var(--bg-color);
   color: var(--text-main);
-  font-weight: 300; /* Thin */
-  letter-spacing: 0.06rem; /* Wide spaced */
+  font-weight: 300;
+  letter-spacing: 0.06rem;
   line-height: 1.6;
   margin: 0;
   padding: 0;
@@ -29,10 +34,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 { font-size: 2rem; }
-h3 { font-size: 1.2rem; border-bottom: 1px solid var(--text-main); padding-bottom: 0.5rem; }
+h3 { 
+  font-size: 1.2rem; 
+  border-bottom: 2px solid var(--color-teal); /* Teal underline */
+  padding-bottom: 0.5rem; 
+  display: inline-block; /* Only underline the text */
+}
 
 a {
-  color: var(--text-main);
+  color: var(--color-teal); /* Teal links */
   text-decoration: underline;
   text-underline-offset: 4px;
   transition: opacity 0.2s;
@@ -43,9 +53,9 @@ a:hover { opacity: 0.6; }
 /* --- Layout --- */
 .navbar {
   background: var(--bg-color);
-  padding: 2rem 0; /* More breathing room */
+  padding: 2rem 0;
   margin: 0 2rem;
-  border-bottom: 2px solid var(--text-main); /* Thick black line */
+  border-bottom: 2px solid var(--color-teal); /* Teal border */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -57,11 +67,11 @@ a:hover { opacity: 0.6; }
   text-transform: uppercase;
   letter-spacing: 0.2rem;
   text-decoration: none;
-  color: var(--text-main);
+  color: var(--color-teal); /* Teal Brand */
 }
 
 .container {
-  max-width: 1200px; /* Wider container */
+  max-width: 1200px;
   margin: 4rem auto;
   padding: 0 2rem;
 }
@@ -74,11 +84,12 @@ a:hover { opacity: 0.6; }
   width: 100%;
   max-width: 400px;
   margin: 6rem auto;
+  box-shadow: 5px 5px 0px var(--color-teal); /* Teal shadow accent */
 }
 
 input {
   width: 100%;
-  padding: 1rem 0; /* Underline style inputs */
+  padding: 1rem 0;
   margin-bottom: 1.5rem;
   border: none;
   border-bottom: 1px solid var(--border-light);
@@ -90,15 +101,15 @@ input {
   border-radius: 0;
 }
 
-input:focus { border-bottom: 1px solid var(--text-main); }
+input:focus { border-bottom: 1px solid var(--color-teal); }
 
 /* --- Buttons --- */
 button {
-  background-color: var(--text-main);
-  color: var(--bg-color);
+  background-color: var(--color-teal); /* Teal Button */
+  color: #ffffff;
   padding: 1rem 2rem;
-  border: 1px solid var(--text-main);
-  border-radius: 0; /* Sharp corners */
+  border: 1px solid var(--color-teal);
+  border-radius: 0;
   font-family: inherit;
   font-weight: 400;
   text-transform: uppercase;
@@ -110,17 +121,19 @@ button {
 
 button:hover {
   background-color: transparent;
-  color: var(--text-main);
+  color: var(--color-teal);
 }
 
 button.secondary {
   background-color: transparent;
   color: var(--text-main);
+  border: 1px solid var(--text-subtle);
 }
 
 button.secondary:hover {
   background-color: var(--text-main);
   color: var(--bg-color);
+  border-color: var(--text-main);
 }
 
 /* --- Data Table --- */
@@ -142,7 +155,7 @@ th {
   font-weight: 400;
   text-transform: uppercase;
   font-size: 0.75rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 2px solid var(--border-light);
   color: var(--text-subtle);
 }
 
@@ -151,25 +164,26 @@ td {
   border-bottom: 1px solid var(--border-light);
 }
 
-/* --- Badges (Monochrome) --- */
+/* --- Badges (COLORED) --- */
 .badge {
   padding: 0.3rem 0.8rem;
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.05rem;
-  border: 1px solid var(--text-main);
+  font-weight: 600;
+  color: white;
 }
 
-/* BUY = Solid Black */
+/* BUY = GREEN */
 .badge-buy {
-  background: var(--text-main);
-  color: var(--bg-color);
+  background: var(--color-green);
+  border: 1px solid var(--color-green);
 }
 
-/* SELL = White with Black Border */
+/* SELL = RED */
 .badge-sell {
-  background: transparent;
-  color: var(--text-main);
+  background: var(--color-red);
+  border: 1px solid var(--color-red);
 }
 
 /* --- Paywall --- */
@@ -188,7 +202,6 @@ td {
   align-items: center;
   justify-content: center;
   z-index: 10;
-  /* Removed background color for a cleaner look, relies on blur */
 }
 
 /* --- Utilities --- */
@@ -197,10 +210,12 @@ code {
   background: #f4f4f4;
   padding: 0.2rem 0.5rem;
   font-size: 0.85rem;
+  color: var(--color-teal);
 }
 
 .disclaimer-box {
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--color-teal); /* Teal Border */
+  background: #f0fdfc; /* Very light teal bg */
   padding: 2rem;
   margin-bottom: 3rem;
   font-size: 0.9rem;
