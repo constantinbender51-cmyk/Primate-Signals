@@ -30,7 +30,7 @@ export default function LegalTextPage() {
                         pageTitle = 'Terms of Service';
                         break;
                     default:
-                        setError('Invalid legal document type.');
+                        setError('INVALID DOCUMENT TYPE');
                         setLoading(false);
                         return;
                 }
@@ -39,7 +39,7 @@ export default function LegalTextPage() {
                 setContent(res.data);
             } catch (err) {
                 console.error(`Failed to fetch ${type} content:`, err);
-                setError('Failed to load content. Please try again later.');
+                setError('COULD NOT LOAD CONTENT');
             } finally {
                 setLoading(false);
             }
@@ -49,19 +49,30 @@ export default function LegalTextPage() {
     }, [type]);
 
     if (loading) {
-        return <div className="container" style={{textAlign: 'center', padding: '2rem'}}>Loading...</div>;
+        return <div className="container" style={{padding: '4rem 0'}}>LOADING...</div>;
     }
 
     if (error) {
-        return <div className="container" style={{textAlign: 'center', padding: '2rem', color: 'var(--danger)'}}>{error}</div>;
+        return (
+            <div className="container" style={{padding: '4rem 0'}}>
+                <h3 style={{ borderBottom: 'none' }}>ERROR</h3>
+                <p>{error}</p>
+            </div>
+        );
     }
 
     return (
         <div className="container" style={{paddingBottom: '4rem'}}>
-            <h1 style={{marginBottom: '2rem'}}>{title}</h1>
-            <pre style={{whiteSpace: 'pre-wrap', wordWrap: 'break-word', fontFamily: 'inherit', fontSize: '1rem', lineHeight: '1.6'}}>
+            <h1 style={{ marginBottom: '3rem' }}>{title}</h1>
+            <div style={{ 
+                whiteSpace: 'pre-wrap', 
+                wordWrap: 'break-word', 
+                fontSize: '0.9rem', 
+                lineHeight: '1.8',
+                maxWidth: '800px' 
+            }}>
                 {content}
-            </pre>
+            </div>
         </div>
     );
 }
