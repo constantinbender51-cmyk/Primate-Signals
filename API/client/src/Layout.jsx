@@ -5,7 +5,8 @@ export default function Layout() {
   const navigate = useNavigate();
   const isLoggedIn = !!localStorage.getItem('token');
 
-  const handleLogout = () => {
+  const handleLogout = (e) => {
+    e.preventDefault(); // Prevent navigation if using anchor tag
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/login');
@@ -13,49 +14,38 @@ export default function Layout() {
 
   return (
     <>
-      <Toaster 
-        position="top-center" 
-        toastOptions={{
-            style: {
-                background: '#000',
-                color: '#fff',
-                fontFamily: 'Helvetica Neue',
-                borderRadius: '0px',
-            },
-        }}
-      />
+      <Toaster position="top-center" toastOptions={{ style: { border: '1px solid black', background: '#fff', color: '#000' } }}/>
 
-      <nav className="navbar">
-        <Link to="/" className="nav-brand">Primate</Link>
-        <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
-          <Link to="/api-docs" style={{ textDecoration: 'none', fontSize: '0.9rem' }}>API</Link>
+      <header>
+        <h1>Primate Research</h1>
+        <nav>
+          <Link to="/">Dashboard</Link>
+          {' | '}
+          <Link to="/api-docs">API Documentation</Link>
+          {' | '}
           {isLoggedIn ? (
-            <button className="secondary" onClick={handleLogout} style={{padding: '0.5rem 1rem'}}>Logout</button>
+             <a href="#" onClick={handleLogout}>Logout</a>
           ) : (
-            <Link to="/login" style={{ textDecoration: 'none', fontSize: '0.9rem' }}>Login</Link>
+            <Link to="/login">Login</Link>
           )}
-        </div>
-      </nav>
+        </nav>
+      </header>
 
-      <main className="container">
+      <hr />
+
+      <main>
         <Outlet />
       </main>
 
-      <footer style={{ 
-          marginTop: '6rem', 
-          padding: '4rem 2rem', 
-          borderTop: '1px solid var(--border-color)', 
-          fontSize: '0.8rem',
-          textAlign: 'center'
-      }}>
-          <div style={{maxWidth: '600px', margin: '0 auto'}}>
-              <p>&copy; {new Date().getFullYear()} Primate Research.</p>
-              <div style={{marginTop: '2rem', display: 'flex', justifyContent: 'center', gap: '2rem'}}>
-                  <Link to="/legal/impressum" style={{textDecoration: 'none'}}>Impressum</Link>
-                  <Link to="/legal/privacy-policy" style={{textDecoration: 'none'}}>Privacy</Link>
-                  <Link to="/legal/terms-of-service" style={{textDecoration: 'none'}}>Terms</Link>
-              </div>
-          </div>
+      <hr />
+
+      <footer>
+        <p>&copy; {new Date().getFullYear()} Primate Research.</p>
+        <nav>
+            <Link to="/legal/impressum">Impressum</Link> • 
+            <Link to="/legal/privacy-policy">Privacy</Link> • 
+            <Link to="/legal/terms-of-service">Terms</Link>
+        </nav>
       </footer>
     </>
   );
