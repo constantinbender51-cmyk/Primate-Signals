@@ -20,6 +20,7 @@ export default function Layout() {
       <nav className="navbar">
         <Link to="/" className="nav-brand">Primate</Link>
         <div>
+          <Link to="/api-docs" style={{ marginRight: '1rem', color: 'var(--primary)', textDecoration: 'none' }}>API Docs</Link>
           {isLoggedIn ? (
             <button className="secondary" onClick={handleLogout}>Logout</button>
           ) : (
