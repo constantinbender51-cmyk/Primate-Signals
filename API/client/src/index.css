@@ -1,222 +1,236 @@
-:root {
-  --bg-color: #ffffff;
-  --text-main: #000000;
-  --text-subtle: #555555;
-  --border-color: #000000;
-  --border-light: #e0e0e0;
-  
-  /* --- NEW COLOR PALETTE --- */
-  --color-teal: #008080;   /* Brand / Primary */
-  --color-green: #2e8b57;  /* Buy / Win */
-  --color-red: #d32f2f;    /* Sell / Loss */
-}
+import { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import api from './api'; [span_2](start_span)//[span_2](end_span)
 
-body {
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  background-color: var(--bg-color);
-  color: var(--text-main);
-  font-weight: 300;
-  letter-spacing: 0.06rem;
-  line-height: 1.6;
-  margin: 0;
-  padding: 0;
-  -webkit-font-smoothing: antialiased;
-}
+const getSignalUI = (val) => {
+    // These classes now map to Green (buy) and Red (sell) in your new CSS
+    if (val === 1) return { text: 'BUY', className: 'badge badge-buy' }; [span_3](start_span)//[span_3](end_span)
+    if (val === -1) return { text: 'SELL', className: 'badge badge-sell' }; [span_4](start_span)//[span_4](end_span)
+    return { text: '—', className: '' };
+};
 
-/* --- Typography --- */
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 400;
-  text-transform: uppercase;
-  letter-spacing: 0.15rem;
-  margin-top: 2rem;
-  margin-bottom: 1.5rem;
-  color: var(--text-main);
-}
+const TF_ORDER = ['15m', '30m', '60m', '240m', '1d']; [span_5](start_span)//[span_5](end_span)
 
-h1 { font-size: 2rem; }
-h3 { 
-  font-size: 1.2rem; 
-  border-bottom: 2px solid var(--color-teal); /* Teal underline */
-  padding-bottom: 0.5rem; 
-  display: inline-block; /* Only underline the text */
-}
+export default function Dashboard() {
+    const [matrixData, setMatrixData] = useState([]);
+    const [historyData, setHistoryData] = useState([]); [span_6](start_span)//[span_6](end_span)
+    const [matrixStatus, setMatrixStatus] = useState('loading'); 
+    const [apiKey, setApiKey] = useState(null);
+    const navigate = useNavigate();
 
-a {
-  color: var(--color-teal); /* Teal links */
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  transition: opacity 0.2s;
-}
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const historyRes = await api.get('/signal_history');
+                [span_7](start_span)setHistoryData(historyRes.data.results); //[span_7](end_span)
+            } catch (err) {
+                console.error("History fetch failed", err);
+                toast.error("Could not load history"); [span_8](start_span)//[span_8](end_span)
+            }
 
-a:hover { opacity: 0.6; }
+            try {
+                const matrixRes = await api.get('/live_matrix');
+                setMatrixData(matrixRes.data.results);
+                setMatrixStatus('active'); [span_9](start_span)//[span_9](end_span)
+            } catch (err) {
+                if (err.response?.status === 403 || err.response?.status === 401) {
+                    setMatrixStatus('unpaid');
+                    setMatrixData([]); 
+                } else {
+                    console.error(err);
+                    setMatrixStatus('loading'); [span_10](start_span)//[span_10](end_span)
+                }
+            }
+            
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                setApiKey(user.api_key); [span_11](start_span)//[span_11](end_span)
+            }
+        };
 
-/* --- Layout --- */
-.navbar {
-  background: var(--bg-color);
-  padding: 2rem 0;
-  margin: 0 2rem;
-  border-bottom: 2px solid var(--color-teal); /* Teal border */
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+        fetchData();
+    }, [navigate]);
 
-.nav-brand {
-  font-weight: 400;
-  font-size: 1.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.2rem;
-  text-decoration: none;
-  color: var(--color-teal); /* Teal Brand */
-}
+    const { assets, timeframes, grid } = useMemo(() => {
+        if (!matrixData.length) return { assets: [], timeframes: TF_ORDER, grid: {} };
 
-.container {
-  max-width: 1200px;
-  margin: 4rem auto;
-  padding: 0 2rem;
-}
+        const uniqueAssets = [...new Set(matrixData.map(d => d.asset))].sort();
+        const lookup = {};
+        uniqueAssets.forEach(asset => {
+            lookup[asset] = {};
+            TF_ORDER.forEach(tf => {
+                [span_12](start_span)const point = matrixData.find(d => d.asset === asset && d.tf === tf); //[span_12](end_span)
+                lookup[asset][tf] = point ? point.signal_val : 0;
+            });
+        });
 
-/* --- Forms & Cards --- */
-.auth-card {
-  background: var(--bg-color);
-  border: 1px solid var(--border-color);
-  padding: 3rem;
-  width: 100%;
-  max-width: 400px;
-  margin: 6rem auto;
-  box-shadow: 5px 5px 0px var(--color-teal); /* Teal shadow accent */
-}
+        return { assets: uniqueAssets, timeframes: TF_ORDER, grid: lookup };
+    }, [matrixData]);
 
-input {
-  width: 100%;
-  padding: 1rem 0;
-  margin-bottom: 1.5rem;
-  border: none;
-  border-bottom: 1px solid var(--border-light);
-  background: transparent;
-  font-family: inherit;
-  font-size: 1rem;
-  outline: none;
-  transition: border-color 0.2s;
-  border-radius: 0;
-}
+    const { accuracy } = useMemo(() => {
+        let wins = 0;
+        let losses = 0;
+        historyData.forEach(row => {
+            if (row.outcome === 'WIN') wins++;
+            else if (row.outcome === 'LOSS') losses++;
+        });
+        const total = wins + losses;
+        [span_13](start_span)return { accuracy: total > 0 ? ((wins / total) * 100).toFixed(2) : 0 }; //[span_13](end_span)
+    }, [historyData]);
 
-input:focus { border-bottom: 1px solid var(--color-teal); }
+    const handleSubscribe = async () => { 
+        try {
+            const res = await api.post('/create-checkout-session');
+            window.location.href = res.data.url; [span_14](start_span)//[span_14](end_span)
+        } catch (err) { 
+            if (!localStorage.getItem('token')) navigate('/login');
+            else toast.error("Payment Service Unavailable"); [span_15](start_span)//[span_15](end_span)
+        }
+    };
+    
+    const handleManage = async () => { 
+        try {
+            const res = await api.post('/create-portal-session');
+            window.location.href = res.data.url; [span_16](start_span)//[span_16](end_span)
+        } catch (err) { toast.error("Portal Error"); }
+    };
 
-/* --- Buttons --- */
-button {
-  background-color: var(--color-teal); /* Teal Button */
-  color: #ffffff;
-  padding: 1rem 2rem;
-  border: 1px solid var(--color-teal);
-  border-radius: 0;
-  font-family: inherit;
-  font-weight: 400;
-  text-transform: uppercase;
-  letter-spacing: 0.1rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.8rem;
-}
+    const isMatrixLocked = matrixStatus === 'unpaid';
 
-button:hover {
-  background-color: transparent;
-  color: var(--color-teal);
-}
+    return (
+        <div>
+            {/* --- HEADER --- */}
+            <div style={{ marginBottom: '4rem', marginTop: '2rem' }}>
+                <h1 style={{ margin: 0 }}>Market Signals</h1>
+                <p style={{ color: 'var(--text-subtle)', marginTop: '0.5rem' }}>Automated Quantitative Analysis</p>
+            </div>
 
-button.secondary {
-  background-color: transparent;
-  color: var(--text-main);
-  border: 1px solid var(--text-subtle);
-}
+            {/* --- EDUCATIONAL BANNER --- */}
+            <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '1rem', marginBottom: '3rem', fontSize: '0.85rem', color: 'var(--text-subtle)' }}>
+                [NOTE] Educational Use Only. These signals are strictly for informational purposes. Verify all market conditions.
+            </div>
 
-button.secondary:hover {
-  background-color: var(--text-main);
-  color: var(--bg-color);
-  border-color: var(--text-main);
-}
+            [span_17](start_span)<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px' }}> {/*[span_17](end_span) */}
+                <div>
+                    <h3>Live Matrix</h3>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-subtle)' }}>
+                        [span_18](start_span)Last Update: {matrixData.length > 0 ? new Date(matrixData[0].updated_at).toLocaleTimeString() : '-'} {/*[span_18](end_span) */}
+                    </span>
+                </div>
+                {!isMatrixLocked && <button className="secondary" onClick={handleManage}>Manage Subscription</button>}
+            </div>
 
-/* --- Data Table --- */
-.table-container {
-  margin: 2rem 0;
-  position: relative;
-  overflow-x: auto;
-}
+            {/* --- LIVE MATRIX --- */}
+            <div className="table-container" style={{ minHeight: '300px' }}>
+                {isMatrixLocked && (
+                    <div className="paywall-overlay">
+                        <p style={{ marginBottom: '2rem', textTransform: 'uppercase', letterSpacing: '0.2rem' }}>Access Restricted</p>
+                        [span_19](start_span)<button onClick={handleSubscribe}>Unlock Matrix</button> {/*[span_19](end_span) */}
+                    </div>
+                )}
+                
+                <table className={isMatrixLocked ? [span_20](start_span)'blurred-content' : ''}> {/*[span_20](end_span) */}
+                    <thead>
+                        <tr>
+                            <th>Asset</th>
+                            [span_21](start_span){timeframes.map(tf => <th key={tf} style={{textAlign:'center'}}>{tf}</th>)} {/*[span_21](end_span) */}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        [span_22](start_span){assets.length > 0 ? assets.map(asset => ( //[span_22](end_span)
+                            <tr key={asset}>
+                                <td style={{ fontWeight: '400' }}>{asset}</td>
+                                {timeframes.map(tf => {
+                                    const val = grid[asset]?.[tf];
+                                    const ui = getSignalUI(val);
+                                    return (
+                                        <td key={`${asset}-${tf}`} style={{ textAlign: 'center' }}>
+                                            [span_23](start_span)<span className={ui.className}>{ui.text}</span> {/*[span_23](end_span) */}
+                                        </td>
+                                    );
+                                })}
+                            </tr>
+                        )) : (
+                            [span_24](start_span)!isMatrixLocked && <tr><td colSpan={timeframes.length + 2} style={{textAlign:'center', padding: '3rem'}}>Waiting for market data...</td></tr> //[span_24](end_span)
+                        )}
+                    </tbody>
+                </table>
+            </div>
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
+            {/* --- METHODOLOGY --- */}
+            <div className="disclaimer-box">
+                <p style={{ marginTop: 0 }}><strong>SUBSCRIPTION:</strong> 49.90€ / MO</p>
+                <br />
+                <p><strong>METHODOLOGY</strong></p>
+                <p style={{ color: 'var(--text-subtle)' }}>
+                    Proprietary model analyzing Price Action and Volume on 4H timeframes.
+                    Identifies statistical trend reversals via Momentum Oscillators. 
+                    Zero human intervention. [span_25](start_span){/*[span_25](end_span) */}
+                </p>
+                <br />
+                <p style={{fontSize: '0.8rem'}}>
+                    DISCLAIMER: Results based on simulated backtests.
+                    Past performance does not guarantee future results. [span_26](start_span){/*[span_26](end_span) */}
+                </p>
+            </div>
 
-th {
-  text-align: left;
-  padding: 1rem;
-  font-weight: 400;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  border-bottom: 2px solid var(--border-light);
-  color: var(--text-subtle);
-}
+            {/* --- HISTORY --- */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <h3>Signal History</h3>
+                [span_27](start_span)<p>Accuracy: <strong>{accuracy}%</strong></p> {/*[span_27](end_span) */}
+            </div>
+            
+            <div className="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time (UTC)</th>
+                            <th>Asset</th>
+                            <th>TF</th>
+                            <th>Signal</th>
+                            <th>Price</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        [span_28](start_span){historyData.length > 0 ? historyData.map((row, i) => ( //[span_28](end_span)
+                            <tr key={i}>
+                                <td>{row.time_str}</td>
+                                <td>{row.asset}</td>
+                                <td>{row.tf}</td>
+                                <td>
+                                    <span className={row.signal === 'BUY' ? [span_29](start_span)'badge badge-buy' : 'badge badge-sell'}> {/*[span_29](end_span) */}
+                                        {row.signal}
+                                    </span>
+                                </td>
+                                <td>{row.price_at_signal}</td>
+                                <td>
+                                    {/* UPDATED: Uses Green/Red colors instead of Strikethrough */}
+                                    <span style={{ 
+                                        fontWeight: 'bold',
+                                        color: row.outcome === 'WIN' ? 'var(--color-green)' : (row.outcome === 'LOSS' ? 'var(--color-red)' : 'inherit')
+                                    }}>
+                                        {row.outcome}
+                                    </span>
+                                </td>
+                            </tr>
+                        )) : (
+                            [span_30](start_span)<tr><td colSpan="6" style={{textAlign:'center', padding:'3rem'}}>No history recorded</td></tr> //[span_30](end_span)
+                        )}
+                    </tbody>
+                </table>
+            </div>
 
-td {
-  padding: 1.25rem 1rem;
-  border-bottom: 1px solid var(--border-light);
-}
-
-/* --- Badges (COLORED) --- */
-.badge {
-  padding: 0.3rem 0.8rem;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05rem;
-  font-weight: 600;
-  color: white;
-}
-
-/* BUY = GREEN */
-.badge-buy {
-  background: var(--color-green);
-  border: 1px solid var(--color-green);
-}
-
-/* SELL = RED */
-.badge-sell {
-  background: var(--color-red);
-  border: 1px solid var(--color-red);
-}
-
-/* --- Paywall --- */
-.blurred-content {
-  filter: blur(8px);
-  opacity: 0.3;
-  user-select: none;
-  pointer-events: none;
-}
-
-.paywall-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-}
-
-/* --- Utilities --- */
-code {
-  font-family: 'Courier New', Courier, monospace;
-  background: #f4f4f4;
-  padding: 0.2rem 0.5rem;
-  font-size: 0.85rem;
-  color: var(--color-teal);
-}
-
-.disclaimer-box {
-  border: 1px solid var(--color-teal); /* Teal Border */
-  background: #f0fdfc; /* Very light teal bg */
-  padding: 2rem;
-  margin-bottom: 3rem;
-  font-size: 0.9rem;
+            {/* --- API KEY --- */}
+            {!isMatrixLocked && apiKey && (
+                <div style={{ marginTop: '4rem', paddingTop: '2rem', borderTop: '1px solid var(--border-light)' }}>
+                    <h4>Developer Access</h4>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-subtle)', marginBottom: '1rem' }}>Raw JSON Feed Key</p>
+                    <code>{apiKey}</code>
+                </div>
+            )}
+        </div>
+    );
 }
