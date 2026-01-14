@@ -162,7 +162,7 @@ export default function Dashboard() {
                             <td>{row.tf}</td>
                             <td>{row.signal}</td>
                             <td>{row.price_at_signal}</td>
-                            <td>{row.outcome}</td>
+                            <td>{row.outcome === 'WIN' ? <span style={{ color: 'green' }}>WIN</span> : row.outcome === 'LOSS' ? <span style={{ color: 'red' }}>LOSS</span> : row.outcome}</td>
                         </tr>
                     )) : (
                         <tr><td colSpan="6">No history recorded</td></tr>
