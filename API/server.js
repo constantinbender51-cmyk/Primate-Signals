@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const path = require('path');
+const path = require('path');const fs = require('fs').promises;
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -282,7 +282,35 @@ app.post('/create-checkout-session', authenticate, async (req, res) => {
 });
 
 
-app.post('/create-portal-session', authenticate, async (req, res) => {
+
+
+// --- 7.5. LEGAL TEXT ROUTES ---
+app.get('/legal/:type', async (req, res) => {
+    const { type } = req.params;
+    let filePath;
+    switch (type) {
+        case 'impressum':
+            filePath = path.join(__dirname, 'impressum.txt');
+            break;
+        case 'privacy':
+            filePath = path.join(__dirname, 'pp.txt');
+            break;
+        case 'terms':
+            filePath = path.join(__dirname, 'tos.txt');
+            break;
+        default:
+            return res.status(404).send('Not Found');
+    }
+
+    try {
+        const content = await fs.readFile(filePath, 'utf8');
+        res.setHeader('Content-Type', 'text/plain');
+        res.send(content);
+    } catch (err) {
+        console.error(`Error reading legal file ${filePath}:`, err);
+        res.status(500).send('Could not load content');
+    }
+});app.post('/create-portal-session', authenticate, async (req, res) => {
     try {
         const portalSession = await stripe.billingPortal.sessions.create({
             customer: req.user.stripe_customer_id,
