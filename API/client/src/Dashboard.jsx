@@ -160,7 +160,7 @@ export default function Dashboard() {
             </div>
 
             {/* --- METHODOLOGY --- */}
-            <div className="disclaimer-box">
+            <div>
                 <p style={{ marginTop: 0 }}><strong>SUBSCRIPTION:</strong> 49.90€ / MO</p>
                 <br />
                 <p><strong>METHODOLOGY</strong></p>
