@@ -139,8 +139,6 @@ export default function Dashboard() {
                 )}
             </div>
 
-            <hr />
-
             {/* History Section */}
             <h3>Signal History</h3>
             <p>Accuracy: <strong>{accuracy}%</strong></p>
