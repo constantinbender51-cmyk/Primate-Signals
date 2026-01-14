@@ -37,7 +37,6 @@ getLiveMatrix();`;
     return (
         <div>
             <h3>API Documentation</h3>
-            <p>This page demonstrates how to use the Primate Signals API to fetch live matrix data programmatically.</p>
             
             <pre>{codeExample}</pre>
 
