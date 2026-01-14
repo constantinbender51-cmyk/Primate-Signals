@@ -5,7 +5,7 @@ import api from './api';
 
 const TF_ORDER = ['15m', '30m', '60m', '240m', '1d'];
 
-// Helper to calculate candle progress (0-100%)
+// Helper: Calculate percentage of candle elapsed (0-100)
 const calcProgress = (tf) => {
     const now = new Date();
     const nowMs = now.getTime();
@@ -21,7 +21,7 @@ const calcProgress = (tf) => {
     if (minutes === 0) return 0;
 
     const durationMs = minutes * 60 * 1000;
-    // Find start of current candle block (aligned to Unix epoch)
+    // Align to nearest candle block
     const startTimestamp = Math.floor(nowMs / durationMs) * durationMs;
     const elapsed = nowMs - startTimestamp;
     
@@ -33,13 +33,12 @@ export default function Dashboard() {
     const [historyData, setHistoryData] = useState([]);
     const [matrixStatus, setMatrixStatus] = useState('loading'); 
     const [apiKey, setApiKey] = useState(null);
-    // Force re-render every minute to update progress bars
+    // Ticker to update progress bars every minute
     const [tick, setTick] = useState(0); 
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Update progress bars every minute
-        const timer = setInterval(() => setTick(t => t + 1), 60000);
+        const timer = setInterval(() => setTick(t => t + 1), 60000); // Update UI every min
         return () => clearInterval(timer);
     }, []);
 
@@ -131,7 +130,7 @@ export default function Dashboard() {
                 <div>
                     <h3>Live Matrix</h3>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-subtle)' }}>
-                        Live Updates
+                        Real-time Candle Progress
                     </span>
                 </div>
                 {!isMatrixLocked && <button className="secondary" onClick={handleManage}>Manage Subscription</button>}
@@ -146,7 +145,7 @@ export default function Dashboard() {
                     </div>
                 )}
                 
-                <table className={isMatrixLocked ? 'blurred-content' : ''} style={{ tableLayout: 'fixed' }}>
+                <table className={isMatrixLocked ? 'blurred-content' : ''}>
                     <thead>
                         <tr>
                             <th style={{ width: '15%' }}>Asset</th>
@@ -173,14 +172,12 @@ export default function Dashboard() {
                                     }
 
                                     return (
-                                        <td key={`${asset}-${tf}`} style={{ padding: 0, height: '50px', border: '1px solid #f0f0f0' }}>
-                                            {/* Only render visual bar if there is an active signal */}
+                                        <td key={`${asset}-${tf}`} style={{ padding: 0, height: '50px', borderBottom: '1px solid var(--border-light)' }}>
                                             {val !== 0 ? (
                                                 <div className={cellClass}>
-                                                    <div 
-                                                        className="progress-fill" 
-                                                        style={{ width: `${progress}%` }} 
-                                                    />
+                                                    {/* The Expanding Color Box */}
+                                                    <div className="progress-fill" style={{ width: `${progress}%` }} />
+                                                    {/* The Text Layer */}
                                                     <span className="signal-text">{text}</span>
                                                 </div>
                                             ) : (
@@ -199,15 +196,15 @@ export default function Dashboard() {
                 </table>
             </div>
 
-            {/* Methodology & Disclaimer */}
+            {/* Methodology & Legend */}
             <div className="disclaimer-box">
-                <p><strong>CANDLE PROGRESS:</strong> Colored bars indicate the elapsed time of the current candle signal.</p>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)' }}>
-                    Example: A 30m BUY signal half-filled means 15 minutes have passed in the current 30-minute interval.
+                <p><strong>LEGEND:</strong> Green = Buy, Red = Sell.</p>
+                <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--text-subtle)' }}>
+                    The filled area represents the elapsed time of the current candle (e.g., half-filled box = 50% of the timeframe completed).
                 </p>
             </div>
 
-            {/* History Table (Kept Minimalist Black/White per previous request, or can add color if desired. Keeping BW for contrast) */}
+            {/* History Table - Strictly Black & White */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4rem' }}>
                 <h3>Signal History</h3>
                 <p>Accuracy: <strong>{accuracy}%</strong></p>
@@ -232,8 +229,12 @@ export default function Dashboard() {
                                 <td>{row.asset}</td>
                                 <td>{row.tf}</td>
                                 <td>
-                                    {/* Simple text for history to distinguish from live "active" bars */}
-                                    <span style={{ fontWeight: 'bold' }}>{row.signal}</span>
+                                    <span style={{ 
+                                        fontWeight: 'bold', 
+                                        borderBottom: row.signal === 'BUY' ? '1px solid black' : '1px dotted black' // Subtle distinction
+                                    }}>
+                                        {row.signal}
+                                    </span>
                                 </td>
                                 <td>{row.price_at_signal}</td>
                                 <td>{row.outcome}</td>
@@ -245,7 +246,6 @@ export default function Dashboard() {
                 </table>
             </div>
             
-            {/* Developer Key */}
             {!isMatrixLocked && apiKey && (
                 <div style={{ marginTop: '4rem', paddingTop: '2rem', borderTop: '1px solid var(--border-light)' }}>
                     <h4>Developer Access</h4>
