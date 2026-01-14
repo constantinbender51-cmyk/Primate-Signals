@@ -1,17 +1,22 @@
 :root {
+  /* --- Minimalist Palette --- */
   --bg-color: #ffffff;
   --text-main: #000000;
   --text-subtle: #555555;
-  --border-color: #000000;
-  --border-light: #e0e0e0;
+  --border-color: #000000;       /* Thick/Main borders */
+  --border-light: #e0e0e0;       /* Thin/Divider borders */
+
+  /* --- Signal Colors (Matrix Only) --- */
+  --signal-buy: #22c55e;         /* Vibrant Green */
+  --signal-sell: #ef4444;        /* Vibrant Red */
 }
 
 body {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   background-color: var(--bg-color);
   color: var(--text-main);
-  font-weight: 300; /* Thin */
-  letter-spacing: 0.06rem; /* Wide spaced */
+  font-weight: 300;              /* Thin */
+  letter-spacing: 0.06rem;       /* Wide spaced */
   line-height: 1.6;
   margin: 0;
   padding: 0;
@@ -29,7 +34,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 { font-size: 2rem; }
-h3 { font-size: 1.2rem; border-bottom: 1px solid var(--text-main); padding-bottom: 0.5rem; }
+h3 { 
+  font-size: 1.2rem; 
+  border-bottom: 1px solid var(--text-main); 
+  padding-bottom: 0.5rem; 
+  display: inline-block; /* Only underline text width */
+  min-width: 100%;       /* Unless it needs to be a divider */
+}
 
 a {
   color: var(--text-main);
@@ -43,9 +54,9 @@ a:hover { opacity: 0.6; }
 /* --- Layout --- */
 .navbar {
   background: var(--bg-color);
-  padding: 2rem 0; /* More breathing room */
+  padding: 2rem 0;
   margin: 0 2rem;
-  border-bottom: 2px solid var(--text-main); /* Thick black line */
+  border-bottom: 2px solid var(--text-main);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -61,7 +72,7 @@ a:hover { opacity: 0.6; }
 }
 
 .container {
-  max-width: 1200px; /* Wider container */
+  max-width: 1200px;
   margin: 4rem auto;
   padding: 0 2rem;
 }
@@ -78,7 +89,7 @@ a:hover { opacity: 0.6; }
 
 input {
   width: 100%;
-  padding: 1rem 0; /* Underline style inputs */
+  padding: 1rem 0;
   margin-bottom: 1.5rem;
   border: none;
   border-bottom: 1px solid var(--border-light);
@@ -88,6 +99,7 @@ input {
   outline: none;
   transition: border-color 0.2s;
   border-radius: 0;
+  box-sizing: border-box;
 }
 
 input:focus { border-bottom: 1px solid var(--text-main); }
@@ -147,11 +159,61 @@ th {
 }
 
 td {
-  padding: 1.25rem 1rem;
+  padding: 1rem;
   border-bottom: 1px solid var(--border-light);
 }
 
-/* --- Badges (Monochrome) --- */
+/* --- Live Matrix Progress Bars --- */
+.signal-cell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 3rem; /* Height of the bar */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.progress-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+  transition: width 1s linear; /* Smooth visual update */
+  opacity: 0.3; /* Transparent background fill */
+}
+
+/* The solid line at the leading edge of the progress */
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(0,0,0,0.2);
+}
+
+.signal-text {
+  position: relative;
+  z-index: 1;
+  font-weight: 500;
+  font-size: 0.8rem;
+  letter-spacing: 0.1rem;
+  text-transform: uppercase;
+}
+
+/* Buy State */
+.is-buy .progress-fill { background-color: var(--signal-buy); opacity: 1; }
+.is-buy .signal-text { color: #fff; text-shadow: 0 0 4px rgba(0,0,0,0.5); }
+
+/* Sell State */
+.is-sell .progress-fill { background-color: var(--signal-sell); opacity: 1; }
+.is-sell .signal-text { color: #fff; text-shadow: 0 0 4px rgba(0,0,0,0.5); }
+
+/* --- Badges (For History Table) --- */
 .badge {
   padding: 0.3rem 0.8rem;
   font-size: 0.7rem;
@@ -160,17 +222,9 @@ td {
   border: 1px solid var(--text-main);
 }
 
-/* BUY = Solid Black */
-.badge-buy {
-  background: var(--text-main);
-  color: var(--bg-color);
-}
-
-/* SELL = White with Black Border */
-.badge-sell {
-  background: transparent;
-  color: var(--text-main);
-}
+/* Simple monochrome badges for history */
+.badge-buy { background: var(--text-main); color: var(--bg-color); }
+.badge-sell { background: transparent; color: var(--text-main); }
 
 /* --- Paywall --- */
 .blurred-content {
@@ -188,7 +242,6 @@ td {
   align-items: center;
   justify-content: center;
   z-index: 10;
-  /* Removed background color for a cleaner look, relies on blur */
 }
 
 /* --- Utilities --- */
@@ -197,11 +250,22 @@ code {
   background: #f4f4f4;
   padding: 0.2rem 0.5rem;
   font-size: 0.85rem;
+  display: block;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+pre {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  padding: 1.5rem;
+  margin: 1rem 0;
+  font-family: 'Courier New', Courier, monospace;
 }
 
 .disclaimer-box {
   border: 1px solid var(--border-color);
   padding: 2rem;
-  margin-bottom: 3rem;
+  margin: 3rem 0;
   font-size: 0.9rem;
 }
