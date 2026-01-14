@@ -14,38 +14,39 @@ export default function Login() {
             const res = await api.post('/auth/login', { email, password });
             localStorage.setItem('token', res.data.token);
             localStorage.setItem('user', JSON.stringify(res.data.user)); 
-            
-            toast.success("LOGIN SUCCESSFUL");
             navigate('/');
         } catch (err) {
-            toast.error("INVALID CREDENTIALS");
+            toast.error("Invalid Credentials");
         }
     };
 
     return (
-        <div className="auth-card">
-            <h3>Login</h3>
+        <div>
+            <h2>Login</h2>
             <form onSubmit={handleLogin}>
-                <input 
-                    type="email" 
-                    placeholder="EMAIL ADDRESS" 
-                    value={email} 
-                    onChange={e => setEmail(e.target.value)} 
-                    required 
-                />
-                <input 
-                    type="password" 
-                    placeholder="PASSWORD" 
-                    value={password} 
-                    onChange={e => setPassword(e.target.value)} 
-                    required 
-                />
-                <button type="submit" style={{ width: '100%', marginTop: '1rem' }}>Enter</button>
+                <label>
+                    Email Address:
+                    <input 
+                        type="email" 
+                        value={email} 
+                        onChange={e => setEmail(e.target.value)} 
+                        required 
+                    />
+                </label>
+                <label>
+                    Password:
+                    <input 
+                        type="password" 
+                        value={password} 
+                        onChange={e => setPassword(e.target.value)} 
+                        required 
+                    />
+                </label>
+                <button type="submit">Log In</button>
             </form>
-            <div style={{ marginTop: '2rem', fontSize: '0.8rem', textAlign: 'center' }}>
-                <span style={{ color: 'var(--text-subtle)' }}>NO ACCOUNT? </span>
-                <Link to="/register">REGISTER HERE</Link>
-            </div>
+            <p style={{ marginTop: '1rem' }}>
+                No account? <Link to="/register">Create one here</Link>.
+            </p>
         </div>
     );
 }
