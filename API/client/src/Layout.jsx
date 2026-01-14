@@ -6,7 +6,7 @@ export default function Layout() {
   const isLoggedIn = !!localStorage.getItem('token');
 
   const handleLogout = (e) => {
-    e.preventDefault(); // Prevent navigation if using anchor tag
+    e.preventDefault();
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/login');
@@ -14,39 +14,34 @@ export default function Layout() {
 
   return (
     <>
-      <Toaster position="top-center" toastOptions={{ style: { border: '1px solid black', background: '#fff', color: '#000' } }}/>
+      <Toaster />
+      
+      {/* TITLE (No Underline) */}
+      <h1>
+        <Link to="/" style={{ textDecoration: 'none', color: '#000' }}>Primate</Link>
+      </h1>
 
-      <header>
-        <h1>Primate Research</h1>
-        <nav>
-          <Link to="/">Dashboard</Link>
-          {' | '}
-          <Link to="/api-docs">API Documentation</Link>
-          {' | '}
-          {isLoggedIn ? (
-             <a href="#" onClick={handleLogout}>Logout</a>
-          ) : (
+      {/* NAV (Stacked) */}
+      <div style={{ marginBottom: '15px' }}>
+        {isLoggedIn ? (
+            <a href="#" onClick={handleLogout}>Logout</a>
+        ) : (
             <Link to="/login">Login</Link>
-          )}
-        </nav>
-      </header>
-
-      <hr />
+        )}
+        <br />
+        <Link to="/api-docs">API</Link>
+      </div>
 
       <main>
         <Outlet />
       </main>
 
-      <hr />
-
-      <footer>
-        <p>&copy; {new Date().getFullYear()} Primate Research.</p>
-        <nav>
-            <Link to="/legal/impressum">Impressum</Link> • 
-            <Link to="/legal/privacy-policy">Privacy</Link> • 
-            <Link to="/legal/terms-of-service">Terms</Link>
-        </nav>
-      </footer>
+      {/* FOOTER */}
+      <div style={{ marginTop: '30px', fontSize: '12px' }}>
+        <Link to="/legal/impressum">Impressum</Link>,{' '}
+        <Link to="/legal/privacy-policy">PP</Link>,{' '}
+        <Link to="/legal/terms-of-service">ToS</Link>
+      </div>
     </>
   );
 }
