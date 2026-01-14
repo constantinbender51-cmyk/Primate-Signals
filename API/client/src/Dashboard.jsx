@@ -101,14 +101,18 @@ export default function Dashboard() {
             <div style={{ marginTop: '20px', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                     <strong>Live Matrix</strong>
-                    <span className="tiny">
-                        Updated: {matrixData.length > 0 ? new Date(matrixData[0].updated_at).toLocaleTimeString() : '-'}
-                    </span>
+                    <div>
+                        <span className="tiny" style={{ marginRight: '10px' }}>
+                            Updated: {matrixData.length > 0 ? new Date(matrixData[0].updated_at).toLocaleTimeString() : '-'}
+                        </span>
+                        {!isMatrixLocked && (
+                            <button onClick={handleManage} style={{ marginLeft: '10px' }}>Manage Subscription</button>
+                        )}
+                    </div>
                 </div>
 
                 {!isMatrixLocked ? (
                     <>
-                        <button onClick={handleManage} style={{ margin: '10px 0' }}>Manage Subscription</button>
                         <table>
                             <thead>
                                 <tr>
