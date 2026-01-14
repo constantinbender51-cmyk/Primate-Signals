@@ -1,14 +1,14 @@
 :root {
   --bg-color: #ffffff;
-  --text-main: #263238;   /* Slightly softer black (Dark Blue-Grey) */
-  --text-subtle: #546e7a; /* Medium Blue-Grey for subtitles */
+  --text-main: #1a1a1a;   /* Higher contrast black */
+  --text-subtle: #424242; /* Higher contrast grey for subtitles */
   --border-color: #37474f;
-  --border-light: #cfd8dc; /* Light Blue-Grey border */
+  --border-light: #b0bec5; /* Slightly darker border for better contrast */
   
-  /* --- NEW "SUBTLE" PALETTE --- */
-  --color-brand: #607d8b;  /* Light Blue-Grey (Primary) */
-  --color-green: #5c946e;  /* Sage Green (Subtle Buy/Win) */
-  --color-red: #ba5a5a;    /* Muted Red (Subtle Sell/Loss) */
+  /* --- HIGHER CONTRAST PALETTE --- */
+  --color-brand: #455a64;  /* Darker Blue-Grey for better contrast */
+  --color-green: #2e7d32;  /* Darker Green for better contrast */
+  --color-red: #c62828;    /* Darker Red for better contrast */
 }
 
 body {
@@ -48,7 +48,7 @@ a {
   transition: opacity 0.2s;
 }
 
-a:hover { opacity: 0.6; }
+a:hover { color: #1a237e; text-decoration: underline; }
 
 /* --- Layout --- */
 .navbar {
@@ -129,8 +129,8 @@ button:hover {
 
 button.secondary {
   background-color: transparent;
-  color: var(--text-subtle);
-  border: 1px solid var(--border-light);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
   box-shadow: none;
 }
 
@@ -156,37 +156,38 @@ table {
 th {
   text-align: left;
   padding: 1rem;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
   font-size: 0.75rem;
-  border-bottom: 2px solid var(--border-light);
-  color: var(--text-subtle);
+  border-bottom: 2px solid var(--border-color);
+  color: var(--text-main);
 }
 
 td {
   padding: 1.25rem 1rem;
   border-bottom: 1px solid var(--border-light);
   color: var(--text-main);
+  font-weight: 400;
 }
 
-/* --- Badges (SUBTLE) --- */
+/* --- Badges (HIGH CONTRAST) --- */
 .badge {
   padding: 0.35rem 0.9rem;
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.05rem;
-  font-weight: 600;
+  font-weight: 700;
   border-radius: 4px; /* Soft edges */
   color: #fff;
 }
 
-/* BUY = Sage Green */
+/* BUY = Dark Green */
 .badge-buy {
   background-color: var(--color-green);
   border: none;
 }
 
-/* SELL = Muted Red */
+/* SELL = Dark Red */
 .badge-sell {
   background-color: var(--color-red);
   border: none;
@@ -195,7 +196,7 @@ td {
 /* --- Paywall --- */
 .blurred-content {
   filter: blur(8px);
-  opacity: 0.4;
+  opacity: 0.3;
   user-select: none;
   pointer-events: none;
 }
@@ -213,11 +214,12 @@ td {
 /* --- Utilities --- */
 code {
   font-family: 'Courier New', Courier, monospace;
-  background: #eceff1; /* Very light Blue-Grey */
+  background: #f5f5f5; /* Light grey background */
   padding: 0.2rem 0.5rem;
   font-size: 0.85rem;
-  color: var(--color-brand);
+  color: #000; /* Black text for maximum contrast */
   border-radius: 3px;
+  border: 1px solid #ddd;
 }
 
 .disclaimer-box {
