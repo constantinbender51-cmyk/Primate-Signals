@@ -172,7 +172,7 @@ export default function Dashboard() {
             </div>
 
             {/* --- DISCLAIMER --- */}
-            <div style={{ marginBottom: '1rem', fontSize: '0.85rem', color: '#64748b', textAlign: 'center' }}>
+            <div style={{ marginBottom: '1rem', fontSize: '0.85rem', color: '#64748b', textAlign: 'left' }}>
                 <p>Disclaimer: These results are based on simulated performance (backtests) and do not represent actual trading. Past performance is not indicative of future results. Market conditions can change, and the algorithm may not perform as it did in the past.</p>
             </div>
 
