@@ -20,7 +20,8 @@ async function getLiveMatrix() {
 
     if (!response.ok) {
       // Handle HTTP errors (e.g., 401 Unauthorized, 429 Rate Limit)
-      throw new Error(\`API Request failed: ${response.status} ${response.statusText}\`);
+      // FIXED: Added backslashes to escape the dollar signs in the template literal below
+      throw new Error(\`API Request failed: \${response.status} \${response.statusText}\`);
     }
 
     const data = await response.json();
