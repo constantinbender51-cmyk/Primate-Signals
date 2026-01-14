@@ -9,7 +9,7 @@ const TF_ORDER = ['15m', '30m', '60m', '240m', '1d'];
 const getSignalText = (val) => {
     if (val === 1) return 'BUY';
     if (val === -1) return 'SELL';
-    return '-';
+    return 'WAIT';
 };
 
 export default function Dashboard() {
