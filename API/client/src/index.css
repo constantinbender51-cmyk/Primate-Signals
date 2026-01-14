@@ -1,72 +1,35 @@
-:root {
-  --link-blue: #0000EE;
-  --visited-purple: #551A8B;
+/* KILL ALL DEFAULT SPACING */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 body {
-  font-family: serif; /* The ultimate default */
-  line-height: 1.5;
+  font-family: "Times New Roman", serif;
   color: #000;
   background-color: #fff;
-  max-width: 800px; /* Optimal reading width */
-  margin: 0 auto;
-  padding: 1rem;
+  padding: 10px;
+  max-width: 600px; /* keeps it readable */
 }
 
-/* Typography */
-h1, h2, h3, h4 { margin-top: 2rem; margin-bottom: 1rem; font-weight: bold; text-transform: none; letter-spacing: normal;}
-h1 { border-bottom: 2px solid #000; padding-bottom: 0.5rem; }
-h2 { border-bottom: 1px solid #ccc; padding-bottom: 0.5rem; }
-p { margin-bottom: 1rem; }
-
-/* The "Blue Fucking Link" */
-a { color: var(--link-blue); text-decoration: underline; cursor: pointer; }
-a:visited { color: var(--visited-purple); }
-a:hover { background-color: #eee; }
-
-/* Tables - The Excel Look */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 1.5rem 0;
-  font-size: 1rem;
-}
-
-th, td {
-  border: 1px solid #000;
-  padding: 0.5rem;
-  text-align: left;
-}
-
-th { background-color: #f0f0f0; }
-
-/* Forms */
-input {
-  display: block;
-  margin-bottom: 1rem;
-  padding: 0.5rem;
-  border: 1px solid #000;
-  width: 100%;
-  max-width: 300px;
-  font-family: monospace;
-}
-
-button {
-  background: #eee;
-  border: 1px solid #000;
-  padding: 0.5rem 1rem;
-  font-family: sans-serif; /* Buttons usually look better sans even in brutalist */
-  cursor: pointer;
+/* TEXT STYLES */
+h1 {
+  font-size: 24px;
   font-weight: bold;
+  line-height: 1; /* Tightens the title */
+  margin-bottom: 5px; /* Tiny gap before nav */
 }
 
-button:hover { background: #ddd; }
-button:active { background: #ccc; }
+a {
+  color: #0000EE;
+  text-decoration: underline;
+  cursor: pointer;
+}
 
-/* Utilities */
-hr { border: 0; border-top: 1px solid #000; margin: 2rem 0; }
-code { background: #f4f4f4; padding: 0.2rem; font-family: monospace; }
-pre { background: #f4f4f4; padding: 1rem; border: 1px solid #ccc; overflow-x: auto; }
-
-/* Remove all fancy classes */
-.navbar, .nav-brand, .container, .auth-card { all: unset; }
+/* UTILITIES */
+.tiny { font-size: 10px; color: #666; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+td, th { border: 1px solid #000; padding: 2px 5px; text-align: left; font-size: 14px; }
+ul { list-style: none; }
+li { margin-bottom: 2px; }
