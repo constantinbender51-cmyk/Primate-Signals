@@ -6,54 +6,20 @@ import api from './api';
 const getSignalUI = (val) => {
     if (val === 1) return { text: 'BUY', className: 'badge badge-buy' };
     if (val === -1) return { text: 'SELL', className: 'badge badge-sell' };
-    return { text: '-', className: '' };
+    return { text: '—', className: '' };
 };
 
 const TF_ORDER = ['15m', '30m', '60m', '240m', '1d'];
 
-// Helper to calculate candle progress (0-100%)
-const calcProgress = (tf) => {
-    const now = new Date();
-    const nowMs = now.getTime();
-    
-    // Convert TF string to minutes
-    let minutes = 0;
-    if (tf === '15m') minutes = 15;
-    else if (tf === '30m') minutes = 30;
-    else if (tf === '60m') minutes = 60;
-    else if (tf === '240m') minutes = 240;
-    else if (tf === '1d') minutes = 1440;
-    
-    if (minutes === 0) return 0;
-
-    const durationMs = minutes * 60 * 1000;
-    // Find start of current candle block (aligned to Unix epoch)
-    const startTimestamp = Math.floor(nowMs / durationMs) * durationMs;
-    const elapsed = nowMs - startTimestamp;
-    
-    return Math.min(100, Math.max(0, (elapsed / durationMs) * 100));
-};
-
 export default function Dashboard() {
     const [matrixData, setMatrixData] = useState([]);
     const [historyData, setHistoryData] = useState([]);
-    
-    // Status now only controls the MATRIX lock state
-    const [matrixStatus, setMatrixStatus] = useState('loading'); // loading | active | unpaid
+    const [matrixStatus, setMatrixStatus] = useState('loading'); 
     const [apiKey, setApiKey] = useState(null);
-    // Ticker state to update progress bars every minute
-    const [tick, setTick] = useState(0);
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Update progress bars every minute
-        const timer = setInterval(() => setTick(t => t + 1), 60000);
-        return () => clearInterval(timer);
-    }, []);
-
-    useEffect(() => {
         const fetchData = async () => {
-            // 1. Fetch History (Public - Always runs)
             try {
                 const historyRes = await api.get('/signal_history');
                 setHistoryData(historyRes.data.results);
@@ -62,7 +28,6 @@ export default function Dashboard() {
                 toast.error("Could not load history");
             }
 
-            // 2. Fetch Matrix (Private - Might fail if unpaid)
             try {
                 const matrixRes = await api.get('/live_matrix');
                 setMatrixData(matrixRes.data.results);
@@ -72,13 +37,11 @@ export default function Dashboard() {
                     setMatrixStatus('unpaid');
                     setMatrixData([]); 
                 } else {
-                    // Only show error if it's NOT an auth issue (e.g. server down)
                     console.error(err);
-                    setMatrixStatus('loading'); // Keep loading or show error state
+                    setMatrixStatus('loading');
                 }
             }
             
-            // 3. Get User Info (if logged in)
             const userStr = localStorage.getItem('user');
             if (userStr) {
                 const user = JSON.parse(userStr);
@@ -89,20 +52,14 @@ export default function Dashboard() {
         fetchData();
     }, [navigate]);
 
-    // --- Matrix Pivot Logic ---
     const { assets, timeframes, grid } = useMemo(() => {
-        if (!matrixData.length) {
-             return { assets: [], timeframes: TF_ORDER, grid: {} };
-        }
+        if (!matrixData.length) return { assets: [], timeframes: TF_ORDER, grid: {} };
 
         const uniqueAssets = [...new Set(matrixData.map(d => d.asset))].sort();
-        const usedTfs = [...new Set(matrixData.map(d => d.tf))];
-        const sortedTfs = TF_ORDER.filter(tf => usedTfs.includes(tf) || true); 
-
         const lookup = {};
         uniqueAssets.forEach(asset => {
             lookup[asset] = {};
-            sortedTfs.forEach(tf => {
+            TF_ORDER.forEach(tf => {
                 const point = matrixData.find(d => d.asset === asset && d.tf === tf);
                 lookup[asset][tf] = point ? point.signal_val : 0;
             });
@@ -111,32 +68,24 @@ export default function Dashboard() {
         return { assets: uniqueAssets, timeframes: TF_ORDER, grid: lookup };
     }, [matrixData]);
 
-    // --- History Metrics Logic ---
-    const { totalWins, totalLosses, accuracy } = useMemo(() => {
+    const { accuracy } = useMemo(() => {
         let wins = 0;
         let losses = 0;
         historyData.forEach(row => {
-            if (row.outcome === 'WIN') {
-                wins++;
-            } else if (row.outcome === 'LOSS') {
-                losses++;
-            }
+            if (row.outcome === 'WIN') wins++;
+            else if (row.outcome === 'LOSS') losses++;
         });
-        const totalSignals = wins + losses;
-        const calculatedAccuracy = totalSignals > 0 ? ((wins / totalSignals) * 100).toFixed(2) : 0;
-        return { totalWins: wins, totalLosses: losses, accuracy: calculatedAccuracy };
-    }, [historyData]); // Recalculate when historyData changes
+        const total = wins + losses;
+        return { accuracy: total > 0 ? ((wins / total) * 100).toFixed(2) : 0 };
+    }, [historyData]);
 
     const handleSubscribe = async () => { 
         try {
             const res = await api.post('/create-checkout-session');
             window.location.href = res.data.url;
         } catch (err) { 
-            if (!localStorage.getItem('token')) {
-                navigate('/login');
-            } else {
-                toast.error("Payment Service Unavailable"); 
-            }
+            if (!localStorage.getItem('token')) navigate('/login');
+            else toast.error("Payment Service Unavailable"); 
         }
     };
     
@@ -151,28 +100,36 @@ export default function Dashboard() {
 
     return (
         <div>
-            {/* --- WELCOME HEADER --- */}
-            <div style={{ textAlign: 'center', marginBottom: '3rem', marginTop: '2rem' }}>
-                <h1 style={{ fontSize: '3rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>Trading signals</h1>
+            {/* --- HEADER --- */}
+            <div style={{ marginBottom: '4rem', marginTop: '2rem' }}>
+                <h1 style={{ margin: 0 }}>Market Signals</h1>
+                <p style={{ color: 'var(--text-subtle)', marginTop: '0.5rem' }}>Automated Quantitative Analysis</p>
             </div>
 
-            <div style={{ fontSize: '1rem', color: '#64748b', marginBottom: '1rem', textAlign: 'left', border: '1px solid #94a3b8', padding: '0.5rem', borderRadius: '4px' }}>
-                ⚠️ Educational Use Only: These signals are strictly for informational purposes. They are not instructions to trade. Always verify market conditions before executing any transaction.
+            {/* --- EDUCATIONAL BANNER --- */}
+            <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '1rem', marginBottom: '3rem', fontSize: '0.85rem', color: 'var(--text-subtle)' }}>
+                [NOTE] Educational Use Only. These signals are strictly for informational purposes. Verify all market conditions.
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3>Live Matrix updated: {matrixData.length > 0 ? new Date(matrixData[0].updated_at).toLocaleString() : '-'}</h3>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px' }}>
+                <div>
+                    <h3>Live Matrix</h3>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-subtle)' }}>
+                        Last Update: {matrixData.length > 0 ? new Date(matrixData[0].updated_at).toLocaleTimeString() : '-'}
+                    </span>
+                </div>
                 {!isMatrixLocked && <button className="secondary" onClick={handleManage}>Manage Subscription</button>}
             </div>
 
-            {/* --- 1. LIVE MATRIX (Paywalled) --- */}
-            <div className="table-container" style={{ marginBottom: '1rem', minHeight: '250px' }}>
+            {/* --- LIVE MATRIX --- */}
+            <div className="table-container" style={{ minHeight: '300px' }}>
                 {isMatrixLocked && (
                     <div className="paywall-overlay">
-                        <p style={{marginBottom: '1rem', fontSize: '1.1rem', fontWeight: 'bold'}}>Subscription required</p>
-                        <button onClick={handleSubscribe}>Try for free</button>
+                        <p style={{ marginBottom: '2rem', textTransform: 'uppercase', letterSpacing: '0.2rem' }}>Access Restricted</p>
+                        <button onClick={handleSubscribe}>Unlock Matrix</button>
                     </div>
                 )}
-                {/* Add blurry class if locked */}
+                
                 <table className={isMatrixLocked ? 'blurred-content' : ''}>
                     <thead>
                         <tr>
@@ -183,63 +140,47 @@ export default function Dashboard() {
                     <tbody>
                         {assets.length > 0 ? assets.map(asset => (
                             <tr key={asset}>
-                                <td style={{ fontWeight: 'bold' }}>{asset}</td>
+                                <td style={{ fontWeight: '400' }}>{asset}</td>
                                 {timeframes.map(tf => {
                                     const val = grid[asset]?.[tf];
                                     const ui = getSignalUI(val);
-                                    const progress = calcProgress(tf);
-
-                                    // Check if active signal for special rendering
-                                    if (val === 1 || val === -1) {
-                                        return (
-                                            <td key={`${asset}-${tf}`} style={{ padding: 0, borderBottom: '1px solid var(--border)' }}>
-                                                <div className={`signal-cell ${val === 1 ? 'is-buy' : 'is-sell'}`}>
-                                                    <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-                                                    <span className="signal-text">{ui.text}</span>
-                                                </div>
-                                            </td>
-                                        );
-                                    }
-
-                                    // Default rendering for no signal
                                     return (
                                         <td key={`${asset}-${tf}`} style={{ textAlign: 'center' }}>
-                                            <span style={{ color: '#ccc' }}>-</span>
+                                            <span className={ui.className}>{ui.text}</span>
                                         </td>
                                     );
                                 })}
                             </tr>
                         )) : (
-                            // Only show "No signals" if NOT locked (otherwise the overlay covers it)
-                            !isMatrixLocked && <tr><td colSpan={timeframes.length + 2} style={{textAlign:'center'}}>No live signals available</td></tr>
+                            !isMatrixLocked && <tr><td colSpan={timeframes.length + 2} style={{textAlign:'center', padding: '3rem'}}>Waiting for market data...</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
 
-            {/* --- DISCLAIMER --- */}
-            <div style={{ marginBottom: '1rem', fontSize: '0.75rem', color: '#64748b', textAlign: 'left' }}>
-                <p>Disclaimer: These results are based on simulated performance (backtests) and do not represent actual trading. Past performance is not indicative of future results. Market conditions can change, and the algorithm may not perform as it did in the past.</p>
+            {/* --- METHODOLOGY --- */}
+            <div className="disclaimer-box">
+                <p style={{ marginTop: 0 }}><strong>SUBSCRIPTION:</strong> 49.90€ / MO</p>
+                <br />
+                <p><strong>METHODOLOGY</strong></p>
+                <p style={{ color: 'var(--text-subtle)' }}>
+                    Proprietary model analyzing Price Action and Volume on 4H timeframes. 
+                    Identifies statistical trend reversals via Momentum Oscillators. 
+                    Zero human intervention.
+                </p>
+                <br />
+                <p style={{fontSize: '0.8rem'}}>
+                    DISCLAIMER: Results based on simulated backtests. Past performance does not guarantee future results.
+                </p>
             </div>
 
-            {/* --- EXPLANATION --- */}
-            <div style={{ marginBottom: '3rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', fontSize: '1.4rem', color: '#64748b' }}>
-                <p><strong>Pricing:</strong> 49.90€/month</p>
-                <p><strong>How the Algorithm Works (Methodology)</strong></p>
-                <p>Our signals are generated by a proprietary quantitative model that analyzes Price Action and Volume across 4-hour charts.</p>
-                <p>The model identifies potential Trend Reversal opportunities based on statistical probability. It looks for specific conditions in Momentum Oscillators and Volatility to generate a "Buy," "Sell," or "Wait" signal.</p>
-                <p>Note: This process is fully automated and does not involve human intervention or subjective opinion.</p>
+            {/* --- HISTORY --- */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <h3>Signal History</h3>
+                <p>Accuracy: <strong>{accuracy}%</strong></p>
             </div>
-
-            {/* --- NEW: Accuracy Metrics Display --- */}
-            <p style={{marginBottom: '3rem', textAlign: 'left'}}>
-                Accuracy: <span style={{fontWeight: 'bold', color: accuracy >= 50 ? 'var(--success)' : 'var(--danger)'}}>{accuracy}%</span>
-            </p>
-
-            {/* --- 2. SIGNAL HISTORY (Public / Always Visible) --- */}
-            <h3>7 day signal history</h3>
-            <div className="table-container" style={{ minHeight: '250px' }}>
-                {/* REMOVED PAYWALL OVERLAY FROM HERE */}
+            
+            <div className="table-container">
                 <table>
                     <thead>
                         <tr>
@@ -255,39 +196,34 @@ export default function Dashboard() {
                         {historyData.length > 0 ? historyData.map((row, i) => (
                             <tr key={i}>
                                 <td>{row.time_str}</td>
-                                <td><b>{row.asset}</b></td>
+                                <td>{row.asset}</td>
                                 <td>{row.tf}</td>
                                 <td>
-                                    <span className={`badge ${row.signal === 'BUY' ? 'badge-buy' : 'badge-sell'}`}>
+                                    <span className={row.signal === 'BUY' ? 'badge badge-buy' : 'badge badge-sell'}>
                                         {row.signal}
                                     </span>
                                 </td>
                                 <td>{row.price_at_signal}</td>
                                 <td>
-                                    <span style={{ 
-                                        fontWeight: 'bold', 
-                                        color: row.outcome === 'WIN' ? 'var(--success)' : 
-                                               row.outcome === 'LOSS' ? 'var(--danger)' : '#64748b' 
-                                    }}>
+                                    {/* Text-only results, no colors, just simple typography */}
+                                    <span style={{ textDecoration: row.outcome === 'LOSS' ? 'line-through' : 'none' }}>
                                         {row.outcome}
                                     </span>
                                 </td>
                             </tr>
                         )) : (
-                            <tr><td colSpan="6" style={{textAlign:'center', padding:'2rem'}}>No history found</td></tr>
+                            <tr><td colSpan="6" style={{textAlign:'center', padding:'3rem'}}>No history recorded</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
 
-            {/* --- 3. API KEY DISPLAY (Only if Active & Key Exists) --- */}
+            {/* --- API KEY --- */}
             {!isMatrixLocked && apiKey && (
-                <div style={{ marginTop: '3rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: '8px' }}>
-                    <h3>Your API Key</h3>
-                    <p style={{ fontSize: '0.9rem', color: '#64748b' }}>Use this key to access the raw JSON data programmatically.</p>
-                    <code style={{ background: '#eee', padding: '0.5rem', borderRadius: '4px', display: 'block', overflowX: 'auto' }}>
-                        {apiKey}
-                    </code>
+                <div style={{ marginTop: '4rem', paddingTop: '2rem', borderTop: '1px solid var(--border-light)' }}>
+                    <h4>Developer Access</h4>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-subtle)', marginBottom: '1rem' }}>Raw JSON Feed Key</p>
+                    <code>{apiKey}</code>
                 </div>
             )}
         </div>
