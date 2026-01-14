@@ -136,7 +136,8 @@ export default function Dashboard() {
                 {isLocked && (
                     <div className="paywall-overlay">
                         <h2>Subscription Required</h2>
-                        <button onClick={handleSubscribe}>Get Access</button>
+                        {/* UPDATE 1: Button text change */}
+                        <button onClick={handleSubscribe}>Try for free</button>
                     </div>
                 )}
                 <table>
@@ -161,7 +162,6 @@ export default function Dashboard() {
                                 })}
                             </tr>
                         )) : (
-                            // Render empty row if no data (avoids collapsed table)
                             !isLocked && <tr><td colSpan={timeframes.length + 1} style={{textAlign:'center'}}>No live signals available</td></tr>
                         )}
                     </tbody>
@@ -179,7 +179,8 @@ export default function Dashboard() {
                  {isLocked && (
                     <div className="paywall-overlay">
                         <h2>Subscription Required</h2>
-                        <button onClick={handleSubscribe}>Get Access</button>
+                        {/* UPDATE 2: Button text change */}
+                        <button onClick={handleSubscribe}>Try for free</button>
                     </div>
                 )}
                 <table>
