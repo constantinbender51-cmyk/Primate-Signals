@@ -119,7 +119,6 @@ export default function Dashboard() {
             <div className="table-container" style={{ marginBottom: '1rem', minHeight: '250px' }}>
                 {isMatrixLocked && (
                     <div className="paywall-overlay">
-                        <h2>Subscription Required</h2>
                         <button onClick={handleSubscribe}>Try for free</button>
                     </div>
                 )}
