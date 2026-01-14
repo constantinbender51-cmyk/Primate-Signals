@@ -7,49 +7,53 @@ export default function Layout() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('user'); // Clear user data on logout
+    localStorage.removeItem('user');
     navigate('/login');
   };
 
   return (
     <>
-      {/* Toast Notification Container */}
-      <Toaster position="top-right" />
+      <Toaster 
+        position="top-center" 
+        toastOptions={{
+            style: {
+                background: '#000',
+                color: '#fff',
+                fontFamily: 'Helvetica Neue',
+                borderRadius: '0px',
+            },
+        }}
+      />
 
-      {/* Navigation Bar */}
       <nav className="navbar">
         <Link to="/" className="nav-brand">Primate</Link>
-        <div>
-          <Link to="/api-docs" style={{ marginRight: '1rem', color: 'var(--primary)', textDecoration: 'none' }}>API Docs</Link>
+        <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+          <Link to="/api-docs" style={{ textDecoration: 'none', fontSize: '0.9rem' }}>API</Link>
           {isLoggedIn ? (
-            <button className="secondary" onClick={handleLogout}>Logout</button>
+            <button className="secondary" onClick={handleLogout} style={{padding: '0.5rem 1rem'}}>Logout</button>
           ) : (
-            <Link to="/login">Login</Link>
+            <Link to="/login" style={{ textDecoration: 'none', fontSize: '0.9rem' }}>Login</Link>
           )}
         </div>
       </nav>
 
-      {/* Page Content Renders Here */}
       <main className="container">
         <Outlet />
       </main>
 
-      {/* Footer with Legal Links */}
       <footer style={{ 
-          marginTop: '4rem', 
-          padding: '2rem 1rem', 
-          background: '#f1f5f9', 
-          borderTop: '1px solid var(--border)', 
-          textAlign: 'center',
-          fontSize: '0.9rem',
-          color: '#64748b'
+          marginTop: '6rem', 
+          padding: '4rem 2rem', 
+          borderTop: '1px solid var(--border-color)', 
+          fontSize: '0.8rem',
+          textAlign: 'center'
       }}>
-          <div className="container" style={{maxWidth: '800px'}}>
-              <p>&copy; {new Date().getFullYear()} Trading signals. All rights reserved.</p>
-              <div style={{marginTop: '1rem'}}>
-                  <Link to="/legal/impressum" style={{margin: '0 10px', color: 'var(--primary)', textDecoration: 'none'}}>Impressum</Link>
-                  <Link to="/legal/privacy-policy" style={{margin: '0 10px', color: 'var(--primary)', textDecoration: 'none'}}>Privacy Policy</Link>
-                  <Link to="/legal/terms-of-service" style={{margin: '0 10px', color: 'var(--primary)', textDecoration: 'none'}}>Terms of Service</Link>
+          <div style={{maxWidth: '600px', margin: '0 auto'}}>
+              <p>&copy; {new Date().getFullYear()} Primate Research.</p>
+              <div style={{marginTop: '2rem', display: 'flex', justifyContent: 'center', gap: '2rem'}}>
+                  <Link to="/legal/impressum" style={{textDecoration: 'none'}}>Impressum</Link>
+                  <Link to="/legal/privacy-policy" style={{textDecoration: 'none'}}>Privacy</Link>
+                  <Link to="/legal/terms-of-service" style={{textDecoration: 'none'}}>Terms</Link>
               </div>
           </div>
       </footer>
