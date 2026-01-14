@@ -7,8 +7,8 @@ const TF_ORDER = ['15m', '30m', '60m', '240m', '1d'];
 
 // Simple Text Helpers
 const getSignalText = (val) => {
-    if (val === 1) return 'BUY';
-    if (val === -1) return 'SELL';
+    if (val === 1) return <span style={{ color: 'green' }}>BUY</span>;
+    if (val === -1) return <span style={{ color: 'red' }}>SELL</span>;
     return 'WAIT';
 };
 
