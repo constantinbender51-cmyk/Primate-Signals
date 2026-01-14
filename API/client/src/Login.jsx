@@ -13,39 +13,39 @@ export default function Login() {
         try {
             const res = await api.post('/auth/login', { email, password });
             localStorage.setItem('token', res.data.token);
-            // --- NEW: Store User Data for Dashboard Display ---
             localStorage.setItem('user', JSON.stringify(res.data.user)); 
             
-            toast.success("Welcome back!");
+            toast.success("LOGIN SUCCESSFUL");
             navigate('/');
         } catch (err) {
-            toast.error("Invalid email or password");
+            toast.error("INVALID CREDENTIALS");
         }
     };
 
     return (
         <div className="auth-card">
-            <h2 style={{marginTop: 0}}>Login</h2>
+            <h3>Login</h3>
             <form onSubmit={handleLogin}>
                 <input 
                     type="email" 
-                    placeholder="Email" 
+                    placeholder="EMAIL ADDRESS" 
                     value={email} 
                     onChange={e => setEmail(e.target.value)} 
                     required 
                 />
                 <input 
                     type="password" 
-                    placeholder="Password" 
+                    placeholder="PASSWORD" 
                     value={password} 
                     onChange={e => setPassword(e.target.value)} 
                     required 
                 />
-                <button type="submit" style={{width: '100%'}}>Log In</button>
+                <button type="submit" style={{ width: '100%', marginTop: '1rem' }}>Enter</button>
             </form>
-            <p style={{textAlign: 'center', marginTop: '1rem', fontSize: '0.9rem'}}>
-                Don't have an account? <Link to="/register">Register</Link>
-            </p>
+            <div style={{ marginTop: '2rem', fontSize: '0.8rem', textAlign: 'center' }}>
+                <span style={{ color: 'var(--text-subtle)' }}>NO ACCOUNT? </span>
+                <Link to="/register">REGISTER HERE</Link>
+            </div>
         </div>
     );
 }
