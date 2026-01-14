@@ -11,6 +11,7 @@ export default defineConfig({
       '/signal_history': 'http://localhost:3000',
       '/create-checkout-session': 'http://localhost:3000',
       '/create-portal-session': 'http://localhost:3000',
+      '/legal': 'http://localhost:3000', // Add proxy for legal documents
     }
   }
 })
