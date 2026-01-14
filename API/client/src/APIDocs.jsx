@@ -1,50 +1,62 @@
 import React from 'react';
 
 export default function APIDocs() {
-    return (
-        <div>
-            {/* Title matches the dashboard aesthetic */}
-            <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>API Documentation</div>
+    const codeExample = `// Configuration
+const API_ENDPOINT = "https://api.primatesignals.com/live_matrix"; 
+const API_KEY = "YOUR_API_KEY_HERE";
 
-            <p style={{ marginBottom: '10px' }}>
-                Fetch live matrix data programmatically.
-            </p>
+/**
+ * Fetches the Live Matrix data from the Primate Signals API.
+ */
+async function getLiveMatrix() {
+  try {
+    const response = await fetch(API_ENDPOINT, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY
+      }
+    });
 
-            <div style={{ marginBottom: '15px' }}>
-                <div><strong>Endpoint:</strong> GET <code>/live_matrix</code></div>
-                <div><strong>Header:</strong> <code>x-api-key: YOUR_API_KEY</code></div>
-            </div>
+    if (!response.ok) {
+      throw new Error("API Request failed: " + response.status);
+    }
 
-            {/* The Code Block: Grey box, black text, monospace font. */}
-            <pre style={{ 
-                background: '#f0f0f0', 
-                padding: '10px', 
-                border: '1px solid #000', 
-                fontSize: '12px',
-                fontFamily: 'monospace',
-                overflowX: 'auto',
-                whiteSpace: 'pre-wrap' // Wraps text so no horizontal scroll
-            }}>
-{`// Javascript Example
-const API_URL = "https://api.primatesignals.com/live_matrix";
-const API_KEY = "YOUR_KEY_HERE";
+    const data = await response.json();
+    console.log("Matrix data received:", data);
+    return data;
 
-async function getSignals() {
-  const res = await fetch(API_URL, {
-    headers: { "x-api-key": API_KEY }
-  });
-  
-  if (!res.ok) throw new Error("Failed");
-  
-  const data = await res.json();
-  console.log(data);
+  } catch (error) {
+    console.error("Failed to fetch live matrix:", error.message);
+  }
 }
 
-getSignals();`}
-            </pre>
+// Execute
+getLiveMatrix();`;
 
-            <div className="tiny" style={{ marginTop: '10px', color: '#000' }}>
-                Note: Rate limited to 60 req/min.
+    return (
+        <div>
+            <h3>API Documentation</h3>
+            <p>This page demonstrates how to use the Primate Signals API to fetch live matrix data programmatically.</p>
+            
+            <pre>{codeExample}</pre>
+
+            <div style={{ marginTop: '20px' }}>
+                <strong>Usage Notes</strong>
+                <ul>
+                    <li>Replace <code>API_ENDPOINT</code> with your production URL.</li>
+                    <li>Set <code>API_KEY</code> to your actual API key from the Dashboard.</li>
+                    <li>The API requires an active subscription.</li>
+                </ul>
+            </div>
+
+            <div style={{ marginTop: '20px', border: '1px solid #000', padding: '10px' }}>
+                <strong>Important Safety Warnings for Developers</strong>
+                <ul>
+                    <li><strong>Latency:</strong> Market conditions can change in milliseconds.</li>
+                    <li><strong>Fail-Safes:</strong> We strongly recommend implementing your own "Kill Switch" and "Max Daily Loss" logic.</li>
+                    <li><strong>Data Integrity:</strong> Your software must handle exceptions gracefully.</li>
+                </ul>
             </div>
         </div>
     );
