@@ -4,6 +4,7 @@ import Login from './Login';
 import Register from './Register';
 import Dashboard from './Dashboard';
 import LegalTextPage from './LegalTextPage';
+import APIDocs from './APIDocs';
 
 function App() {
   return (
@@ -15,6 +16,8 @@ function App() {
            <Route path="/" element={<Dashboard />} />
            {/* Legal Pages */}
            <Route path="/legal/:type" element={<LegalTextPage />} />
+           {/* API Documentation */}
+           <Route path="/api-docs" element={<APIDocs />} />
         </Route>
       </Routes>
     </BrowserRouter>
