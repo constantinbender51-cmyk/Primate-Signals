@@ -37,6 +37,8 @@ const initDB = async () => {
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255);`);
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'inactive';`);
         await client.query(`ALTER TABLE users ALTER COLUMN api_key DROP NOT NULL;`);
+        await client.query(`ALTER TABLE live_matrix ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP DEFAULT NOW();`);
+        await client.query(`ALTER TABLE signal_history ADD COLUMN IF NOT EXISTS timeframe VARCHAR(10);`);
 
         // Create missing data tables
         await client.query(`
@@ -46,7 +48,8 @@ const initDB = async () => {
                 timeframe VARCHAR(10),
                 signal_type VARCHAR(20),
                 price DECIMAL,
-                created_at TIMESTAMP DEFAULT NOW()
+                created_at TIMESTAMP DEFAULT NOW(),
+                last_updated TIMESTAMP DEFAULT NOW()
             );
         `);
 
@@ -54,6 +57,7 @@ const initDB = async () => {
             CREATE TABLE IF NOT EXISTS signal_history (
                 id SERIAL PRIMARY KEY,
                 symbol VARCHAR(20),
+                timeframe VARCHAR(10), -- Added timeframe column
                 action VARCHAR(10),
                 entry_price DECIMAL,
                 exit_price DECIMAL,
@@ -244,19 +248,43 @@ app.post('/auth/login', async (req, res) => {
 app.get('/live_matrix', authenticate, requireSubscription, async (req, res) => {
     try {
         const client = await pool.connect();
-        const result = await client.query('SELECT * FROM live_matrix');
+        // Select all columns including the new last_updated
+        const result = await client.query('SELECT id, symbol as asset, timeframe as tf, signal_type as signal_val, price, created_at, last_updated FROM live_matrix');
         client.release();
         res.json({ results: result.rows });
-    } catch (err) { res.status(500).json({ error: 'Database error' }); }
+    } catch (err) { 
+        console.error('Error fetching live matrix:', err);
+        res.status(500).json({ error: 'Database error' }); 
+    }
 });
 
 app.get('/signal_history', async (req, res) => {
     try {
         const client = await pool.connect();
-        const result = await client.query('SELECT * FROM signal_history');
+        // Fetch history for the last 7 days, ordered by created_at descending
+        const result = await client.query(
+            `SELECT 
+                id, 
+                symbol as asset, 
+                timeframe as tf, 
+                action as signal, 
+                entry_price as price_at_signal, 
+                CASE 
+                    WHEN profit_loss > 0 THEN 'WIN' 
+                    WHEN profit_loss < 0 THEN 'LOSS' 
+                    ELSE 'NEUTRAL' 
+                END as outcome, 
+                TO_CHAR(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS') as time_str
+            FROM signal_history 
+            WHERE created_at >= NOW() - INTERVAL '7 days'
+            ORDER BY created_at DESC`
+        );
         client.release();
         res.json({ results: result.rows });
-    } catch (err) { res.status(500).json({ error: 'Database error' }); }
+    } catch (err) { 
+        console.error('Error fetching signal history:', err);
+        res.status(500).json({ error: 'Database error' }); 
+    }
 });
 
 // --- 7. STRIPE ROUTES ---
