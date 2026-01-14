@@ -125,7 +125,7 @@ export default function Dashboard() {
                 <h1 style={{ fontSize: '3rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>Trading signals</h1>
             </div>
 
-            <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '1rem', textAlign: 'left', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: '4px' }}>
+            <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '1rem', textAlign: 'left', border: '1px solid #94a3b8', padding: '0.5rem', borderRadius: '4px' }}>
                 ⚠️ Educational Use Only: These signals are strictly for informational purposes. They are not instructions to trade. Always verify market conditions before executing any transaction.
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -172,7 +172,7 @@ export default function Dashboard() {
             </div>
 
             {/* --- DISCLAIMER --- */}
-            <div style={{ marginBottom: '1rem', fontSize: '0.85rem', color: '#64748b', textAlign: 'left' }}>
+            <div style={{ marginBottom: '1rem', fontSize: '0.75rem', color: '#64748b', textAlign: 'left' }}>
                 <p>Disclaimer: These results are based on simulated performance (backtests) and do not represent actual trading. Past performance is not indicative of future results. Market conditions can change, and the algorithm may not perform as it did in the past.</p>
             </div>
 
