@@ -1,20 +1,20 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import api from './api'; [span_2](start_span)//[span_2](end_span)
+import api from './api';
 
 const getSignalUI = (val) => {
     // These classes now map to Green (buy) and Red (sell) in your new CSS
-    if (val === 1) return { text: 'BUY', className: 'badge badge-buy' }; [span_3](start_span)//[span_3](end_span)
-    if (val === -1) return { text: 'SELL', className: 'badge badge-sell' }; [span_4](start_span)//[span_4](end_span)
+    if (val === 1) return { text: 'BUY', className: 'badge badge-buy' };
+    if (val === -1) return { text: 'SELL', className: 'badge badge-sell' };
     return { text: '—', className: '' };
 };
 
-const TF_ORDER = ['15m', '30m', '60m', '240m', '1d']; [span_5](start_span)//[span_5](end_span)
+const TF_ORDER = ['15m', '30m', '60m', '240m', '1d'];
 
 export default function Dashboard() {
     const [matrixData, setMatrixData] = useState([]);
-    const [historyData, setHistoryData] = useState([]); [span_6](start_span)//[span_6](end_span)
+    const [historyData, setHistoryData] = useState([]);
     const [matrixStatus, setMatrixStatus] = useState('loading'); 
     const [apiKey, setApiKey] = useState(null);
     const navigate = useNavigate();
@@ -23,30 +23,30 @@ export default function Dashboard() {
         const fetchData = async () => {
             try {
                 const historyRes = await api.get('/signal_history');
-                [span_7](start_span)setHistoryData(historyRes.data.results); //[span_7](end_span)
+                setHistoryData(historyRes.data.results);
             } catch (err) {
                 console.error("History fetch failed", err);
-                toast.error("Could not load history"); [span_8](start_span)//[span_8](end_span)
+                toast.error("Could not load history");
             }
 
             try {
                 const matrixRes = await api.get('/live_matrix');
                 setMatrixData(matrixRes.data.results);
-                setMatrixStatus('active'); [span_9](start_span)//[span_9](end_span)
+                setMatrixStatus('active');
             } catch (err) {
                 if (err.response?.status === 403 || err.response?.status === 401) {
                     setMatrixStatus('unpaid');
                     setMatrixData([]); 
                 } else {
                     console.error(err);
-                    setMatrixStatus('loading'); [span_10](start_span)//[span_10](end_span)
+                    setMatrixStatus('loading');
                 }
             }
             
             const userStr = localStorage.getItem('user');
             if (userStr) {
                 const user = JSON.parse(userStr);
-                setApiKey(user.api_key); [span_11](start_span)//[span_11](end_span)
+                setApiKey(user.api_key);
             }
         };
 
@@ -61,7 +61,7 @@ export default function Dashboard() {
         uniqueAssets.forEach(asset => {
             lookup[asset] = {};
             TF_ORDER.forEach(tf => {
-                [span_12](start_span)const point = matrixData.find(d => d.asset === asset && d.tf === tf); //[span_12](end_span)
+                const point = matrixData.find(d => d.asset === asset && d.tf === tf);
                 lookup[asset][tf] = point ? point.signal_val : 0;
             });
         });
@@ -77,23 +77,23 @@ export default function Dashboard() {
             else if (row.outcome === 'LOSS') losses++;
         });
         const total = wins + losses;
-        [span_13](start_span)return { accuracy: total > 0 ? ((wins / total) * 100).toFixed(2) : 0 }; //[span_13](end_span)
+        return { accuracy: total > 0 ? ((wins / total) * 100).toFixed(2) : 0 };
     }, [historyData]);
 
     const handleSubscribe = async () => { 
         try {
             const res = await api.post('/create-checkout-session');
-            window.location.href = res.data.url; [span_14](start_span)//[span_14](end_span)
+            window.location.href = res.data.url;
         } catch (err) { 
             if (!localStorage.getItem('token')) navigate('/login');
-            else toast.error("Payment Service Unavailable"); [span_15](start_span)//[span_15](end_span)
+            else toast.error("Payment Service Unavailable");
         }
     };
     
     const handleManage = async () => { 
         try {
             const res = await api.post('/create-portal-session');
-            window.location.href = res.data.url; [span_16](start_span)//[span_16](end_span)
+            window.location.href = res.data.url;
         } catch (err) { toast.error("Portal Error"); }
     };
 
@@ -112,11 +112,11 @@ export default function Dashboard() {
                 [NOTE] Educational Use Only. These signals are strictly for informational purposes. Verify all market conditions.
             </div>
 
-            [span_17](start_span)<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px' }}> {/*[span_17](end_span) */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px' }}>
                 <div>
                     <h3>Live Matrix</h3>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-subtle)' }}>
-                        [span_18](start_span)Last Update: {matrixData.length > 0 ? new Date(matrixData[0].updated_at).toLocaleTimeString() : '-'} {/*[span_18](end_span) */}
+                        Last Update: {matrixData.length > 0 ? new Date(matrixData[0].updated_at).toLocaleTimeString() : '-'}
                     </span>
                 </div>
                 {!isMatrixLocked && <button className="secondary" onClick={handleManage}>Manage Subscription</button>}
@@ -127,19 +127,19 @@ export default function Dashboard() {
                 {isMatrixLocked && (
                     <div className="paywall-overlay">
                         <p style={{ marginBottom: '2rem', textTransform: 'uppercase', letterSpacing: '0.2rem' }}>Access Restricted</p>
-                        [span_19](start_span)<button onClick={handleSubscribe}>Unlock Matrix</button> {/*[span_19](end_span) */}
+                        <button onClick={handleSubscribe}>Unlock Matrix</button>
                     </div>
                 )}
                 
-                <table className={isMatrixLocked ? [span_20](start_span)'blurred-content' : ''}> {/*[span_20](end_span) */}
+                <table className={isMatrixLocked ? 'blurred-content' : ''}>
                     <thead>
                         <tr>
                             <th>Asset</th>
-                            [span_21](start_span){timeframes.map(tf => <th key={tf} style={{textAlign:'center'}}>{tf}</th>)} {/*[span_21](end_span) */}
+                            {timeframes.map(tf => <th key={tf} style={{textAlign:'center'}}>{tf}</th>)}
                         </tr>
                     </thead>
                     <tbody>
-                        [span_22](start_span){assets.length > 0 ? assets.map(asset => ( //[span_22](end_span)
+                        {assets.length > 0 ? assets.map(asset => (
                             <tr key={asset}>
                                 <td style={{ fontWeight: '400' }}>{asset}</td>
                                 {timeframes.map(tf => {
@@ -147,13 +147,13 @@ export default function Dashboard() {
                                     const ui = getSignalUI(val);
                                     return (
                                         <td key={`${asset}-${tf}`} style={{ textAlign: 'center' }}>
-                                            [span_23](start_span)<span className={ui.className}>{ui.text}</span> {/*[span_23](end_span) */}
+                                            <span className={ui.className}>{ui.text}</span>
                                         </td>
                                     );
                                 })}
                             </tr>
                         )) : (
-                            [span_24](start_span)!isMatrixLocked && <tr><td colSpan={timeframes.length + 2} style={{textAlign:'center', padding: '3rem'}}>Waiting for market data...</td></tr> //[span_24](end_span)
+                            !isMatrixLocked && <tr><td colSpan={timeframes.length + 2} style={{textAlign:'center', padding: '3rem'}}>Waiting for market data...</td></tr>
                         )}
                     </tbody>
                 </table>
@@ -167,19 +167,19 @@ export default function Dashboard() {
                 <p style={{ color: 'var(--text-subtle)' }}>
                     Proprietary model analyzing Price Action and Volume on 4H timeframes.
                     Identifies statistical trend reversals via Momentum Oscillators. 
-                    Zero human intervention. [span_25](start_span){/*[span_25](end_span) */}
+                    Zero human intervention.
                 </p>
                 <br />
                 <p style={{fontSize: '0.8rem'}}>
                     DISCLAIMER: Results based on simulated backtests.
-                    Past performance does not guarantee future results. [span_26](start_span){/*[span_26](end_span) */}
+                    Past performance does not guarantee future results.
                 </p>
             </div>
 
             {/* --- HISTORY --- */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <h3>Signal History</h3>
-                [span_27](start_span)<p>Accuracy: <strong>{accuracy}%</strong></p> {/*[span_27](end_span) */}
+                <p>Accuracy: <strong>{accuracy}%</strong></p>
             </div>
             
             <div className="table-container">
@@ -195,13 +195,13 @@ export default function Dashboard() {
                         </tr>
                     </thead>
                     <tbody>
-                        [span_28](start_span){historyData.length > 0 ? historyData.map((row, i) => ( //[span_28](end_span)
+                        {historyData.length > 0 ? historyData.map((row, i) => (
                             <tr key={i}>
                                 <td>{row.time_str}</td>
                                 <td>{row.asset}</td>
                                 <td>{row.tf}</td>
                                 <td>
-                                    <span className={row.signal === 'BUY' ? [span_29](start_span)'badge badge-buy' : 'badge badge-sell'}> {/*[span_29](end_span) */}
+                                    <span className={row.signal === 'BUY' ? 'badge badge-buy' : 'badge badge-sell'}>
                                         {row.signal}
                                     </span>
                                 </td>
@@ -217,7 +217,7 @@ export default function Dashboard() {
                                 </td>
                             </tr>
                         )) : (
-                            [span_30](start_span)<tr><td colSpan="6" style={{textAlign:'center', padding:'3rem'}}>No history recorded</td></tr> //[span_30](end_span)
+                            <tr><td colSpan="6" style={{textAlign:'center', padding:'3rem'}}>No history recorded</td></tr>
                         )}
                     </tbody>
                 </table>
