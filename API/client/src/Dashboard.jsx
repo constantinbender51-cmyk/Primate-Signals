@@ -173,6 +173,11 @@ export default function Dashboard() {
                 <p><strong>How to read:</strong> The matrix above shows real-time trend signals across multiple timeframes. Green (BUY) indicates a bullish trend, while Red (SELL) indicates bearish momentum. Use confluence across timeframes for higher probability entries.</p>
             </div>
 
+            {/* --- DISCLAIMER --- */}
+            <div style={{ marginBottom: '3rem', padding: '1rem', background: '#fffbe0', borderRadius: '8px', border: '1px solid #fcd34d', fontSize: '0.9rem', color: '#a16207' }}>
+                <p><strong>Disclaimer:</strong> These results are based on simulated performance (backtests) and do not represent actual trading. Past performance is not indicative of future results. Market conditions can change, and the algorithm may not perform as it did in the past.</p>
+            </div>
+
             {/* --- NEW: Accuracy Metrics Display --- */}
             <div style={{ marginBottom: '3rem', padding: '1rem', background: '#e0f2fe', borderRadius: '8px', border: '1px solid #90cdf4', color: '#0c4a6e' }}>
                 <h3 style={{marginTop: 0, marginBottom: '0.5rem', color: '#0c4a6e'}}>Accuracy Metrics</h3>
