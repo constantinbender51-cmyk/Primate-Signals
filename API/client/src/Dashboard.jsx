@@ -169,8 +169,8 @@ export default function Dashboard() {
             </div>
 
             {/* --- DISCLAIMER --- */}
-            <div style={{ marginBottom: '1rem', padding: '1rem', background: '#fffbe0', borderRadius: '8px', border: '1px solid #fcd34d', fontSize: '0.9rem', color: '#a16207' }}>
-                <p><strong>Disclaimer:</strong> These results are based on simulated performance (backtests) and do not represent actual trading. Past performance is not indicative of future results. Market conditions can change, and the algorithm may not perform as it did in the past.</p>
+            <div style={{ marginBottom: '1rem', fontSize: '0.85rem', color: '#64748b', textAlign: 'center' }}>
+                <p>Disclaimer: These results are based on simulated performance (backtests) and do not represent actual trading. Past performance is not indicative of future results. Market conditions can change, and the algorithm may not perform as it did in the past.</p>
             </div>
 
             {/* --- EXPLANATION --- */}
