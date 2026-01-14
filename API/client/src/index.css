@@ -1,124 +1,185 @@
 :root {
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --bg-color: #f8fafc;
-  --text-main: #1e293b;
-  --border: #e2e8f0;
-  --danger: #ef4444;
-  --success: #10b981;
+  --bg-color: #ffffff;
+  --text-main: #000000;
+  --text-subtle: #555555;
+  --border-color: #000000;
+  --border-light: #e0e0e0;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   background-color: var(--bg-color);
   color: var(--text-main);
+  font-weight: 300; /* Thin */
+  letter-spacing: 0.06rem; /* Wide spaced */
+  line-height: 1.6;
   margin: 0;
   padding: 0;
+  -webkit-font-smoothing: antialiased;
 }
+
+/* --- Typography --- */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.15rem;
+  margin-top: 2rem;
+  margin-bottom: 1.5rem;
+  color: var(--text-main);
+}
+
+h1 { font-size: 2rem; }
+h3 { font-size: 1.2rem; border-bottom: 1px solid var(--text-main); padding-bottom: 0.5rem; }
+
+a {
+  color: var(--text-main);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  transition: opacity 0.2s;
+}
+
+a:hover { opacity: 0.6; }
 
 /* --- Layout --- */
 .navbar {
-  background: white;
-  padding: 1rem 2rem;
-  border-bottom: 1px solid var(--border);
+  background: var(--bg-color);
+  padding: 2rem 0; /* More breathing room */
+  margin: 0 2rem;
+  border-bottom: 2px solid var(--text-main); /* Thick black line */
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.nav-brand { font-weight: bold; font-size: 1.25rem; color: var(--primary); text-decoration: none; }
-.container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); padding: 2rem; }
+.nav-brand {
+  font-weight: 400;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2rem;
+  text-decoration: none;
+  color: var(--text-main);
+}
 
-/* --- Forms --- */
+.container {
+  max-width: 1200px; /* Wider container */
+  margin: 4rem auto;
+  padding: 0 2rem;
+}
+
+/* --- Forms & Cards --- */
 .auth-card {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  padding: 3rem;
   width: 100%;
   max-width: 400px;
-  margin: 4rem auto;
+  margin: 6rem auto;
 }
 
 input {
   width: 100%;
-  padding: 0.75rem;
-  margin-bottom: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-sizing: border-box; /* Fixes padding issues */
+  padding: 1rem 0; /* Underline style inputs */
+  margin-bottom: 1.5rem;
+  border: none;
+  border-bottom: 1px solid var(--border-light);
+  background: transparent;
+  font-family: inherit;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+  border-radius: 0;
 }
+
+input:focus { border-bottom: 1px solid var(--text-main); }
 
 /* --- Buttons --- */
 button {
-  background-color: var(--primary);
-  color: white;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
+  background-color: var(--text-main);
+  color: var(--bg-color);
+  padding: 1rem 2rem;
+  border: 1px solid var(--text-main);
+  border-radius: 0; /* Sharp corners */
+  font-family: inherit;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  font-size: 0.8rem;
 }
 
-button:hover { background-color: var(--primary-hover); }
-button.secondary { background-color: white; color: var(--text-main); border: 1px solid var(--border); }
-button.secondary:hover { background-color: #f1f5f9; }
+button:hover {
+  background-color: transparent;
+  color: var(--text-main);
+}
+
+button.secondary {
+  background-color: transparent;
+  color: var(--text-main);
+}
+
+button.secondary:hover {
+  background-color: var(--text-main);
+  color: var(--bg-color);
+}
 
 /* --- Data Table --- */
 .table-container {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-  overflow: hidden;
-  position: relative; /* Context for the blur overlay */
-}
-
-table { width: 100%; border-collapse: collapse; }
-th { background: #f1f5f9; text-align: left; padding: 1rem; font-size: 0.875rem; color: #64748b; }
-td { padding: 1rem; border-bottom: 1px solid var(--border); }
-tr:last-child td { border-bottom: none; }
-
-
-
-pre {
-  background: #f8fafc;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1.5rem;
+  margin: 2rem 0;
+  position: relative;
   overflow-x: auto;
-  margin: 1rem 0;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 0.9rem;
-  line-height: 1.5;
 }
 
-code {
-  background: #eee;
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: 0.9rem;
 }
 
-.code-block {
-  background: #f8fafc;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1.5rem;
-  overflow-x: auto;
-  margin: 1.5rem 0;
+th {
+  text-align: left;
+  padding: 1rem;
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-subtle);
 }
 
-/* --- Badges --- */
-.badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
-.badge-buy { background: #dcfce7; color: #166534; }
-.badge-sell { background: #fee2e2; color: #991b1b; }
+td {
+  padding: 1.25rem 1rem;
+  border-bottom: 1px solid var(--border-light);
+}
 
-/* --- Paywall Blur --- */
-.blurred-content { filter: blur(6px); user-select: none; pointer-events: none; }
+/* --- Badges (Monochrome) --- */
+.badge {
+  padding: 0.3rem 0.8rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+  border: 1px solid var(--text-main);
+}
+
+/* BUY = Solid Black */
+.badge-buy {
+  background: var(--text-main);
+  color: var(--bg-color);
+}
+
+/* SELL = White with Black Border */
+.badge-sell {
+  background: transparent;
+  color: var(--text-main);
+}
+
+/* --- Paywall --- */
+.blurred-content {
+  filter: blur(8px);
+  opacity: 0.3;
+  user-select: none;
+  pointer-events: none;
+}
+
 .paywall-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -126,41 +187,21 @@ code {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.6);
   z-index: 10;
+  /* Removed background color for a cleaner look, relies on blur */
 }
 
-/* --- NEW: Expanding Progress Bars for Matrix --- */
-.signal-cell {
-  position: relative;
-  width: 100%;
-  height: 3rem; /* Height of the row to fill */
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* --- Utilities --- */
+code {
+  font-family: 'Courier New', Courier, monospace;
+  background: #f4f4f4;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.85rem;
 }
 
-.progress-fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  z-index: 1; /* Behind text */
-  transition: width 1s linear;
-  opacity: 0.3; /* Light opaque effect */
+.disclaimer-box {
+  border: 1px solid var(--border-color);
+  padding: 2rem;
+  margin-bottom: 3rem;
+  font-size: 0.9rem;
 }
-
-.signal-text {
-  position: relative;
-  z-index: 2; /* On top of color */
-  font-weight: bold;
-  font-size: 0.75rem;
-  letter-spacing: 0.05rem;
-}
-
-/* Colors derived from your variables/badges */
-.is-buy .progress-fill { background-color: var(--success); }
-.is-buy .signal-text { color: #166534; }
-
-.is-sell .progress-fill { background-color: var(--danger); }
-.is-sell .signal-text { color: #991b1b; }
