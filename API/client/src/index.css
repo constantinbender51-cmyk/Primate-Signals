@@ -6,9 +6,9 @@
   --border-light: #e0e0e0;
   
   /* --- NEW COLOR PALETTE --- */
-  --color-teal: #000000;   /* Brand / Primary - changed to black */
-  --color-green: rgba(46, 139, 87, 0.25);  /* Buy / Win - 25% opaque */
-  --color-red: rgba(211, 47, 47, 0.25);    /* Sell / Loss - 25% opaque */
+  --color-teal: #008080;   /* Brand / Primary */
+  --color-green: #2e8b57;  /* Buy / Win */
+  --color-red: #d32f2f;    /* Sell / Loss */
 }
 
 body {
@@ -36,13 +36,13 @@ h1, h2, h3, h4, h5, h6 {
 h1 { font-size: 2rem; }
 h3 { 
   font-size: 1.2rem; 
-  border-bottom: 2px solid var(--color-teal); /* Black underline */
+  border-bottom: 2px solid var(--color-teal); /* Teal underline */
   padding-bottom: 0.5rem; 
   display: inline-block; /* Only underline the text */
 }
 
 a {
-  color: var(--color-teal); /* Black links */
+  color: var(--color-teal); /* Teal links */
   text-decoration: underline;
   text-underline-offset: 4px;
   transition: opacity 0.2s;
@@ -55,7 +55,7 @@ a:hover { opacity: 0.6; }
   background: var(--bg-color);
   padding: 2rem 0;
   margin: 0 2rem;
-  border-bottom: 2px solid var(--color-teal); /* Black border */
+  border-bottom: 2px solid var(--color-teal); /* Teal border */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -67,7 +67,7 @@ a:hover { opacity: 0.6; }
   text-transform: uppercase;
   letter-spacing: 0.2rem;
   text-decoration: none;
-  color: var(--color-teal); /* Black Brand */
+  color: var(--color-teal); /* Teal Brand */
 }
 
 .container {
@@ -84,7 +84,7 @@ a:hover { opacity: 0.6; }
   width: 100%;
   max-width: 400px;
   margin: 6rem auto;
-  box-shadow: 5px 5px 0px var(--color-teal); /* Black shadow accent */
+  box-shadow: 5px 5px 0px var(--color-teal); /* Teal shadow accent */
 }
 
 input {
@@ -105,7 +105,7 @@ input:focus { border-bottom: 1px solid var(--color-teal); }
 
 /* --- Buttons --- */
 button {
-  background-color: var(--color-teal); /* Black Button */
+  background-color: var(--color-teal); /* Teal Button */
   color: #ffffff;
   padding: 1rem 2rem;
   border: 1px solid var(--color-teal);
@@ -171,19 +171,19 @@ td {
   text-transform: uppercase;
   letter-spacing: 0.05rem;
   font-weight: 600;
-  color: var(--text-main);
-  background: transparent;
-  border: none;
+  color: white;
 }
 
-/* BUY = BLACK */
+/* BUY = GREEN */
 .badge-buy {
-  color: #000000;
+  background: var(--color-green);
+  border: 1px solid var(--color-green);
 }
 
-/* SELL = WHITE */
+/* SELL = RED */
 .badge-sell {
-  color: #000000;
+  background: var(--color-red);
+  border: 1px solid var(--color-red);
 }
 
 /* --- Paywall --- */
@@ -214,8 +214,8 @@ code {
 }
 
 .disclaimer-box {
-  border: 1px solid var(--color-teal); /* Black Border */
-  background: #f0fdfc; /* Very light teal bg - kept as is */
+  border: 1px solid var(--color-teal); /* Teal Border */
+  background: #f0fdfc; /* Very light teal bg */
   padding: 2rem;
   margin-bottom: 3rem;
   font-size: 0.9rem;
