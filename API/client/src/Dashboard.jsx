@@ -3,21 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from './api';
 
-// --- 1. MOCK DATA (TEASERS) ---
-const TEASER_MATRIX = [
-    { asset: 'BTCUSDT', tf: '15m', signal_val: 1 },
-    { asset: 'ETHUSDT', tf: '15m', signal_val: -1 },
-    { asset: 'SOLUSDT', tf: '1d', signal_val: 1 },
-    { asset: 'DOGEUSDT', tf: '60m', signal_val: -1 },
-];
-
-const TEASER_HISTORY = [
-    { id: 7593, time_str: '2026-01-14 15:00', asset: 'DOGEUSDT', tf: '60m', signal: 'SELL', price_at_signal: 0.14838, outcome: 'NOISE', close_price: 0.14899 },
-    { id: 7594, time_str: '2026-01-14 14:00', asset: 'XRPUSDT', tf: '60m', signal: 'BUY', price_at_signal: 2.116, outcome: 'WIN', close_price: 2.1598 },
-    { id: 7595, time_str: '2026-01-14 12:00', asset: 'BNBUSDT', tf: '240m', signal: 'BUY', price_at_signal: 928.79, outcome: 'WIN', close_price: 942.03 },
-    { id: 7596, time_str: '2026-01-14 11:00', asset: 'SOLUSDT', tf: '30m', signal: 'BUY', price_at_signal: 144.74, outcome: 'NOISE', close_price: 144.08 },
-];
-
 const getSignalUI = (val) => {
     if (val === 1) return { text: 'BUY', className: 'badge badge-buy' };
     if (val === -1) return { text: 'SELL', className: 'badge badge-sell' };
@@ -29,22 +14,24 @@ const TF_ORDER = ['15m', '30m', '60m', '240m', '1d'];
 export default function Dashboard() {
     const [matrixData, setMatrixData] = useState([]);
     const [historyData, setHistoryData] = useState([]);
-    const [status, setStatus] = useState('loading'); // loading | active | unpaid
+    const [status, setStatus] = useState('loading'); // loading | active | unpaid | error
     const [apiKey, setApiKey] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
         const fetchData = async () => {
             try {
+                // Fetch both endpoints
                 const [matrixRes, historyRes] = await Promise.all([
                     api.get('/live_matrix'),
                     api.get('/signal_history')
                 ]);
+
                 setMatrixData(matrixRes.data.results);
                 setHistoryData(historyRes.data.results);
                 setStatus('active');
                 
-                // Get User Info for API Key
+                // Get User Info for API Key display
                 const userStr = localStorage.getItem('user');
                 if (userStr) {
                     const user = JSON.parse(userStr);
@@ -52,13 +39,17 @@ export default function Dashboard() {
                 }
 
             } catch (err) {
-                // If 403 (Unpaid) or 401 (Not logged in), show TEASER
+                console.error(err);
+                // Handle Access Denied (Unpaid or Not Logged In)
                 if (err.response?.status === 403 || err.response?.status === 401) {
                     setStatus('unpaid');
-                    setMatrixData(TEASER_MATRIX);
-                    setHistoryData(TEASER_HISTORY); // <--- FIX: Fetch/Set Teaser History
-                } else {
-                    toast.error("Network Error");
+                    setMatrixData([]); // Ensure data is empty
+                    setHistoryData([]); // Ensure data is empty
+                } 
+                // Handle Actual Errors (Server down, Network issues)
+                else {
+                    setStatus('error');
+                    toast.error("Failed to retrieve data");
                 }
             }
         };
@@ -67,16 +58,14 @@ export default function Dashboard() {
 
     // --- Matrix Pivot Logic (Rows = Assets, Cols = TFs) ---
     const { assets, timeframes, grid } = useMemo(() => {
-        // If loading or empty
         if (!matrixData.length) {
-             // Fallback to show structure even if empty
-             return { assets: ['BTCUSDT', 'ETHUSDT'], timeframes: TF_ORDER, grid: { 'BTCUSDT': {}, 'ETHUSDT': {} } };
+             // Return structure for headers, but empty rows
+             return { assets: [], timeframes: TF_ORDER, grid: {} };
         }
 
         const uniqueAssets = [...new Set(matrixData.map(d => d.asset))].sort();
-        // Use predefined TF_ORDER to ensure columns are always in correct logic order
         const usedTfs = [...new Set(matrixData.map(d => d.tf))];
-        const sortedTfs = TF_ORDER.filter(tf => usedTfs.includes(tf) || true); // Keep all TFs for structure
+        const sortedTfs = TF_ORDER.filter(tf => usedTfs.includes(tf) || true); 
 
         const lookup = {};
         uniqueAssets.forEach(asset => {
@@ -95,11 +84,11 @@ export default function Dashboard() {
             const res = await api.post('/create-checkout-session');
             window.location.href = res.data.url;
         } catch (err) { 
-            // If they aren't logged in, send to login first
-            if(status === 'unpaid' && !localStorage.getItem('token')) {
+            // If strictly unpaid/unauth, redirect to login might be safer if no user token exists
+            if (!localStorage.getItem('token')) {
                 navigate('/login');
             } else {
-                toast.error("Payment Error"); 
+                toast.error("Payment Service Unavailable"); 
             }
         }
     };
@@ -111,7 +100,21 @@ export default function Dashboard() {
         } catch (err) { toast.error("Portal Error"); }
     };
 
-    if (status === 'loading') return <div style={{ textAlign: 'center', marginTop: '50px' }}>Loading Data...</div>;
+    // --- RENDER STATES ---
+
+    if (status === 'loading') {
+        return <div style={{ textAlign: 'center', marginTop: '50px' }}>Loading Data...</div>;
+    }
+
+    if (status === 'error') {
+        return (
+            <div style={{ textAlign: 'center', marginTop: '50px', color: 'var(--danger)' }}>
+                <h2>Error Loading Data</h2>
+                <p>Unable to retrieve signals. Please check your connection or try again later.</p>
+                <button className="secondary" onClick={() => window.location.reload()}>Retry</button>
+            </div>
+        );
+    }
 
     const isLocked = status === 'unpaid';
 
@@ -128,15 +131,15 @@ export default function Dashboard() {
                 {!isLocked && <button className="secondary" onClick={handleManage}>Manage Subscription</button>}
             </div>
 
-            {/* --- 1. LIVE MATRIX (Transposed) --- */}
-            <div className="table-container" style={{ marginBottom: '1rem' }}>
+            {/* --- 1. LIVE MATRIX --- */}
+            <div className="table-container" style={{ marginBottom: '1rem', minHeight: '250px' }}>
                 {isLocked && (
                     <div className="paywall-overlay">
                         <h2>Subscription Required</h2>
                         <button onClick={handleSubscribe}>Get Access</button>
                     </div>
                 )}
-                <table className={isLocked ? 'blurred-content' : ''}>
+                <table>
                     <thead>
                         <tr>
                             <th>Asset</th>
@@ -144,7 +147,7 @@ export default function Dashboard() {
                         </tr>
                     </thead>
                     <tbody>
-                        {assets.map(asset => (
+                        {assets.length > 0 ? assets.map(asset => (
                             <tr key={asset}>
                                 <td style={{ fontWeight: 'bold' }}>{asset}</td>
                                 {timeframes.map(tf => {
@@ -157,7 +160,10 @@ export default function Dashboard() {
                                     );
                                 })}
                             </tr>
-                        ))}
+                        )) : (
+                            // Render empty row if no data (avoids collapsed table)
+                            !isLocked && <tr><td colSpan={timeframes.length + 1} style={{textAlign:'center'}}>No live signals available</td></tr>
+                        )}
                     </tbody>
                 </table>
             </div>
@@ -169,15 +175,14 @@ export default function Dashboard() {
 
             {/* --- 2. SIGNAL HISTORY --- */}
             <h3>Signal History</h3>
-            <div className="table-container">
+            <div className="table-container" style={{ minHeight: '250px' }}>
                  {isLocked && (
                     <div className="paywall-overlay">
-                        {/* Reuse Paywall or allow partial view? Assuming blocked for consistency */}
-                         <h2>Subscription Required</h2>
+                        <h2>Subscription Required</h2>
                         <button onClick={handleSubscribe}>Get Access</button>
                     </div>
                 )}
-                <table className={isLocked ? 'blurred-content' : ''}>
+                <table>
                     <thead>
                         <tr>
                             <th>Time (UTC)</th>
@@ -211,13 +216,13 @@ export default function Dashboard() {
                                 </td>
                             </tr>
                         )) : (
-                            <tr><td colSpan="6" style={{textAlign:'center', padding:'2rem'}}>No history found</td></tr>
+                            !isLocked && <tr><td colSpan="6" style={{textAlign:'center', padding:'2rem'}}>No history found</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
 
-            {/* --- 3. API KEY DISPLAY (Only if Active) --- */}
+            {/* --- 3. API KEY DISPLAY (Only if Active & Key Exists) --- */}
             {!isLocked && apiKey && (
                 <div style={{ marginTop: '3rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: '8px' }}>
                     <h3>Your API Key</h3>
