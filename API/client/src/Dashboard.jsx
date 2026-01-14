@@ -80,6 +80,22 @@ export default function Dashboard() {
         return { assets: uniqueAssets, timeframes: TF_ORDER, grid: lookup };
     }, [matrixData]);
 
+    // --- History Metrics Logic ---
+    const { totalWins, totalLosses, accuracy } = useMemo(() => {
+        let wins = 0;
+        let losses = 0;
+        historyData.forEach(row => {
+            if (row.outcome === 'WIN') {
+                wins++;
+            } else if (row.outcome === 'LOSS') {
+                losses++;
+            }
+        });
+        const totalSignals = wins + losses;
+        const calculatedAccuracy = totalSignals > 0 ? ((wins / totalSignals) * 100).toFixed(2) : 0;
+        return { totalWins: wins, totalLosses: losses, accuracy: calculatedAccuracy };
+    }, [historyData]); // Recalculate when historyData changes
+
     const handleSubscribe = async () => { 
         try {
             const res = await api.post('/create-checkout-session');
@@ -156,6 +172,20 @@ export default function Dashboard() {
             {/* --- EXPLANATION --- */}
             <div style={{ marginBottom: '3rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', fontSize: '0.9rem', color: '#64748b' }}>
                 <p><strong>How to read:</strong> The matrix above shows real-time trend signals across multiple timeframes. Green (BUY) indicates a bullish trend, while Red (SELL) indicates bearish momentum. Use confluence across timeframes for higher probability entries.</p>
+            </div>
+
+            {/* --- NEW: Accuracy Metrics Display --- */}
+            <div style={{ marginBottom: '3rem', padding: '1rem', background: '#e0f2fe', borderRadius: '8px', border: '1px solid #90cdf4', color: '#0c4a6e' }}>
+                <h3 style={{marginTop: 0, marginBottom: '0.5rem', color: '#0c4a6e'}}>Accuracy Metrics</h3>
+                <p style={{marginBottom: '0.25rem'}}>
+                    Total Wins: <span style={{fontWeight: 'bold', color: 'var(--success)'}}>{totalWins}</span>
+                </p>
+                <p style={{marginBottom: '0.25rem'}}>
+                    Total Losses: <span style={{fontWeight: 'bold', color: 'var(--danger)'}}>{totalLosses}</span>
+                </p>
+                <p>
+                    Accuracy: <span style={{fontWeight: 'bold', fontSize: '1.1rem', color: accuracy >= 50 ? 'var(--success)' : 'var(--danger)'}}>{accuracy}%</span>
+                </p>
             </div>
 
             {/* --- 2. SIGNAL HISTORY (Public / Always Visible) --- */}
