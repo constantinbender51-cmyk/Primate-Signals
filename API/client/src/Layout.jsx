@@ -18,7 +18,7 @@ export default function Layout() {
 
       {/* Navigation Bar */}
       <nav className="navbar">
-        <Link to="/" className="nav-brand">Trading signals</Link>
+        <Link to="/" className="nav-brand">Primate</Link>
         <div>
           {isLoggedIn ? (
             <button className="secondary" onClick={handleLogout}>Logout</button>
