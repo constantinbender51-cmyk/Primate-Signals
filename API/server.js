@@ -267,12 +267,20 @@ app.post('/create-checkout-session', authenticate, async (req, res) => {
             payment_method_types: ['card'],
             customer: req.user.stripe_customer_id,
             line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+            
+            // --- ADD THIS BLOCK ---
+            subscription_data: {
+                trial_period_days: 30, // 30-day free trial
+            },
+            // ----------------------
+
             success_url: `${process.env.CLIENT_URL}/?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.CLIENT_URL}/`,
         });
         res.json({ url: session.url });
     } catch (err) { res.status(500).json({ error: 'Failed to create checkout session' }); }
 });
+
 
 app.post('/create-portal-session', authenticate, async (req, res) => {
     try {
