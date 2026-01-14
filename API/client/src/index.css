@@ -1,117 +1,150 @@
 :root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
-  --text-primary: #000000;
-  --text-subtle: #64748b;
-  --border: #e2e8f0;
-  --border-light: #f1f5f9;
-  --color-green: #059669;
-  --color-red: #dc2626;
-  --color-yellow: #d97706;
-  --font-sans: 'Helvetica Neue', Arial, sans-serif;
-}
-
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+  --bg-color: #ffffff;
+  --text-main: #263238;   /* Slightly softer black (Dark Blue-Grey) */
+  --text-subtle: #546e7a; /* Medium Blue-Grey for subtitles */
+  --border-color: #37474f;
+  --border-light: #cfd8dc; /* Light Blue-Grey border */
+  
+  /* --- NEW "SUBTLE" PALETTE --- */
+  --color-brand: #607d8b;  /* Light Blue-Grey (Primary) */
+  --color-green: #5c946e;  /* Sage Green (Subtle Buy/Win) */
+  --color-red: #ba5a5a;    /* Muted Red (Subtle Sell/Loss) */
 }
 
 body {
-  font-family: var(--font-sans);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  line-height: 1.5;
-  font-size: 14px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
   font-weight: 300;
+  letter-spacing: 0.06rem;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Typography --- */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.15rem;
+  margin-top: 2rem;
+  margin-bottom: 1.5rem;
+  color: var(--text-main);
+}
+
+h1 { font-size: 2rem; }
+h3 { 
+  font-size: 1.2rem; 
+  border-bottom: 2px solid var(--color-brand);
+  padding-bottom: 0.5rem; 
+  display: inline-block;
+}
+
+a {
+  color: var(--color-brand);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  transition: opacity 0.2s;
+}
+
+a:hover { opacity: 0.6; }
+
+/* --- Layout --- */
+.navbar {
+  background: var(--bg-color);
+  padding: 2rem 0;
+  margin: 0 2rem;
+  border-bottom: 2px solid var(--color-brand);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-brand {
+  font-weight: 400;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2rem;
+  text-decoration: none;
+  color: var(--color-brand);
 }
 
 .container {
   max-width: 1200px;
-  margin: 0 auto;
+  margin: 4rem auto;
   padding: 0 2rem;
 }
 
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.nav-brand {
-  font-size: 1.2rem;
-  font-weight: 400;
-  text-decoration: none;
-  color: inherit;
-}
-
-h1, h2, h3, h4 {
-  font-weight: 400;
-  margin-bottom: 1rem;
-}
-
-h1 {
-  font-size: 2.5rem;
-}
-
-h3 {
-  font-size: 1.25rem;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 0.5rem;
-}
-
-p {
-  margin-bottom: 1rem;
-}
-
-button, .button {
-  background: var(--text-primary);
-  color: var(--bg-primary);
-  border: none;
-  padding: 0.75rem 1.5rem;
-  font-family: inherit;
-  font-size: 0.9rem;
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-block;
-  transition: opacity 0.2s;
-}
-
-button:hover, .button:hover {
-  opacity: 0.8;
-}
-
-button.secondary {
-  background: transparent;
-  color: var(--text-primary);
-  border: 1px solid var(--border);
+/* --- Forms & Cards --- */
+.auth-card {
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  padding: 3rem;
+  width: 100%;
+  max-width: 400px;
+  margin: 6rem auto;
+  box-shadow: 6px 6px 0px var(--border-light); /* Softer shadow */
 }
 
 input {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid var(--border);
+  padding: 1rem 0;
+  margin-bottom: 1.5rem;
+  border: none;
+  border-bottom: 1px solid var(--border-light);
+  background: transparent;
   font-family: inherit;
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+  border-radius: 0;
+  color: var(--text-main);
 }
 
-.auth-card {
-  max-width: 400px;
-  margin: 4rem auto;
-  padding: 2rem;
-  border: 1px solid var(--border);
+input:focus { border-bottom: 1px solid var(--color-brand); }
+
+/* --- Buttons --- */
+button {
+  background-color: var(--color-brand);
+  color: #ffffff;
+  padding: 1rem 2rem;
+  border: 1px solid var(--color-brand);
+  border-radius: 4px; /* Slight rounding for a friendlier feel */
+  font-family: inherit;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.8rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
+button:hover {
+  background-color: #546e7a; /* Darker Blue-Grey on hover */
+  border-color: #546e7a;
+  transform: translateY(-1px);
+}
+
+button.secondary {
+  background-color: transparent;
+  color: var(--text-subtle);
+  border: 1px solid var(--border-light);
+  box-shadow: none;
+}
+
+button.secondary:hover {
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+  background: transparent;
+}
+
+/* --- Data Table --- */
 .table-container {
-  overflow-x: auto;
-  border: 1px solid var(--border);
+  margin: 2rem 0;
   position: relative;
+  overflow-x: auto;
 }
 
 table {
@@ -120,93 +153,77 @@ table {
   font-size: 0.9rem;
 }
 
-table th, table td {
-  padding: 1rem;
+th {
   text-align: left;
-  border-bottom: 1px solid var(--border);
-}
-
-table th {
-  font-weight: 400;
-  color: var(--text-subtle);
+  padding: 1rem;
+  font-weight: 500;
   text-transform: uppercase;
-  font-size: 0.8rem;
-  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+  border-bottom: 2px solid var(--border-light);
+  color: var(--text-subtle);
 }
 
-table tr:last-child td {
-  border-bottom: none;
+td {
+  padding: 1.25rem 1rem;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-main);
 }
 
-.disclaimer-box {
-  background: var(--bg-tertiary);
-  padding: 1.5rem;
-  margin: 2rem 0;
-  font-size: 0.9rem;
-  line-height: 1.6;
+/* --- Badges (SUBTLE) --- */
+.badge {
+  padding: 0.35rem 0.9rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+  font-weight: 600;
+  border-radius: 4px; /* Soft edges */
+  color: #fff;
+}
+
+/* BUY = Sage Green */
+.badge-buy {
+  background-color: var(--color-green);
+  border: none;
+}
+
+/* SELL = Muted Red */
+.badge-sell {
+  background-color: var(--color-red);
+  border: none;
+}
+
+/* --- Paywall --- */
+.blurred-content {
+  filter: blur(8px);
+  opacity: 0.4;
+  user-select: none;
+  pointer-events: none;
 }
 
 .paywall-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.95);
+  top: 0; left: 0; right: 0; bottom: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   z-index: 10;
 }
 
-.blurred-content {
-  filter: blur(4px);
-  pointer-events: none;
-  user-select: none;
-}
-
-/* Badge styles for live matrix */
-.badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.8rem;
-  font-weight: 400;
-  border-radius: 0px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #000000;
-}
-
-.badge-buy {
-  background: var(--color-green);
-}
-
-.badge-sell {
-  background: var(--color-red);
-}
-
-/* Signal history badges - plain text without boxes */
-.signal-history .badge {
-  background: none;
-  border: none;
-  padding: 0;
-  color: inherit;
-}
-
+/* --- Utilities --- */
 code {
-  background: var(--bg-tertiary);
-  padding: 0.25rem 0.5rem;
-  font-family: monospace;
+  font-family: 'Courier New', Courier, monospace;
+  background: #eceff1; /* Very light Blue-Grey */
+  padding: 0.2rem 0.5rem;
   font-size: 0.85rem;
-  border: 1px solid var(--border);
+  color: var(--color-brand);
+  border-radius: 3px;
 }
 
-a {
-  color: inherit;
-  text-decoration: underline;
-}
-
-a:hover {
-  text-decoration: none;
+.disclaimer-box {
+  border-left: 4px solid var(--color-brand);
+  background: #eceff1; /* Very light Blue-Grey bg */
+  padding: 2rem;
+  margin-bottom: 3rem;
+  font-size: 0.9rem;
 }
