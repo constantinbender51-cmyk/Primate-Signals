@@ -122,8 +122,7 @@ export default function Dashboard() {
         <div>
             {/* --- WELCOME HEADER --- */}
             <div style={{ textAlign: 'center', marginBottom: '3rem', marginTop: '2rem' }}>
-                <h1 style={{ fontSize: '3rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>Primate</h1>
-                <h2 style={{ fontSize: '1.5rem', color: '#64748b', fontWeight: '400', marginTop: 0 }}>Trading signals</h2>
+                <h1 style={{ fontSize: '3rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>Trading signals</h1>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
