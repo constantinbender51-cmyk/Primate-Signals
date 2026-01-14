@@ -171,20 +171,19 @@ td {
   text-transform: uppercase;
   letter-spacing: 0.05rem;
   font-weight: 600;
-  color: white;
+  color: var(--text-main);
+  background: transparent;
+  border: none;
 }
 
 /* BUY = BLACK */
 .badge-buy {
-  background: #000000;
-  border: 1px solid #000000;
+  color: var(--text-main);
 }
 
 /* SELL = WHITE */
 .badge-sell {
-  background: #ffffff;
-  border: 1px solid #000000;
-  color: #000000;
+  color: var(--text-main);
 }
 
 /* --- Paywall --- */
