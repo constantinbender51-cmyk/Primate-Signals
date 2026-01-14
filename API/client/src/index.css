@@ -27,6 +27,12 @@ a {
   cursor: pointer;
 }
 
+pre, code {
+    font-family: monospace;
+    color: #000 !important; /* Forces black text */
+    background-color: transparent;
+}
+
 /* UTILITIES */
 .tiny { font-size: 10px; color: #666; }
 table { width: 100%; border-collapse: collapse; margin: 10px 0; }
