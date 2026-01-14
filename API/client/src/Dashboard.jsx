@@ -129,7 +129,7 @@ export default function Dashboard() {
                 ⚠️ Educational Use Only: These signals are strictly for informational purposes. They are not instructions to trade. Always verify market conditions before executing any transaction.
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3>Live Matrix updated:</h3>
+                <h3>Live Matrix updated: {matrixData.length > 0 ? new Date(matrixData[0].updated_at).toLocaleString() : '-'}</h3>
                 {!isMatrixLocked && <button className="secondary" onClick={handleManage}>Manage Subscription</button>}
             </div>
 
@@ -147,7 +147,6 @@ export default function Dashboard() {
                         <tr>
                             <th>Asset</th>
                             {timeframes.map(tf => <th key={tf} style={{textAlign:'center'}}>{tf}</th>)}
-                            <th>updated_at</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -163,7 +162,6 @@ export default function Dashboard() {
                                         </td>
                                     );
                                 })}
-                                <td style={{ textAlign: 'center' }}>-</td>
                             </tr>
                         )) : (
                             // Only show "No signals" if NOT locked (otherwise the overlay covers it)
