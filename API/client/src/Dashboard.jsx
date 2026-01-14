@@ -14,52 +14,53 @@ const TF_ORDER = ['15m', '30m', '60m', '240m', '1d'];
 export default function Dashboard() {
     const [matrixData, setMatrixData] = useState([]);
     const [historyData, setHistoryData] = useState([]);
-    const [status, setStatus] = useState('loading'); // loading | active | unpaid | error
+    
+    // Status now only controls the MATRIX lock state
+    const [matrixStatus, setMatrixStatus] = useState('loading'); // loading | active | unpaid
     const [apiKey, setApiKey] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
         const fetchData = async () => {
+            // 1. Fetch History (Public - Always runs)
             try {
-                // Fetch both endpoints
-                const [matrixRes, historyRes] = await Promise.all([
-                    api.get('/live_matrix'),
-                    api.get('/signal_history')
-                ]);
-
-                setMatrixData(matrixRes.data.results);
+                const historyRes = await api.get('/signal_history');
                 setHistoryData(historyRes.data.results);
-                setStatus('active');
-                
-                // Get User Info for API Key display
-                const userStr = localStorage.getItem('user');
-                if (userStr) {
-                    const user = JSON.parse(userStr);
-                    setApiKey(user.api_key);
-                }
-
             } catch (err) {
-                console.error(err);
-                // Handle Access Denied (Unpaid or Not Logged In)
+                console.error("History fetch failed", err);
+                toast.error("Could not load history");
+            }
+
+            // 2. Fetch Matrix (Private - Might fail if unpaid)
+            try {
+                const matrixRes = await api.get('/live_matrix');
+                setMatrixData(matrixRes.data.results);
+                setMatrixStatus('active');
+            } catch (err) {
                 if (err.response?.status === 403 || err.response?.status === 401) {
-                    setStatus('unpaid');
-                    setMatrixData([]); // Ensure data is empty
-                    setHistoryData([]); // Ensure data is empty
-                } 
-                // Handle Actual Errors (Server down, Network issues)
-                else {
-                    setStatus('error');
-                    toast.error("Failed to retrieve data");
+                    setMatrixStatus('unpaid');
+                    setMatrixData([]); 
+                } else {
+                    // Only show error if it's NOT an auth issue (e.g. server down)
+                    console.error(err);
+                    setMatrixStatus('loading'); // Keep loading or show error state
                 }
             }
+            
+            // 3. Get User Info (if logged in)
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                setApiKey(user.api_key);
+            }
         };
+
         fetchData();
     }, [navigate]);
 
-    // --- Matrix Pivot Logic (Rows = Assets, Cols = TFs) ---
+    // --- Matrix Pivot Logic ---
     const { assets, timeframes, grid } = useMemo(() => {
         if (!matrixData.length) {
-             // Return structure for headers, but empty rows
              return { assets: [], timeframes: TF_ORDER, grid: {} };
         }
 
@@ -84,7 +85,6 @@ export default function Dashboard() {
             const res = await api.post('/create-checkout-session');
             window.location.href = res.data.url;
         } catch (err) { 
-            // If strictly unpaid/unauth, redirect to login might be safer if no user token exists
             if (!localStorage.getItem('token')) {
                 navigate('/login');
             } else {
@@ -100,23 +100,7 @@ export default function Dashboard() {
         } catch (err) { toast.error("Portal Error"); }
     };
 
-    // --- RENDER STATES ---
-
-    if (status === 'loading') {
-        return <div style={{ textAlign: 'center', marginTop: '50px' }}>Loading Data...</div>;
-    }
-
-    if (status === 'error') {
-        return (
-            <div style={{ textAlign: 'center', marginTop: '50px', color: 'var(--danger)' }}>
-                <h2>Error Loading Data</h2>
-                <p>Unable to retrieve signals. Please check your connection or try again later.</p>
-                <button className="secondary" onClick={() => window.location.reload()}>Retry</button>
-            </div>
-        );
-    }
-
-    const isLocked = status === 'unpaid';
+    const isMatrixLocked = matrixStatus === 'unpaid';
 
     return (
         <div>
@@ -128,19 +112,19 @@ export default function Dashboard() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h3>Live Matrix</h3>
-                {!isLocked && <button className="secondary" onClick={handleManage}>Manage Subscription</button>}
+                {!isMatrixLocked && <button className="secondary" onClick={handleManage}>Manage Subscription</button>}
             </div>
 
-            {/* --- 1. LIVE MATRIX --- */}
+            {/* --- 1. LIVE MATRIX (Paywalled) --- */}
             <div className="table-container" style={{ marginBottom: '1rem', minHeight: '250px' }}>
-                {isLocked && (
+                {isMatrixLocked && (
                     <div className="paywall-overlay">
                         <h2>Subscription Required</h2>
-                        {/* UPDATE 1: Button text change */}
                         <button onClick={handleSubscribe}>Try for free</button>
                     </div>
                 )}
-                <table>
+                {/* Add blurry class if locked */}
+                <table className={isMatrixLocked ? 'blurred-content' : ''}>
                     <thead>
                         <tr>
                             <th>Asset</th>
@@ -162,7 +146,8 @@ export default function Dashboard() {
                                 })}
                             </tr>
                         )) : (
-                            !isLocked && <tr><td colSpan={timeframes.length + 1} style={{textAlign:'center'}}>No live signals available</td></tr>
+                            // Only show "No signals" if NOT locked (otherwise the overlay covers it)
+                            !isMatrixLocked && <tr><td colSpan={timeframes.length + 1} style={{textAlign:'center'}}>No live signals available</td></tr>
                         )}
                     </tbody>
                 </table>
@@ -173,16 +158,10 @@ export default function Dashboard() {
                 <p><strong>How to read:</strong> The matrix above shows real-time trend signals across multiple timeframes. Green (BUY) indicates a bullish trend, while Red (SELL) indicates bearish momentum. Use confluence across timeframes for higher probability entries.</p>
             </div>
 
-            {/* --- 2. SIGNAL HISTORY --- */}
+            {/* --- 2. SIGNAL HISTORY (Public / Always Visible) --- */}
             <h3>Signal History</h3>
             <div className="table-container" style={{ minHeight: '250px' }}>
-                 {isLocked && (
-                    <div className="paywall-overlay">
-                        <h2>Subscription Required</h2>
-                        {/* UPDATE 2: Button text change */}
-                        <button onClick={handleSubscribe}>Try for free</button>
-                    </div>
-                )}
+                {/* REMOVED PAYWALL OVERLAY FROM HERE */}
                 <table>
                     <thead>
                         <tr>
@@ -217,14 +196,14 @@ export default function Dashboard() {
                                 </td>
                             </tr>
                         )) : (
-                            !isLocked && <tr><td colSpan="6" style={{textAlign:'center', padding:'2rem'}}>No history found</td></tr>
+                            <tr><td colSpan="6" style={{textAlign:'center', padding:'2rem'}}>No history found</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
 
             {/* --- 3. API KEY DISPLAY (Only if Active & Key Exists) --- */}
-            {!isLocked && apiKey && (
+            {!isMatrixLocked && apiKey && (
                 <div style={{ marginTop: '3rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: '8px' }}>
                     <h3>Your API Key</h3>
                     <p style={{ fontSize: '0.9rem', color: '#64748b' }}>Use this key to access the raw JSON data programmatically.</p>
