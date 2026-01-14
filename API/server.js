@@ -6,7 +6,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const path = require('path');const fs = require('fs').promises;
+const path = require('path');
+const fs = require('fs'); // FIXED: Removed .promises to allow synchronous methods like existsSync
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -281,9 +282,6 @@ app.post('/create-checkout-session', authenticate, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Failed to create checkout session' }); }
 });
 
-
-
-
 // --- 7.5. LEGAL TEXT ROUTES ---
 app.get('/legal/:type', async (req, res) => {
     const { type } = req.params;
@@ -303,7 +301,8 @@ app.get('/legal/:type', async (req, res) => {
     }
 
     try {
-        const content = await fs.readFile(filePath, 'utf8');
+        // FIXED: Added .promises here to support async/await
+        const content = await fs.promises.readFile(filePath, 'utf8');
         res.setHeader('Content-Type', 'text/plain');
         res.send(content);
     } catch (err) {
@@ -314,11 +313,10 @@ app.get('/legal/:type', async (req, res) => {
 
 // --- 7.6. API DOCS ROUTE ---
 app.get('/api-docs', (req, res) => {
-    // This route ensures the React app handles the page via static serving
     const distPath = path.join(__dirname, 'client/dist', 'index.html');
     const devPath = path.join(__dirname, 'client', 'index.html');
     
-    // Check if dist exists, otherwise serve dev index.html
+    // FIXED: Now works because fs is the standard module
     if (fs.existsSync(distPath)) {
         res.sendFile(distPath);
     } else {
