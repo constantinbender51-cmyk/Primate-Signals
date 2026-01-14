@@ -58,6 +58,14 @@ getLiveMatrix();`;
                     <li>This is a GET request returning JSON data with the live matrix results.</li>
                 </ul>
             </div>
+            <div style={{ marginTop: '2rem', padding: '1rem', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '8px' }}>
+                <h3 style={{ color: '#856404' }}>Important Safety Warnings for Developers</h3>
+                <ul style={{ fontSize: '0.95rem', color: '#856404' }}>
+                    <li><strong>Latency:</strong> Market conditions can change in milliseconds. The price at the time of the signal generation may differ from the current market price.</li>
+                    <li><strong>Fail-Safes:</strong> We strongly recommend implementing your own "Kill Switch" and "Max Daily Loss" logic in your trading bot. Do not rely solely on this API for risk management.</li>
+                    <li><strong>Data Integrity:</strong> Occasionally, API responses may be delayed or return null. Your software must handle these exceptions gracefully without executing unintended trades.</li>
+                </ul>
+            </div>
         </div>
     );
 }
