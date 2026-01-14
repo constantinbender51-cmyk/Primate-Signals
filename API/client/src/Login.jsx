@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast'; // Import toast
+import toast from 'react-hot-toast'; 
 import api from './api';
 
 export default function Login() {
@@ -13,7 +13,10 @@ export default function Login() {
         try {
             const res = await api.post('/auth/login', { email, password });
             localStorage.setItem('token', res.data.token);
-            toast.success("Welcome back!"); // Friendly feedback
+            // --- NEW: Store User Data for Dashboard Display ---
+            localStorage.setItem('user', JSON.stringify(res.data.user)); 
+            
+            toast.success("Welcome back!");
             navigate('/');
         } catch (err) {
             toast.error("Invalid email or password");
