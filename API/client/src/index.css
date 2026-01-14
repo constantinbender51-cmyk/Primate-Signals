@@ -178,12 +178,12 @@ td {
 
 /* BUY = BLACK */
 .badge-buy {
-  color: var(--text-main);
+  color: #000000;
 }
 
 /* SELL = WHITE */
 .badge-sell {
-  color: var(--text-main);
+  color: #000000;
 }
 
 /* --- Paywall --- */
