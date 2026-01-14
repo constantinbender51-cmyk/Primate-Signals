@@ -378,11 +378,12 @@ app.get('*', (req, res) => {
 });
 
 // --- 9. START SERVER ---
-initDB().then(() => {
-    app.listen(process.env.PORT || 3000, () => {
-        console.log(`Server running on port ${process.env.PORT || 3000}`);
-    });
-});
+    (async () => {
+        await initDB();
+        app.listen(process.env.PORT || 3000, () => {
+            console.log(`Server running on port ${process.env.PORT || 3000}`);
+        });
+    })();
         const token = authHeader.split(' ')[1];
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
