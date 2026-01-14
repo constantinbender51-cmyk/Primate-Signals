@@ -1,5 +1,7 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import api from './api';
+import toast from 'react-hot-toast';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -10,6 +12,13 @@ export default function Layout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/login');
+  };
+
+  const handleManage = async () => { 
+    try {
+      const res = await api.post('/create-portal-session');
+      window.location.href = res.data.url;
+    } catch (err) { toast.error("Error"); }
   };
 
   return (
@@ -40,6 +49,11 @@ export default function Layout() {
             )}
             {' | '}
             <Link to="/api-docs">API</Link>
+        </div>
+        <div style={{ display: 'inline-block', float: 'right' }}>
+            {isLoggedIn && (
+                <button onClick={handleManage}>Manage Subscription</button>
+            )}
         </div>
       </div>
       
