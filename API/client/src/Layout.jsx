@@ -14,34 +14,51 @@ export default function Layout() {
 
   return (
     <>
-      <Toaster />
-      
-      {/* TITLE (No Underline) */}
-      <h1>
-        <Link to="/" style={{ textDecoration: 'none', color: '#000' }}>Primate</Link>
-      </h1>
+      <Toaster 
+        position="top-center" 
+        toastOptions={{
+            style: {
+                background: '#fff',
+                color: '#000',
+                border: '1px solid black',
+                borderRadius: '0',
+                fontFamily: 'Times New Roman'
+            },
+        }}
+      />
 
-      {/* NAV (Stacked) */}
-      <div style={{ marginBottom: '15px' }}>
-        {isLoggedIn ? (
-            <a href="#" onClick={handleLogout}>Logout</a>
-        ) : (
-            <Link to="/login">Login</Link>
-        )}
-        <br />
-        <Link to="/api-docs">API</Link>
+      {/* HEADER */}
+      <div>
+        <h1 style={{ display: 'inline-block', marginRight: '10px' }}>
+             <Link to="/" style={{ textDecoration: 'none', color: '#000' }}>Primate</Link>
+        </h1>
+        <div style={{ display: 'inline-block' }}>
+            {isLoggedIn ? (
+                <span><button onClick={handleLogout}>Logout</button></span>
+            ) : (
+                <span><Link to="/login">Login</Link></span>
+            )}
+            {' | '}
+            <Link to="/api-docs">API</Link>
+        </div>
+      </div>
+      
+      <div style={{ fontStyle: 'italic', marginBottom: '20px' }}>
+        Trading Signals
       </div>
 
       <main>
         <Outlet />
       </main>
 
-      {/* FOOTER */}
-      <div style={{ marginTop: '30px', fontSize: '12px' }}>
-        <Link to="/legal/impressum">Impressum</Link>,{' '}
-        <Link to="/legal/privacy-policy">PP</Link>,{' '}
-        <Link to="/legal/terms-of-service">ToS</Link>
-      </div>
+      <footer style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid #000', fontSize: '12px' }}>
+          <p>&copy; {new Date().getFullYear()} Primate Research.</p>
+          <div>
+              <Link to="/legal/impressum">Impressum</Link> |{' '}
+              <Link to="/legal/privacy-policy">Privacy Policy</Link> |{' '}
+              <Link to="/legal/terms-of-service">Terms of Service</Link>
+          </div>
+      </footer>
     </>
   );
 }
