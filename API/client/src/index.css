@@ -1,231 +1,72 @@
 :root {
-  --bg-color: #ffffff;
-  --text-main: #1a1a1a;   /* Higher contrast black */
-  --text-subtle: #424242; /* Higher contrast grey for subtitles */
-  --border-color: #37474f;
-  --border-light: #b0bec5; /* Slightly darker border for better contrast */
-  
-  /* --- HIGHER CONTRAST PALETTE --- */
-  --color-brand: #455a64;  /* Darker Blue-Grey for better contrast */
-  --color-green: #2e7d32;  /* Darker Green for better contrast */
-  --color-red: #c62828;    /* Darker Red for better contrast */
+  --link-blue: #0000EE;
+  --visited-purple: #551A8B;
 }
 
 body {
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  background-color: var(--bg-color);
-  color: var(--text-main);
-  font-weight: 300;
-  letter-spacing: 0.06rem;
-  line-height: 1.6;
-  margin: 0;
-  padding: 0;
-  -webkit-font-smoothing: antialiased;
+  font-family: serif; /* The ultimate default */
+  line-height: 1.5;
+  color: #000;
+  background-color: #fff;
+  max-width: 800px; /* Optimal reading width */
+  margin: 0 auto;
+  padding: 1rem;
 }
 
-/* --- Typography --- */
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 400;
-  text-transform: uppercase;
-  letter-spacing: 0.15rem;
-  margin-top: 2rem;
-  margin-bottom: 1.5rem;
-  color: var(--text-main);
-}
+/* Typography */
+h1, h2, h3, h4 { margin-top: 2rem; margin-bottom: 1rem; font-weight: bold; text-transform: none; letter-spacing: normal;}
+h1 { border-bottom: 2px solid #000; padding-bottom: 0.5rem; }
+h2 { border-bottom: 1px solid #ccc; padding-bottom: 0.5rem; }
+p { margin-bottom: 1rem; }
 
-h1 { font-size: 2rem; }
-h3 { 
-  font-size: 1.2rem; 
-  border-bottom: 2px solid var(--color-brand);
-  padding-bottom: 0.5rem; 
-  display: inline-block;
-}
+/* The "Blue Fucking Link" */
+a { color: var(--link-blue); text-decoration: underline; cursor: pointer; }
+a:visited { color: var(--visited-purple); }
+a:hover { background-color: #eee; }
 
-a {
-  color: var(--color-brand);
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  transition: opacity 0.2s;
-}
-
-a:hover { color: #1a237e; text-decoration: underline; }
-
-/* --- Layout --- */
-.navbar {
-  background: var(--bg-color);
-  padding: 2rem 0;
-  margin: 0 2rem;
-  border-bottom: 2px solid var(--color-brand);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.nav-brand {
-  font-weight: 400;
-  font-size: 1.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.2rem;
-  text-decoration: none;
-  color: var(--color-brand);
-}
-
-.container {
-  max-width: 1200px;
-  margin: 4rem auto;
-  padding: 0 2rem;
-}
-
-/* --- Forms & Cards --- */
-.auth-card {
-  background: var(--bg-color);
-  border: 1px solid var(--border-color);
-  padding: 3rem;
-  width: 100%;
-  max-width: 400px;
-  margin: 6rem auto;
-  box-shadow: 6px 6px 0px var(--border-light); /* Softer shadow */
-}
-
-input {
-  width: 100%;
-  padding: 1rem 0;
-  margin-bottom: 1.5rem;
-  border: none;
-  border-bottom: 1px solid var(--border-light);
-  background: transparent;
-  font-family: inherit;
-  font-size: 1rem;
-  outline: none;
-  transition: border-color 0.2s;
-  border-radius: 0;
-  color: var(--text-main);
-}
-
-input:focus { border-bottom: 1px solid var(--color-brand); }
-
-/* --- Buttons --- */
-button {
-  background-color: var(--color-brand);
-  color: #ffffff;
-  padding: 1rem 2rem;
-  border: 1px solid var(--color-brand);
-  border-radius: 4px; /* Slight rounding for a friendlier feel */
-  font-family: inherit;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.1rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.8rem;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-button:hover {
-  background-color: #37474f; /* Darker Blue-Grey on hover */
-  border-color: #37474f;
-  transform: translateY(-1px);
-}
-
-button.secondary {
-  background-color: transparent;
-  color: var(--text-main);
-  border: 1px solid var(--border-color);
-  box-shadow: none;
-}
-
-button.secondary:hover {
-  border-color: var(--color-brand);
-  color: var(--text-main);
-  background: transparent;
-}
-
-/* --- Data Table --- */
-.table-container {
-  margin: 2rem 0;
-  position: relative;
-  overflow-x: auto;
-}
-
+/* Tables - The Excel Look */
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  margin: 1.5rem 0;
+  font-size: 1rem;
 }
 
-th {
+th, td {
+  border: 1px solid #000;
+  padding: 0.5rem;
   text-align: left;
-  padding: 1rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  border-bottom: 2px solid var(--border-color);
-  color: var(--text-main);
 }
 
-td {
-  padding: 1.25rem 1rem;
-  border-bottom: 1px solid var(--border-light);
-  color: var(--text-main);
-  font-weight: 400;
+th { background-color: #f0f0f0; }
+
+/* Forms */
+input {
+  display: block;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  border: 1px solid #000;
+  width: 100%;
+  max-width: 300px;
+  font-family: monospace;
 }
 
-/* --- Badges (HIGH CONTRAST) --- */
-.badge {
-  padding: 0.35rem 0.9rem;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05rem;
-  font-weight: 700;
-  border-radius: 4px; /* Soft edges */
-  color: #fff;
+button {
+  background: #eee;
+  border: 1px solid #000;
+  padding: 0.5rem 1rem;
+  font-family: sans-serif; /* Buttons usually look better sans even in brutalist */
+  cursor: pointer;
+  font-weight: bold;
 }
 
-/* BUY = Dark Green */
-.badge-buy {
-  background-color: var(--color-green);
-  border: none;
-}
+button:hover { background: #ddd; }
+button:active { background: #ccc; }
 
-/* SELL = Dark Red */
-.badge-sell {
-  background-color: var(--color-red);
-  border: none;
-}
+/* Utilities */
+hr { border: 0; border-top: 1px solid #000; margin: 2rem 0; }
+code { background: #f4f4f4; padding: 0.2rem; font-family: monospace; }
+pre { background: #f4f4f4; padding: 1rem; border: 1px solid #ccc; overflow-x: auto; }
 
-/* --- Paywall --- */
-.blurred-content {
-  filter: blur(8px);
-  opacity: 0.3;
-  user-select: none;
-  pointer-events: none;
-}
-
-.paywall-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-}
-
-/* --- Utilities --- */
-code {
-  font-family: 'Courier New', Courier, monospace;
-  background: #f5f5f5; /* Light grey background */
-  padding: 0.2rem 0.5rem;
-  font-size: 0.85rem;
-  color: #000; /* Black text for maximum contrast */
-  border-radius: 3px;
-  border: 1px solid #ddd;
-}
-
-.disclaimer-box {
-  border-left: 4px solid var(--color-brand);
-  background: #eceff1; /* Very light Blue-Grey bg */
-  padding: 2rem;
-  margin-bottom: 3rem;
-  font-size: 0.9rem;
-}
+/* Remove all fancy classes */
+.navbar, .nav-brand, .container, .auth-card { all: unset; }
