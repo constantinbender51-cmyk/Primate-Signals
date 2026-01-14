@@ -27,7 +27,7 @@ body {
 }
 
 .nav-brand { font-weight: bold; font-size: 1.25rem; color: var(--primary); text-decoration: none; }
-.container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
+.container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); padding: 2rem; }
 
 /* --- Forms --- */
 .auth-card {
@@ -79,16 +79,7 @@ th { background: #f1f5f9; text-align: left; padding: 1rem; font-size: 0.875rem; 
 td { padding: 1rem; border-bottom: 1px solid var(--border); }
 tr:last-child td { border-bottom: none; }
 
-/* --- API Documentation Styles --- */
-.container {
-  max-width: 1000px;
-  margin: 2rem auto;
-  padding: 0 1rem;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-  padding: 2rem;
-}
+
 
 pre {
   background: #f8fafc;
