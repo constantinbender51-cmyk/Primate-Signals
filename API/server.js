@@ -250,7 +250,7 @@ app.get('/live_matrix', authenticate, requireSubscription, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Database error' }); }
 });
 
-app.get('/signal_history', authenticate, requireSubscription, async (req, res) => {
+app.get('/signal_history', async (req, res) => {
     try {
         const client = await pool.connect();
         const result = await client.query('SELECT * FROM signal_history');
