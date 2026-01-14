@@ -150,13 +150,239 @@ const authenticate = async (req, res, next) => {
             );
             if (result.rows.length === 0) return res.status(403).json({ error: 'Invalid or inactive API Key' });
             req.user = result.rows[0]; 
+            if (result.rows.length === 0) {
+                client.release();
+                return res.status(403).json({ error: 'Invalid or inactive API Key' });
+            }
+            req.user = result.rows[0]; 
+            client.release();
             return next();
         } catch (err) {
-            return res.status(500).json({ error: 'Auth Error' });
+            console.error('API Key Auth Error:', err);
+            return res.status(500).json({ error: 'Authentication Error' });
         }
     }
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1];
+        let client;
+        try {
+            client = await pool.connect();
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const result = await client.query(
+                'SELECT id, email, subscription_status, stripe_customer_id FROM users WHERE id = $1 AND is_active = true',
+                [decoded.userId]
+            );
+            if (result.rows.length === 0) return res.status(401).json({ error: 'User no longer exists or is inactive' });
+            req.user = result.rows[0];
+            return next();
+        } catch (err) {
+            console.error('Token Auth Error:', err);
+            return res.status(401).json({ error: 'Invalid or expired token' });
+        } finally {
+            if (client) client.release();
+        }
+    }
+
+    return res.status(401).json({ error: 'Authentication required (API Key or Login Token)' });
+};
+
+const requireSubscription = (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: 'User not authenticated' });
+    // Allow 'trialing' status as well
+    if (req.user.subscription_status !== 'active' && req.user.subscription_status !== 'trialing') {
+        return res.status(403).json({ error: 'Subscription required', code: 'SUBSCRIPTION_REQUIRED' });
+    }
+    next();
+};
+
+// --- 5. AUTHROUTES --- 
+app.post('/auth/register', async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+
+    try {
+        const client = await pool.connect();
+        const checkUser = await client.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (checkUser.rows.length > 0) {
+            client.release();
+            return res.status(409).json({ error: 'User already exists' });
+        }
+
+        const passwordHash = await bcrypt.hash(password, 10);
+        const customer = await stripe.customers.create({ email: email });
+
+        // --- NEW: Generate Random API Key ---
+        const apiKey = crypto.randomBytes(24).toString('hex'); 
+        // ------------------------------------
+
+        // --- NEW: Update Query to include api_key ---
+        const newUser = await client.query(
+            `INSERT INTO users (email, password_hash, stripe_customer_id, api_key) 
+             VALUES ($1, $2, $3, $4) 
+             RETURNING id, email, subscription_status, api_key`,
+            [email, passwordHash, customer.id, apiKey]
+        );
+        
+        client.release();
+        res.status(201).json({ message: 'User registered successfully', user: newUser.rows[0] });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error during registration' });
+    }
+});
+
+app.post('/auth/login', async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+
+    try {
+        const client = await pool.connect();
+        const result = await client.query('SELECT * FROM users WHERE email = $1', [email]);
+        const user = result.rows[0];
+        
+        if (!user || !(await bcrypt.compare(password, user.password_hash || ''))) {
+            client.release();
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.json({ token, user: { email: user.email, subscription_status: user.subscription_status, api_key: user.api_key} });
+        client.release();
+    } catch (err) {
+        console.error('Login Error:', err);
+        res.status(500).json({ error: 'Server error during login' });
+    }
+});
+
+// --- 6. DATA ROUTES ---
+app.get('/live_matrix', authenticate, requireSubscription, async (req, res) => {
+    try {
+        const client = await pool.connect();
+        const result = await client.query('SELECT * FROM live_matrix');
+        client.release();
+        res.json({ results: result.rows });
+    } catch (err) {
+        console.error('Live Matrix Error:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+app.get('/signal_history', async (req, res) => {
+    try {
+        const client = await pool.connect();
+        const result = await client.query('SELECT * FROM signal_history');
+        client.release();
+        res.json({ results: result.rows });
+    } catch (err) {
+        console.error('Signal History Error:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// --- 7. STRIPE ROUTES ---
+app.post('/create-checkout-session', authenticate, async (req, res) => {
+    try {
+        const session = await stripe.checkout.sessions.create({
+            mode: 'subscription',
+            payment_method_types: ['card'],
+            customer: req.user.stripe_customer_id,
+            line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+            
+            // --- ADD THIS BLOCK ---
+            subscription_data: {
+                trial_period_days: 30, // 30-day free trial
+            },
+            // ----------------------
+
+            success_url: `${process.env.CLIENT_URL}/?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${process.env.CLIENT_URL}/`,
+        });
+        res.json({ url: session.url });
+    } catch (err) {
+        console.error('Create Checkout Session Error:', err);
+        res.status(500).json({ error: 'Failed to create checkout session' });
+    }
+});
+
+
+
+
+// --- 7.5. LEGAL TEXT ROUTES ---
+app.get('/legal/:type', async (req, res) => {
+    const { type } = req.params;
+    let filePath;
+    switch (type) {
+        case 'impressum':
+            filePath = path.join(__dirname, 'impressum.txt');
+            break;
+        case 'privacy':
+            filePath = path.join(__dirname, 'pp.txt');
+            break;
+        case 'terms':
+            filePath = path.join(__dirname, 'tos.txt');
+            break;
+        default:
+            return res.status(404).send('Not Found');
+    }
+
+    try {
+        const content = await fs.readFile(filePath, 'utf8');
+        res.setHeader('Content-Type', 'text/plain');
+        res.send(content);
+    } catch (err) {
+        console.error(`Error reading legal file ${filePath}:`, err);
+        res.status(500).send('Could not load content');
+    }
+});
+
+// --- 7.6. API DOCS ROUTE ---
+app.get('/api-docs', (req, res) => {
+    // This route ensures the React app handles the page via static serving
+    const distPath = path.join(__dirname, 'client/dist', 'index.html');
+    const devPath = path.join(__dirname, 'client', 'index.html');
+    
+    // Check if dist exists, otherwise serve dev index.html
+    if (fs.existsSync(distPath)) {
+        res.sendFile(distPath);
+    } else {
+        res.sendFile(devPath);
+    }
+});
+
+app.post('/create-portal-session', authenticate, async (req, res) => {
+    try {
+        const portalSession = await stripe.billingPortal.sessions.create({
+            customer: req.user.stripe_customer_id,
+            return_url: `${process.env.CLIENT_URL}/`,
+        });
+        res.json({ url: portalSession.url });
+    } catch (err) {
+        console.error('Create Portal Session Error:', err);
+        res.status(500).json({ error: 'Failed to create portal session' });
+    }
+});
+
+// --- 8. STATIC FILES & CATCH-ALL ---
+app.use(express.static(path.join(__dirname, 'client/dist')));
+app.get('*', (req, res) => {
+    // This catch-all route is important for client-side routing
+    const distPath = path.join(__dirname, 'client/dist', 'index.html');
+    const devPath = path.join(__dirname, 'client', 'index.html');
+
+    if (fs.existsSync(distPath)) {
+        res.sendFile(distPath);
+    } else {
+        res.sendFile(devPath);
+    }
+});
+
+// --- 9. START SERVER ---
+initDB().then(() => {
+    app.listen(process.env.PORT || 3000, () => {
+        console.log(`Server running on port ${process.env.PORT || 3000}`);
+    });
+});
         const token = authHeader.split(' ')[1];
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
