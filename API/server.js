@@ -310,7 +310,15 @@ app.get('/legal/:type', async (req, res) => {
         console.error(`Error reading legal file ${filePath}:`, err);
         res.status(500).send('Could not load content');
     }
-});app.post('/create-portal-session', authenticate, async (req, res) => {
+});
+
+// --- 7.6. API DOCS ROUTE ---
+app.get('/api-docs', (req, res) => {
+    // This route ensures the React app handles the page via static serving
+    res.sendFile(path.join(__dirname, 'client/dist', 'index.html'));
+});
+
+app.post('/create-portal-session', authenticate, async (req, res) => {
     try {
         const portalSession = await stripe.billingPortal.sessions.create({
             customer: req.user.stripe_customer_id,
