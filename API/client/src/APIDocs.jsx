@@ -41,23 +41,7 @@ getLiveMatrix();`;
             
             <pre>{codeExample}</pre>
 
-            <div style={{ marginTop: '20px' }}>
-                <strong>Usage Notes</strong>
-                <ul>
-                    <li>Replace <code>API_ENDPOINT</code> with your production URL.</li>
-                    <li>Set <code>API_KEY</code> to your actual API key from the Dashboard.</li>
-                    <li>The API requires an active subscription.</li>
-                </ul>
-            </div>
 
-            <div style={{ marginTop: '20px', border: '1px solid #000', padding: '10px' }}>
-                <strong>Important Safety Warnings for Developers</strong>
-                <ul>
-                    <li><strong>Latency:</strong> Market conditions can change in milliseconds.</li>
-                    <li><strong>Fail-Safes:</strong> We strongly recommend implementing your own "Kill Switch" and "Max Daily Loss" logic.</li>
-                    <li><strong>Data Integrity:</strong> Your software must handle exceptions gracefully.</li>
-                </ul>
-            </div>
         </div>
     );
 }
