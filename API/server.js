@@ -315,7 +315,15 @@ app.get('/legal/:type', async (req, res) => {
 // --- 7.6. API DOCS ROUTE ---
 app.get('/api-docs', (req, res) => {
     // This route ensures the React app handles the page via static serving
-    res.sendFile(path.join(__dirname, 'client/dist', 'index.html'));
+    const distPath = path.join(__dirname, 'client/dist', 'index.html');
+    const devPath = path.join(__dirname, 'client', 'index.html');
+    
+    // Check if dist exists, otherwise serve dev index.html
+    if (fs.existsSync(distPath)) {
+        res.sendFile(distPath);
+    } else {
+        res.sendFile(devPath);
+    }
 });
 
 app.post('/create-portal-session', authenticate, async (req, res) => {
