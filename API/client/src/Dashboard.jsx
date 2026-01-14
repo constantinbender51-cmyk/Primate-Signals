@@ -125,7 +125,7 @@ export default function Dashboard() {
                 <h1 style={{ fontSize: '3rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>Trading signals</h1>
             </div>
 
-            <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem' }}>
+            <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '1rem', textAlign: 'left' }}>
                 ⚠️ Educational Use Only: These signals are strictly for informational purposes. They are not instructions to trade. Always verify market conditions before executing any transaction.
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
