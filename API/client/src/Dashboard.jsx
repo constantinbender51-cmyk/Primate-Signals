@@ -96,11 +96,6 @@ export default function Dashboard() {
     return (
         <div>
             {/* Header / Intro */}
-            <h3>Market Signals</h3>
-            <p>Automated Quantitative Analysis.</p>
-            <p className="tiny">
-                [NOTE] Educational Use Only. These signals are strictly for informational purposes. Verify all market conditions.
-            </p>
 
             {/* Matrix Section */}
             <div style={{ marginTop: '20px', marginBottom: '20px' }}>
