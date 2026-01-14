@@ -12,36 +12,37 @@ export default function Register() {
         e.preventDefault();
         try {
             await api.post('/auth/register', { email, password });
-            toast.success("Registration successful! Please log in.");
+            toast.success("ACCOUNT CREATED");
             navigate('/login');
         } catch (err) {
-            toast.error(err.response?.data?.error || "Registration failed");
+            toast.error(err.response?.data?.error || "REGISTRATION FAILED");
         }
     };
 
     return (
         <div className="auth-card">
-            <h2 style={{marginTop: 0}}>Create Account</h2>
+            <h3>Create Account</h3>
             <form onSubmit={handleRegister}>
                 <input 
                     type="email" 
-                    placeholder="Email" 
+                    placeholder="EMAIL ADDRESS" 
                     value={email} 
                     onChange={e => setEmail(e.target.value)} 
                     required 
                 />
                 <input 
                     type="password" 
-                    placeholder="Password" 
+                    placeholder="PASSWORD" 
                     value={password} 
                     onChange={e => setPassword(e.target.value)} 
                     required 
                 />
-                <button type="submit" style={{width: '100%'}}>Sign Up</button>
+                <button type="submit" style={{ width: '100%', marginTop: '1rem' }}>Register</button>
             </form>
-            <p style={{textAlign: 'center', marginTop: '1rem', fontSize: '0.9rem'}}>
-                Already have an account? <Link to="/login">Login</Link>
-            </p>
+            <div style={{ marginTop: '2rem', fontSize: '0.8rem', textAlign: 'center' }}>
+                <span style={{ color: 'var(--text-subtle)' }}>EXISTING USER? </span>
+                <Link to="/login">LOGIN HERE</Link>
+            </div>
         </div>
     );
 }
