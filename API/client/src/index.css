@@ -80,6 +80,16 @@ td { padding: 1rem; border-bottom: 1px solid var(--border); }
 tr:last-child td { border-bottom: none; }
 
 /* --- API Documentation Styles --- */
+.container {
+  max-width: 1000px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  padding: 2rem;
+}
+
 pre {
   background: #f8fafc;
   border: 1px solid var(--border);
