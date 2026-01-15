@@ -13,7 +13,7 @@ export default function APIDocs() {
     const [testKey, setTestKey] = useState(initialKey);
     const [consoleOutput, setConsoleOutput] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [status, setStatus] = useState(null); // HTTP Status code
+    const [status, setStatus] = useState(null); 
 
     // Update state if user loads later (edge case)
     useEffect(() => {
@@ -52,6 +52,30 @@ async function getLiveMatrix() {
 
 // Execute
 getLiveMatrix();`;
+
+    const responseExample = `[
+  {
+    "asset": "BCHUSDT",
+    "tf": "60m",
+    "signal_val": 0,       // 0 = WAIT
+    "updated_at": "2026-01-15T10:15:25.381Z",
+    "last_updated": "2026-01-15T10:15:25.367Z"
+  },
+  {
+    "asset": "BCHUSDT",
+    "tf": "240m",
+    "signal_val": -1,      // -1 = SELL
+    "updated_at": "2026-01-15T10:15:25.381Z",
+    "last_updated": "2026-01-15T10:15:25.367Z"
+  },
+  {
+    "asset": "ETHUSDT",
+    "tf": "1d",
+    "signal_val": 1,       // 1 = BUY
+    "updated_at": "2026-01-15T10:15:25.381Z",
+    "last_updated": "2026-01-15T10:15:25.367Z"
+  }
+]`;
 
     // 3. Simulation Handler
     const handleSimulate = async (e) => {
@@ -92,11 +116,55 @@ getLiveMatrix();`;
             
             <p>Authentication requires the <code>x-api-key</code> header.</p>
 
-            {/* Code Block */}
+            {/* Request Code Block */}
             <pre style={{ marginBottom: '30px' }}>{codeExample}</pre>
 
+            {/* Response Structure Section */}
+            <h3>Response Structure</h3>
+            <p>The API returns a JSON array containing signal objects. Each object represents a specific asset on a specific timeframe.</p>
+            
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', fontSize: '14px' }}>
+                <thead>
+                    <tr style={{ background: '#f0f0f0', textAlign: 'left' }}>
+                        <th style={{ border: '1px solid #ddd', padding: '8px' }}>Field</th>
+                        <th style={{ border: '1px solid #ddd', padding: '8px' }}>Type</th>
+                        <th style={{ border: '1px solid #ddd', padding: '8px' }}>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style={{ border: '1px solid #ddd', padding: '8px' }}><code>asset</code></td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>String</td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>The trading pair symbol (e.g., "BTCUSDT").</td>
+                    </tr>
+                    <tr>
+                        <td style={{ border: '1px solid #ddd', padding: '8px' }}><code>tf</code></td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>String</td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>Timeframe (e.g., "15m", "60m", "240m", "1d").</td>
+                    </tr>
+                    <tr>
+                        <td style={{ border: '1px solid #ddd', padding: '8px' }}><code>signal_val</code></td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>Integer</td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                            <strong>1</strong>: BUY<br/>
+                            <strong>-1</strong>: SELL<br/>
+                            <strong>0</strong>: WAIT / NEUTRAL
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style={{ border: '1px solid #ddd', padding: '8px' }}><code>updated_at</code></td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>String</td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>ISO 8601 Timestamp of the last signal calculation.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <pre style={{ background: '#f9f9f9', border: '1px solid #ddd', padding: '15px' }}>
+                {responseExample}
+            </pre>
+
             {/* Interactive Console Section */}
-            <hr />
+            <hr style={{ margin: '40px 0' }} />
             <h3>Live API Console</h3>
             <p style={{ fontSize: '14px' }}>Test your key directly from the browser.</p>
 
