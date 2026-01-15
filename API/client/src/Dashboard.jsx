@@ -135,6 +135,9 @@ export default function Dashboard() {
                         <p style={{ fontSize: '12px', color: '#666', marginTop: '10px', fontStyle: 'italic' }}>
                             This is for educational purposes only. This is not investment advice. The publisher may hold or trade these assets. Past performance is not indicative of future results. Trading carries a high risk of loss. Signals are generated through discrete probabilistic modelling. 
                         </p>
+                        <p style={{ fontSize: '12px', color: '#666', marginTop: '10px', fontStyle: 'italic' }}>
+                            This is for educational purposes only. This is not investment advice. Past performance is not indicative of future results. The publisher may hold or trade these assets. Trading carries a high risk of loss. Signals are generated through discrete probabilistic modelling.
+                        </p>
                     <div style={{ border: '2px solid #000', padding: '15px', marginTop: '10px' }}>
                         <p><strong>ACCESS RESTRICTED</strong></p>
                         <p>Unlock Real-time Signals. <a onClick={handleSubscribe}>Start Free Trial</a> (then 49.90€/mo).</p>
