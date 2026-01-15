@@ -194,14 +194,14 @@ export default function Dashboard() {
             </div>
 
             {/* History Section */}
-            <h3>Signal History</h3>
+            <h3>Signal History (7 Days)</h3>
             <div style={{ marginBottom: '15px' }}>
                 <p style={{ margin: '5px 0' }}>Accuracy: <strong>{accuracy}%</strong></p>
                 <p style={{ margin: '5px 0' }}>
                     Total PnL: <strong style={{ color: totalPnL >= 0 ? 'green' : 'red' }}>{totalPnL > 0 ? '+' : ''}{totalPnL}%</strong>
                 </p>
                 <p style={{ fontSize: '11px', color: '#888', fontStyle: 'italic' }}>
-                    *backtest results do not account for fees or slippage
+                    This is not actual performance data. 
                 </p>
             </div>
             
