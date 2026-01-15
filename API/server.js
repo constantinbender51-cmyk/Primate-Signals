@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const path = require('path');
 const fs = require('fs');
-const nodemailer = require('nodemailer'); // ADDED
+const nodemailer = require('nodemailer'); 
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -17,7 +17,7 @@ const pool = new Pool({
 
 const app = express();
 
-// --- EMAIL TRANSPORTER (ADDED) ---
+// --- EMAIL TRANSPORTER ---
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: process.env.SMTP_PORT,
@@ -33,7 +33,6 @@ const initDB = async () => {
     try {
         const client = await pool.connect();
         
-        // Updated Table Schema with verification columns
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -49,18 +48,15 @@ const initDB = async () => {
             );
         `);
 
-        // Migrations for existing databases
+        // Migrations
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);`);
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255);`);
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'inactive';`);
         await client.query(`ALTER TABLE users ALTER COLUMN api_key DROP NOT NULL;`);
-        
-        // NEW MIGRATIONS
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_code VARCHAR(4);`);
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expiry TIMESTAMP;`);
         await client.query(`ALTER TABLE users ALTER COLUMN is_active SET DEFAULT false;`);
 
-        // Create missing data tables
         await client.query(`
             CREATE TABLE IF NOT EXISTS live_matrix (
                 id SERIAL PRIMARY KEY,
@@ -84,7 +80,6 @@ const initDB = async () => {
             );
         `);
 
-        // Ensure Admin is Active
         await client.query(`
             INSERT INTO users (email, api_key, subscription_status, is_active) 
             VALUES ('admin@test.com', 'super_secret_123', 'active', true) 
@@ -98,19 +93,14 @@ const initDB = async () => {
     }
 };
 
-// --- 2. WEBHOOK ROUTE (MUST BE BEFORE express.json) ---
+// --- 2. WEBHOOK ROUTE ---
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
 
     try {
-        event = stripe.webhooks.constructEvent(
-            req.body, 
-            sig, 
-            process.env.STRIPE_WEBHOOK_SECRET
-        );
+        event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
     } catch (err) {
-        console.error(`Webhook signature verification failed.`, err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
@@ -124,7 +114,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
                     `UPDATE users SET subscription_status = 'active' WHERE stripe_customer_id = $1`,
                     [session.customer]
                 );
-                console.log(`✅ User ${session.customer} activated.`);
                 break;
             }
             case 'customer.subscription.deleted': {
@@ -133,7 +122,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
                     `UPDATE users SET subscription_status = 'inactive' WHERE stripe_customer_id = $1`,
                     [subscription.customer]
                 );
-                console.log(`❌ User ${subscription.customer} subscription ended.`);
                 break;
             }
             case 'invoice.payment_failed': {
@@ -144,8 +132,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
                 );
                 break;
             }
-            default:
-                console.log(`Unhandled event type ${event.type}`);
         }
         res.json({ received: true });
     } catch (err) {
@@ -156,19 +142,20 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
     }
 });
 
-// --- 3. STANDARD MIDDLEWARE ---
+// --- 3. MIDDLEWARE ---
 app.use(express.json()); 
 app.use(cors());
 
-// --- 4. AUTH MIDDLEWARE ---
+// --- 4. AUTH MIDDLEWARE (FIXED) ---
 const authenticate = async (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
     const authHeader = req.headers['authorization'];
 
     if (apiKey) {
         try {
+            // FIX: Added api_key to selection
             const result = await pool.query(
-                'SELECT id, email, subscription_status FROM users WHERE api_key = $1 AND is_active = true', 
+                'SELECT id, email, subscription_status, api_key, stripe_customer_id FROM users WHERE api_key = $1 AND is_active = true', 
                 [apiKey]
             );
             if (result.rows.length === 0) return res.status(403).json({ error: 'Invalid or inactive API Key' });
@@ -183,8 +170,9 @@ const authenticate = async (req, res, next) => {
         const token = authHeader.split(' ')[1];
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            // FIX: Added api_key to selection here as well
             const result = await pool.query(
-                'SELECT id, email, subscription_status, stripe_customer_id FROM users WHERE id = $1 AND is_active = true',
+                'SELECT id, email, subscription_status, stripe_customer_id, api_key FROM users WHERE id = $1 AND is_active = true',
                 [decoded.userId]
             );
             if (result.rows.length === 0) return res.status(401).json({ error: 'User no longer exists or is inactive' });
@@ -195,28 +183,25 @@ const authenticate = async (req, res, next) => {
         }
     }
 
-    return res.status(401).json({ error: 'Authentication required (API Key or Login)' });
+    return res.status(401).json({ error: 'Authentication required' });
 };
 
 const requireSubscription = (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'User not authenticated' });
     if (req.user.subscription_status !== 'active' && req.user.subscription_status !== 'trialing') {
-        return res.status(403).json({ error: 'Subscription required', code: 'SUBSCRIPTION_REQUIRED' });
+        return res.status(403).json({ error: 'Subscription required' });
     }
     next();
 };
 
 // --- 5. AUTH ROUTES ---
 
-// 5A. REGISTER (Step 1: Initiate)
 app.post('/auth/register', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
 
     try {
         const client = await pool.connect();
-        
-        // Check for existing user
         const checkUser = await client.query('SELECT * FROM users WHERE email = $1', [email]);
         if (checkUser.rows.length > 0) {
             client.release();
@@ -227,11 +212,9 @@ app.post('/auth/register', async (req, res) => {
         const customer = await stripe.customers.create({ email: email });
         const apiKey = crypto.randomBytes(24).toString('hex'); 
         
-        // Generate Code & Expiry
         const code = Math.floor(1000 + Math.random() * 9000).toString();
-        const expiry = new Date(Date.now() + 10 * 60000); // 10 minutes from now
+        const expiry = new Date(Date.now() + 10 * 60000); 
 
-        // Insert with is_active = false
         await client.query(
             `INSERT INTO users (email, password_hash, stripe_customer_id, api_key, verification_code, verification_expiry, is_active) 
              VALUES ($1, $2, $3, $4, $5, $6, false) 
@@ -241,7 +224,6 @@ app.post('/auth/register', async (req, res) => {
         
         client.release();
 
-        // Send Email
         try {
             await transporter.sendMail({
                 from: `"Primate Signals" <${process.env.SMTP_USER}>`,
@@ -253,67 +235,37 @@ app.post('/auth/register', async (req, res) => {
             res.status(201).json({ message: 'Verification code sent', email });
         } catch (emailErr) {
             console.error("Email sending failed:", emailErr);
-            // We successfully created the user but failed to send email. 
-            // In a real app, you might want to rollback the user creation or offer a "Resend Code" endpoint.
-            res.status(201).json({ message: 'Account created, but email failed. Contact support.', email });
+            res.status(201).json({ message: 'Account created, but email failed.', email });
         }
 
     } catch (err) {
-        console.error(err);
         res.status(500).json({ error: 'Server error during registration' });
     }
 });
 
-// 5B. VERIFY (Step 2: Complete)
 app.post('/auth/verify', async (req, res) => {
     const { email, code } = req.body;
-    if (!email || !code) return res.status(400).json({ error: 'Email and code required' });
-
     try {
         const client = await pool.connect();
         const result = await client.query('SELECT * FROM users WHERE email = $1', [email]);
         const user = result.rows[0];
 
-        if (!user) {
-            client.release();
-            return res.status(400).json({ error: 'User not found' });
-        }
+        if (!user) { client.release(); return res.status(400).json({ error: 'User not found' }); }
+        if (user.is_active) { client.release(); return res.status(200).json({ message: 'User already active' }); }
+        if (user.verification_code !== code) { client.release(); return res.status(400).json({ error: 'Invalid verification code' }); }
+        if (new Date() > new Date(user.verification_expiry)) { client.release(); return res.status(400).json({ error: 'Code expired' }); }
 
-        if (user.is_active) {
-            client.release();
-            return res.status(200).json({ message: 'User already active' });
-        }
-
-        if (user.verification_code !== code) {
-            client.release();
-            return res.status(400).json({ error: 'Invalid verification code' });
-        }
-
-        if (new Date() > new Date(user.verification_expiry)) {
-            client.release();
-            return res.status(400).json({ error: 'Code expired' });
-        }
-
-        // Activate User & Clear Code
         await client.query(
             `UPDATE users SET is_active = true, verification_code = NULL, verification_expiry = NULL WHERE id = $1`,
             [user.id]
         );
-        
         client.release();
         res.json({ message: 'Account verified successfully' });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Verification failed' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Verification failed' }); }
 });
 
-// 5C. LOGIN (Updated)
 app.post('/auth/login', async (req, res) => {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
-
     try {
         const client = await pool.connect();
         const result = await client.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -323,10 +275,8 @@ app.post('/auth/login', async (req, res) => {
         if (!user || !(await bcrypt.compare(password, user.password_hash || ''))) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
-
-        // CHECK IF ACTIVE
         if (!user.is_active) {
-            return res.status(403).json({ error: 'Account not verified. Please check your email.' });
+            return res.status(403).json({ error: 'Account not verified.' });
         }
 
         const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -336,10 +286,9 @@ app.post('/auth/login', async (req, res) => {
     }
 });
 
-// --- ADD THIS NEW ROUTE HERE ---
-// 5D. GET CURRENT USER (Refresh Profile)
+// 5D. GET CURRENT USER (REFRESH)
 app.get('/auth/me', authenticate, (req, res) => {
-    // req.user is populated by the authenticate middleware
+    // Now req.user includes api_key because we fixed the middleware
     res.json({ 
         id: req.user.id,
         email: req.user.email, 
@@ -348,7 +297,6 @@ app.get('/auth/me', authenticate, (req, res) => {
         api_key: req.user.api_key
     });
 });
-// -------------------------------
 
 // --- 6. DATA ROUTES ---
 app.get('/live_matrix', authenticate, requireSubscription, async (req, res) => {
@@ -377,9 +325,7 @@ app.post('/create-checkout-session', authenticate, async (req, res) => {
             payment_method_types: ['card'],
             customer: req.user.stripe_customer_id,
             line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
-            subscription_data: {
-                trial_period_days: 30,
-            },
+            subscription_data: { trial_period_days: 30 },
             success_url: `${process.env.CLIENT_URL}/?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.CLIENT_URL}/`,
         });
@@ -397,53 +343,36 @@ app.post('/create-portal-session', authenticate, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Failed to create portal session' }); }
 });
 
-// --- 7.5. LEGAL TEXT ROUTES ---
+// --- 8. STATIC FILES ---
 app.get('/legal/:type', async (req, res) => {
     const { type } = req.params;
     let filePath;
     switch (type) {
-        case 'impressum':
-            filePath = path.join(__dirname, 'impressum.txt');
-            break;
-        case 'privacy':
-            filePath = path.join(__dirname, 'pp.txt');
-            break;
-        case 'terms':
-            filePath = path.join(__dirname, 'tos.txt');
-            break;
-        default:
-            return res.status(404).send('Not Found');
+        case 'impressum': filePath = path.join(__dirname, 'impressum.txt'); break;
+        case 'privacy': filePath = path.join(__dirname, 'pp.txt'); break;
+        case 'terms': filePath = path.join(__dirname, 'tos.txt'); break;
+        default: return res.status(404).send('Not Found');
     }
-
     try {
         const content = await fs.promises.readFile(filePath, 'utf8');
         res.setHeader('Content-Type', 'text/plain');
         res.send(content);
-    } catch (err) {
-        console.error(`Error reading legal file ${filePath}:`, err);
-        res.status(500).send('Could not load content');
-    }
+    } catch (err) { res.status(500).send('Could not load content'); }
 });
 
-// --- 7.6. API DOCS ROUTE ---
 app.get('/api-docs', (req, res) => {
     const distPath = path.join(__dirname, 'client/dist', 'index.html');
     const devPath = path.join(__dirname, 'client', 'index.html');
-    
-    if (fs.existsSync(distPath)) {
-        res.sendFile(distPath);
-    } else {
-        res.sendFile(devPath);
-    }
+    if (fs.existsSync(distPath)) res.sendFile(distPath);
+    else res.sendFile(devPath);
 });
 
-// --- 8. STATIC FILES & CATCH-ALL ---
 app.use(express.static(path.join(__dirname, 'client/dist')));
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'client/dist', 'index.html'));
 });
 
-// --- 9. START SERVER ---
+// --- 9. START ---
 initDB().then(() => {
     app.listen(process.env.PORT || 3000, () => {
         console.log(`Server running on port ${process.env.PORT || 3000}`);
