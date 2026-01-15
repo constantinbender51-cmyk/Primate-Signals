@@ -10,21 +10,21 @@ export default function APIDocs() {
     const initialKey = user.api_key || "";
 
     // 2. State for the Interactive Console
-    // CHANGED: Initialized with empty string to remove auto-fill
+    // CHANGED: Initialized with empty string (No auto-fill)
     const [testKey, setTestKey] = useState(""); 
     const [consoleOutput, setConsoleOutput] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState(null);
     const [copySuccess, setCopySuccess] = useState('');
 
-    // REMOVED: The useEffect that auto-filled the testKey has been deleted.
+    // NOTE: Auto-fill useEffect has been removed completely.
 
     // NEW: Handle Copy Functionality
     const handleCopy = () => {
         if (initialKey) {
             navigator.clipboard.writeText(initialKey);
             setCopySuccess('Copied!');
-            setTimeout(() => setCopySuccess(''), 2000); // Reset message after 2s
+            setTimeout(() => setCopySuccess(''), 2000); 
         }
     };
 
@@ -112,44 +112,29 @@ getLiveMatrix();`;
 
     return (
         <div style={{ paddingBottom: '50px' }}>
-            {/* CHANGED: Removed flex/justify-between to stack elements */}
-            <div>
-                <h3>API Documentation</h3>
-                
-                {/* CHANGED: Moved Key Display underneath title and added Copy Button */}
-                <div style={{ 
-                    background: '#f0f0f0', 
-                    padding: '10px 15px', 
-                    border: '1px solid #ccc', 
-                    fontSize: '13px',
-                    marginBottom: '20px', // Added spacing below
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    borderRadius: '4px'
-                }}>
-                    <strong>YOUR KEY: </strong> 
-                    <code style={{ background: '#fff', border: '1px solid #ddd', padding: '2px 6px', borderRadius: '3px' }}>
-                        {initialKey || 'NOT FOUND'}
-                    </code>
-                    
-                    {/* NEW: Copy Button */}
-                    <button 
-                        onClick={handleCopy}
-                        disabled={!initialKey}
-                        style={{
-                            cursor: 'pointer',
-                            fontSize: '11px',
-                            padding: '2px 8px',
-                            background: '#333',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '3px'
-                        }}
-                    >
-                        {copySuccess || 'Copy'}
-                    </button>
-                </div>
+            {/* Header Section */}
+            <h3 style={{ marginBottom: '5px' }}>API Documentation</h3>
+            
+            {/* CHANGED: Minimal Key Display directly under title. No boxes, no backgrounds. */}
+            <div style={{ marginBottom: '30px', fontSize: '14px' }}>
+                Your Key: <code style={{ fontWeight: 'bold' }}>{initialKey || 'NOT FOUND'}</code>
+                <button 
+                    onClick={handleCopy}
+                    disabled={!initialKey}
+                    title="Copy API Key"
+                    style={{
+                        marginLeft: '10px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        padding: '2px 5px',
+                        background: 'transparent',
+                        border: '1px solid #999',
+                        borderRadius: '3px',
+                        color: '#333'
+                    }}
+                >
+                    {copySuccess || 'Copy'}
+                </button>
             </div>
             
             <p>Authentication requires the <code>x-api-key</code> header.</p>
@@ -221,7 +206,7 @@ getLiveMatrix();`;
                             value={testKey} 
                             onChange={(e) => setTestKey(e.target.value)}
                             placeholder="Enter API Key"
-                            autoComplete="off" // CHANGED: Added autocomplete off
+                            autoComplete="off"
                             style={{ margin: 0, flexGrow: 1 }}
                         />
                         <button type="submit" disabled={isLoading} style={{ width: 'auto', whiteSpace: 'nowrap' }}>
