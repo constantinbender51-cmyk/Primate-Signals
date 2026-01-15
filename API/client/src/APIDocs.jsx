@@ -4,21 +4,16 @@ import React, { useState, useEffect } from 'react';
 const BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export default function APIDocs() {
-    // 1. Get Key from Local Storage for initial state
+    // 1. Get Key from Local Storage for display only
     const userStr = localStorage.getItem('user');
     const user = userStr ? JSON.parse(userStr) : {};
     const initialKey = user.api_key || "";
 
     // 2. State for the Interactive Console
-    const [testKey, setTestKey] = useState(initialKey);
+    const [testKey, setTestKey] = useState("");
     const [consoleOutput, setConsoleOutput] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState(null); 
-
-    // Update state if user loads later (edge case)
-    useEffect(() => {
-        if (initialKey && !testKey) setTestKey(initialKey);
-    }, [initialKey]);
 
     const codeExample = `// Configuration
 const API_ENDPOINT = "https://api.primatesignals.com/live_matrix"; 
