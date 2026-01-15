@@ -75,3 +75,49 @@ export default function Layout() {
             {/* 3. Opaque and Unclickable API Link unless Active */}
             <Link 
                 to="/api-docs"
+                style={{
+                    opacity: isActive ? 1 : 0.3,
+                    pointerEvents: isActive ? 'auto' : 'none',
+                    cursor: isActive ? 'pointer' : 'default',
+                    textDecoration: isActive ? 'underline' : 'none'
+                }}
+                title={isActive ? "View Documentation" : "Subscription Required"}
+            >
+                API
+            </Link>
+        </div>
+
+        {/* 4. Top Right Button Logic */}
+        <div style={{ display: 'inline-block', float: 'right' }}>
+            {isActive ? (
+                <button onClick={handleManage}>Manage Subscription</button>
+            ) : (
+                <button 
+                    onClick={handleSubscribe} 
+                    style={{ backgroundColor: '#000', color: '#fff', border: '1px solid #000' }}
+                >
+                    Try for free
+                </button>
+            )}
+        </div>
+      </div>
+      
+      <div style={{ fontStyle: 'italic', marginBottom: '20px' }}>
+        Trading Signals
+      </div>
+
+      <main>
+        <Outlet />
+      </main>
+
+      <footer style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid #000', fontSize: '12px' }}>
+          <p>&copy; {new Date().getFullYear()} Primate Research.</p>
+          <div>
+              <Link to="/legal/impressum">Impressum</Link> |{' '}
+              <Link to="/legal/privacy-policy">Privacy Policy</Link> |{' '}
+              <Link to="/legal/terms-of-service">Terms of Service</Link>
+          </div>
+      </footer>
+    </>
+  );
+}
