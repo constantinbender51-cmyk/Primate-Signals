@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom'; // Added useSearchParams
 import toast from 'react-hot-toast';
 import api from './api';
 
@@ -17,15 +17,45 @@ export default function Dashboard() {
     const [historyData, setHistoryData] = useState([]);
     const [matrixStatus, setMatrixStatus] = useState('loading'); 
     const [apiKey, setApiKey] = useState(null);
+    const [searchParams] = useSearchParams(); // To detect Stripe return
     const navigate = useNavigate();
 
+    // 1. Handle Stripe Return & Profile Refresh
+    useEffect(() => {
+        const sessionId = searchParams.get('session_id');
+        
+        if (sessionId) {
+            const refreshProfile = async () => {
+                const toastId = toast.loading("Verifying subscription...");
+                try {
+                    // Call the new endpoint to get fresh data from DB
+                    const res = await api.get('/auth/me');
+                    
+                    // Update LocalStorage with fresh user object (now 'active')
+                    localStorage.setItem('user', JSON.stringify(res.data));
+                    
+                    toast.success("Subscription Active!", { id: toastId });
+                    
+                    // Clear URL and Force Reload to update Layout/Header state
+                    window.location.href = '/'; 
+                } catch (err) {
+                    toast.error("Activation pending. Please wait.", { id: toastId });
+                    // Even if it fails (webhook delay), clear the URL so they aren't stuck
+                    navigate('/', { replace: true });
+                }
+            };
+            refreshProfile();
+        }
+    }, [searchParams, navigate]);
+
+    // 2. Existing Data Fetching
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const historyRes = await api.get('/signal_history');
                 setHistoryData(historyRes.data.results);
             } catch (err) {
-                toast.error("Could not load history");
+                // Silent fail for history
             }
 
             try {
@@ -74,7 +104,6 @@ export default function Dashboard() {
             const close = parseFloat(row.close_price);
             let pnlPercent = 0;
 
-            // Determine direction (Handle both string "BUY"/"SELL" and numeric 1/-1)
             const isLong = row.signal === 'BUY' || row.signal === 1;
             const isShort = row.signal === 'SELL' || row.signal === -1;
 
@@ -82,12 +111,10 @@ export default function Dashboard() {
                 if (isLong) {
                     pnlPercent = ((close - entry) / entry) * 100;
                 } else if (isShort) {
-                    // For shorts: (Entry - Close) / Entry
                     pnlPercent = ((entry - close) / entry) * 100;
                 }
             }
 
-            // Update stats
             if (row.outcome === 'WIN') wins++;
             else if (row.outcome === 'LOSS') losses++;
             
@@ -114,20 +141,11 @@ export default function Dashboard() {
             else toast.error("Unavailable");
         }
     };
-    
-    const handleManage = async () => { 
-        try {
-            const res = await api.post('/create-portal-session');
-            window.location.href = res.data.url;
-        } catch (err) { toast.error("Error"); }
-    };
 
     const isMatrixLocked = matrixStatus === 'unpaid';
 
     return (
         <div>
-            {/* Header / Intro */}
-
             {/* Matrix Section */}
             <div style={{ marginTop: '20px', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
