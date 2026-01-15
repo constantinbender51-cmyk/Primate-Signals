@@ -109,39 +109,56 @@ export default function Dashboard() {
                 </div>
 
                 {!isMatrixLocked ? (
-                    <>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Asset</th>
-                                    {TF_ORDER.map(tf => <th key={tf}>{tf}</th>)}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Asset</th>
+                                {TF_ORDER.map(tf => <th key={tf}>{tf}</th>)}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {assets.length > 0 ? assets.map(asset => (
+                                <tr key={asset}>
+                                    <td>{asset}</td>
+                                    {TF_ORDER.map(tf => (
+                                        <td key={tf}>{getSignalText(grid[asset]?.[tf])}</td>
+                                    ))}
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {assets.length > 0 ? assets.map(asset => (
-                                    <tr key={asset}>
-                                        <td>{asset}</td>
-                                        {TF_ORDER.map(tf => (
-                                            <td key={tf}>{getSignalText(grid[asset]?.[tf])}</td>
-                                        ))}
-                                    </tr>
-                                )) : (
-                                    <tr><td colSpan="6">Waiting for market data...</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </>
+                            )) : (
+                                <tr><td colSpan="6">Waiting for market data...</td></tr>
+                            )}
+                        </tbody>
+                    </table>
                 ) : (
+                    <>
                         <p style={{ fontSize: '12px', color: '#666', marginTop: '10px', fontStyle: 'italic' }}>
-                            This is for educational purposes only. This is not investment advice. The publisher may hold or trade these assets. Past performance is not indicative of future results. Trading carries a high risk of loss. Signals are generated through discrete probabilistic modelling. 
+                            This is for educational purposes only. This is not investment advice. 
+                            The publisher may hold or trade these assets. Past performance is not indicative of future results. 
+                            Trading carries a high risk of loss. Signals are generated through discrete probabilistic modelling.
                         </p>
-                        <p style={{ fontSize: '12px', color: '#666', marginTop: '10px', fontStyle: 'italic' }}>
-                            This is for educational purposes only. This is not investment advice. Past performance is not indicative of future results. The publisher may hold or trade these assets. Trading carries a high risk of loss. Signals are generated through discrete probabilistic modelling.
-                        </p>
-                    <div style={{ border: '2px solid #000', padding: '15px', marginTop: '10px' }}>
-                        <p><strong>ACCESS RESTRICTED</strong></p>
-                        <p>Unlock Real-time Signals. <a onClick={handleSubscribe}>Start Free Trial</a> (then 49.90€/mo).</p>
-                    </div>
+                        
+                        <div style={{ border: '2px solid #000', padding: '15px', marginTop: '10px' }}>
+                            <p><strong>ACCESS RESTRICTED</strong></p>
+                            <p>
+                                Unlock Real-time Signals.{' '}
+                                <button 
+                                    onClick={handleSubscribe}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        padding: 0,
+                                        color: 'blue',
+                                        textDecoration: 'underline',
+                                        cursor: 'pointer',
+                                        fontSize: 'inherit'
+                                    }}
+                                >
+                                    Try for free
+                                </button>
+                                {' '}(Pricing: 49.90€/month).
+                            </p>
+                        </div>
+                    </>
                 )}
             </div>
 
@@ -168,7 +185,11 @@ export default function Dashboard() {
                             <td>{row.tf}</td>
                             <td>{row.signal}</td>
                             <td>{row.price_at_signal}</td>
-                            <td>{row.outcome === 'WIN' ? <span style={{ color: 'green' }}>WIN</span> : row.outcome === 'LOSS' ? <span style={{ color: 'red' }}>LOSS</span> : row.outcome}</td>
+                            <td>
+                                {row.outcome === 'WIN' ? <span style={{ color: 'green' }}>WIN</span> : 
+                                 row.outcome === 'LOSS' ? <span style={{ color: 'red' }}>LOSS</span> : 
+                                 row.outcome}
+                            </td>
                         </tr>
                     )) : (
                         <tr><td colSpan="6">No history recorded</td></tr>
