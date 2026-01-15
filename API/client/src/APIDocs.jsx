@@ -103,9 +103,21 @@ getLiveMatrix();`;
             <h3>API Documentation</h3>
             
             {/* Display Key underneath the title */}
-            <div style={{ background: '#f0f0f0', padding: '5px 10px', border: '1px solid #ccc', fontSize: '12px', marginBottom: '15px' }}>
+            <div style={{ background: '#f0f0f0', padding: '5px 10px', border: '1px solid #ccc', fontSize: '12px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <strong>YOUR KEY: </strong> 
                 <code style={{ background: 'none', border: 'none', padding: 0 }}>{initialKey || 'NOT FOUND'}</code>
+                <span 
+                    onClick={() => {
+                        if (initialKey) {
+                            navigator.clipboard.writeText(initialKey);
+                            alert('API key copied to clipboard!');
+                        }
+                    }}
+                    style={{ cursor: initialKey ? 'pointer' : 'default', color: initialKey ? '#000' : '#ccc' }}
+                    title="Copy to clipboard"
+                >
+                    📋
+                </span>
             </div>
             
             <p>Authentication requires the <code>x-api-key</code> header.</p>
