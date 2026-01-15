@@ -64,14 +64,45 @@ export default function Dashboard() {
         return { assets: uniqueAssets, grid: lookup };
     }, [matrixData]);
 
-    const { accuracy } = useMemo(() => {
+    // Calculate Accuracy and PnL
+    const { accuracy, totalPnL, enrichedHistory } = useMemo(() => {
         let wins = 0, losses = 0;
-        historyData.forEach(row => {
+        let cumulativePnL = 0;
+
+        const processed = historyData.map(row => {
+            const entry = parseFloat(row.price_at_signal);
+            const close = parseFloat(row.close_price);
+            let pnlPercent = 0;
+
+            // Determine direction (Handle both string "BUY"/"SELL" and numeric 1/-1)
+            const isLong = row.signal === 'BUY' || row.signal === 1;
+            const isShort = row.signal === 'SELL' || row.signal === -1;
+
+            if (!isNaN(entry) && !isNaN(close) && entry !== 0) {
+                if (isLong) {
+                    pnlPercent = ((close - entry) / entry) * 100;
+                } else if (isShort) {
+                    // For shorts: (Entry - Close) / Entry
+                    pnlPercent = ((entry - close) / entry) * 100;
+                }
+            }
+
+            // Update stats
             if (row.outcome === 'WIN') wins++;
             else if (row.outcome === 'LOSS') losses++;
+            
+            cumulativePnL += pnlPercent;
+
+            return { ...row, pnlVal: pnlPercent };
         });
+
         const total = wins + losses;
-        return { accuracy: total > 0 ? ((wins / total) * 100).toFixed(2) : 0 };
+        
+        return { 
+            accuracy: total > 0 ? ((wins / total) * 100).toFixed(2) : 0,
+            totalPnL: cumulativePnL.toFixed(2),
+            enrichedHistory: processed
+        };
     }, [historyData]);
 
     const handleSubscribe = async () => { 
@@ -153,9 +184,9 @@ export default function Dashboard() {
                                         fontSize: 'inherit'
                                     }}
                                 >
-                                    Try for free
+                                    Start Free Trial
                                 </button>
-                                {' '}(Pricing: 49.90€/month).
+                                {' '}(then 49.90€/mo).
                             </p>
                         </div>
                     </>
@@ -164,7 +195,15 @@ export default function Dashboard() {
 
             {/* History Section */}
             <h3>Signal History</h3>
-            <p>Accuracy: <strong>{accuracy}%</strong></p>
+            <div style={{ marginBottom: '15px' }}>
+                <p style={{ margin: '5px 0' }}>Accuracy: <strong>{accuracy}%</strong></p>
+                <p style={{ margin: '5px 0' }}>
+                    Total PnL: <strong style={{ color: totalPnL >= 0 ? 'green' : 'red' }}>{totalPnL > 0 ? '+' : ''}{totalPnL}%</strong>
+                </p>
+                <p style={{ fontSize: '11px', color: '#888', fontStyle: 'italic' }}>
+                    *backtest results do not account for fees or slippage
+                </p>
+            </div>
             
             <table>
                 <thead>
@@ -173,18 +212,24 @@ export default function Dashboard() {
                         <th>Asset</th>
                         <th>TF</th>
                         <th>Signal</th>
-                        <th>Price</th>
+                        <th>Entry</th>
+                        <th>Exit</th>
+                        <th>PnL %</th>
                         <th>Result</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {historyData.length > 0 ? historyData.map((row, i) => (
+                    {enrichedHistory.length > 0 ? enrichedHistory.map((row, i) => (
                         <tr key={i}>
                             <td>{row.time_str}</td>
                             <td>{row.asset}</td>
                             <td>{row.tf}</td>
                             <td>{row.signal}</td>
                             <td>{row.price_at_signal}</td>
+                            <td>{row.close_price || '-'}</td>
+                            <td style={{ fontWeight: 'bold', color: row.pnlVal >= 0 ? 'green' : 'red' }}>
+                                {row.pnlVal ? `${row.pnlVal > 0 ? '+' : ''}${row.pnlVal.toFixed(2)}%` : '-'}
+                            </td>
                             <td>
                                 {row.outcome === 'WIN' ? <span style={{ color: 'green' }}>WIN</span> : 
                                  row.outcome === 'LOSS' ? <span style={{ color: 'red' }}>LOSS</span> : 
@@ -192,7 +237,7 @@ export default function Dashboard() {
                             </td>
                         </tr>
                     )) : (
-                        <tr><td colSpan="6">No history recorded</td></tr>
+                        <tr><td colSpan="8">No history recorded</td></tr>
                     )}
                 </tbody>
             </table>
