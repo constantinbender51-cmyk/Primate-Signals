@@ -185,9 +185,9 @@ export default function Dashboard() {
                                         fontSize: 'inherit'
                                     }}
                                 >
-                                    Start Free Trial
+                                    Try for free 
                                 </button>
-                                {' '}(then 49.90€/mo).
+                                {' '}(Pricing: 49.90€/month).
                             </p>
                         </div>
                     </>
