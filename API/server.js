@@ -7,7 +7,8 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const path = require('path');
-const fs = require('fs'); // FIXED: Removed .promises to allow synchronous methods like existsSync
+const fs = require('fs');
+const nodemailer = require('nodemailer'); // ADDED
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -16,11 +17,23 @@ const pool = new Pool({
 
 const app = express();
 
+// --- EMAIL TRANSPORTER (ADDED) ---
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT,
+    secure: process.env.SMTP_SECURE === 'true', 
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+    },
+});
+
 // --- 1. AUTO-SETUP FUNCTION ---
 const initDB = async () => {
     try {
         const client = await pool.connect();
         
+        // Updated Table Schema with verification columns
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -29,15 +42,23 @@ const initDB = async () => {
                 password_hash VARCHAR(255),
                 stripe_customer_id VARCHAR(255),
                 subscription_status VARCHAR(50) DEFAULT 'inactive',
-                is_active BOOLEAN DEFAULT true,
+                is_active BOOLEAN DEFAULT false,  
+                verification_code VARCHAR(4),
+                verification_expiry TIMESTAMP,
                 created_at TIMESTAMP DEFAULT NOW()
             );
         `);
 
+        // Migrations for existing databases
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);`);
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255);`);
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'inactive';`);
         await client.query(`ALTER TABLE users ALTER COLUMN api_key DROP NOT NULL;`);
+        
+        // NEW MIGRATIONS
+        await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_code VARCHAR(4);`);
+        await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expiry TIMESTAMP;`);
+        await client.query(`ALTER TABLE users ALTER COLUMN is_active SET DEFAULT false;`);
 
         // Create missing data tables
         await client.query(`
@@ -63,9 +84,10 @@ const initDB = async () => {
             );
         `);
 
+        // Ensure Admin is Active
         await client.query(`
-            INSERT INTO users (email, api_key, subscription_status) 
-            VALUES ('admin@test.com', 'super_secret_123', 'active') 
+            INSERT INTO users (email, api_key, subscription_status, is_active) 
+            VALUES ('admin@test.com', 'super_secret_123', 'active', true) 
             ON CONFLICT (email) DO NOTHING;
         `);
 
@@ -185,12 +207,16 @@ const requireSubscription = (req, res, next) => {
 };
 
 // --- 5. AUTH ROUTES ---
+
+// 5A. REGISTER (Step 1: Initiate)
 app.post('/auth/register', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
 
     try {
         const client = await pool.connect();
+        
+        // Check for existing user
         const checkUser = await client.query('SELECT * FROM users WHERE email = $1', [email]);
         if (checkUser.rows.length > 0) {
             client.release();
@@ -199,27 +225,91 @@ app.post('/auth/register', async (req, res) => {
 
         const passwordHash = await bcrypt.hash(password, 10);
         const customer = await stripe.customers.create({ email: email });
-
-        // --- NEW: Generate Random API Key ---
         const apiKey = crypto.randomBytes(24).toString('hex'); 
-        // ------------------------------------
+        
+        // Generate Code & Expiry
+        const code = Math.floor(1000 + Math.random() * 9000).toString();
+        const expiry = new Date(Date.now() + 10 * 60000); // 10 minutes from now
 
-        // --- NEW: Update Query to include api_key ---
-        const newUser = await client.query(
-            `INSERT INTO users (email, password_hash, stripe_customer_id, api_key) 
-             VALUES ($1, $2, $3, $4) 
-             RETURNING id, email, subscription_status, api_key`,
-            [email, passwordHash, customer.id, apiKey]
+        // Insert with is_active = false
+        await client.query(
+            `INSERT INTO users (email, password_hash, stripe_customer_id, api_key, verification_code, verification_expiry, is_active) 
+             VALUES ($1, $2, $3, $4, $5, $6, false) 
+             RETURNING id, email`,
+            [email, passwordHash, customer.id, apiKey, code, expiry]
         );
         
         client.release();
-        res.status(201).json({ message: 'User registered successfully', user: newUser.rows[0] });
+
+        // Send Email
+        try {
+            await transporter.sendMail({
+                from: `"Primate Signals" <${process.env.SMTP_USER}>`,
+                to: email,
+                subject: "Verify your account",
+                text: `Your verification code is: ${code}`,
+                html: `<b>Your verification code is: ${code}</b>`
+            });
+            res.status(201).json({ message: 'Verification code sent', email });
+        } catch (emailErr) {
+            console.error("Email sending failed:", emailErr);
+            // We successfully created the user but failed to send email. 
+            // In a real app, you might want to rollback the user creation or offer a "Resend Code" endpoint.
+            res.status(201).json({ message: 'Account created, but email failed. Contact support.', email });
+        }
+
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error during registration' });
     }
 });
 
+// 5B. VERIFY (Step 2: Complete)
+app.post('/auth/verify', async (req, res) => {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ error: 'Email and code required' });
+
+    try {
+        const client = await pool.connect();
+        const result = await client.query('SELECT * FROM users WHERE email = $1', [email]);
+        const user = result.rows[0];
+
+        if (!user) {
+            client.release();
+            return res.status(400).json({ error: 'User not found' });
+        }
+
+        if (user.is_active) {
+            client.release();
+            return res.status(200).json({ message: 'User already active' });
+        }
+
+        if (user.verification_code !== code) {
+            client.release();
+            return res.status(400).json({ error: 'Invalid verification code' });
+        }
+
+        if (new Date() > new Date(user.verification_expiry)) {
+            client.release();
+            return res.status(400).json({ error: 'Code expired' });
+        }
+
+        // Activate User & Clear Code
+        await client.query(
+            `UPDATE users SET is_active = true, verification_code = NULL, verification_expiry = NULL WHERE id = $1`,
+            [user.id]
+        );
+        
+        client.release();
+        res.json({ message: 'Account verified successfully' });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Verification failed' });
+    }
+});
+
+// 5C. LOGIN (Updated)
 app.post('/auth/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
@@ -232,6 +322,11 @@ app.post('/auth/login', async (req, res) => {
 
         if (!user || !(await bcrypt.compare(password, user.password_hash || ''))) {
             return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        // CHECK IF ACTIVE
+        if (!user.is_active) {
+            return res.status(403).json({ error: 'Account not verified. Please check your email.' });
         }
 
         const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -268,18 +363,24 @@ app.post('/create-checkout-session', authenticate, async (req, res) => {
             payment_method_types: ['card'],
             customer: req.user.stripe_customer_id,
             line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
-            
-            // --- ADD THIS BLOCK ---
             subscription_data: {
-                trial_period_days: 30, // 30-day free trial
+                trial_period_days: 30,
             },
-            // ----------------------
-
             success_url: `${process.env.CLIENT_URL}/?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.CLIENT_URL}/`,
         });
         res.json({ url: session.url });
     } catch (err) { res.status(500).json({ error: 'Failed to create checkout session' }); }
+});
+
+app.post('/create-portal-session', authenticate, async (req, res) => {
+    try {
+        const portalSession = await stripe.billingPortal.sessions.create({
+            customer: req.user.stripe_customer_id,
+            return_url: `${process.env.CLIENT_URL}/`,
+        });
+        res.json({ url: portalSession.url });
+    } catch (err) { res.status(500).json({ error: 'Failed to create portal session' }); }
 });
 
 // --- 7.5. LEGAL TEXT ROUTES ---
@@ -301,7 +402,6 @@ app.get('/legal/:type', async (req, res) => {
     }
 
     try {
-        // FIXED: Added .promises here to support async/await
         const content = await fs.promises.readFile(filePath, 'utf8');
         res.setHeader('Content-Type', 'text/plain');
         res.send(content);
@@ -316,22 +416,11 @@ app.get('/api-docs', (req, res) => {
     const distPath = path.join(__dirname, 'client/dist', 'index.html');
     const devPath = path.join(__dirname, 'client', 'index.html');
     
-    // FIXED: Now works because fs is the standard module
     if (fs.existsSync(distPath)) {
         res.sendFile(distPath);
     } else {
         res.sendFile(devPath);
     }
-});
-
-app.post('/create-portal-session', authenticate, async (req, res) => {
-    try {
-        const portalSession = await stripe.billingPortal.sessions.create({
-            customer: req.user.stripe_customer_id,
-            return_url: `${process.env.CLIENT_URL}/`,
-        });
-        res.json({ url: portalSession.url });
-    } catch (err) { res.status(500).json({ error: 'Failed to create portal session' }); }
 });
 
 // --- 8. STATIC FILES & CATCH-ALL ---
