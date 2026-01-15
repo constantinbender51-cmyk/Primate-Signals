@@ -4,16 +4,29 @@ import React, { useState, useEffect } from 'react';
 const BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export default function APIDocs() {
-    // 1. Get Key from Local Storage for display only
+    // 1. Get Key from Local Storage for initial state
     const userStr = localStorage.getItem('user');
     const user = userStr ? JSON.parse(userStr) : {};
     const initialKey = user.api_key || "";
 
     // 2. State for the Interactive Console
-    const [testKey, setTestKey] = useState("");
+    // CHANGED: Initialized with empty string to remove auto-fill
+    const [testKey, setTestKey] = useState(""); 
     const [consoleOutput, setConsoleOutput] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [status, setStatus] = useState(null); 
+    const [status, setStatus] = useState(null);
+    const [copySuccess, setCopySuccess] = useState('');
+
+    // REMOVED: The useEffect that auto-filled the testKey has been deleted.
+
+    // NEW: Handle Copy Functionality
+    const handleCopy = () => {
+        if (initialKey) {
+            navigator.clipboard.writeText(initialKey);
+            setCopySuccess('Copied!');
+            setTimeout(() => setCopySuccess(''), 2000); // Reset message after 2s
+        }
+    };
 
     const codeExample = `// Configuration
 const API_ENDPOINT = "https://api.primatesignals.com/live_matrix"; 
@@ -39,7 +52,6 @@ async function getLiveMatrix() {
     const data = await response.json();
     console.log("Matrix data received:", data);
     return data;
-
   } catch (error) {
     console.error("Failed to fetch live matrix:", error.message);
   }
@@ -66,7 +78,8 @@ getLiveMatrix();`;
   {
     "asset": "ETHUSDT",
     "tf": "1d",
-    "signal_val": 1,       // 1 = BUY
+    "signal_val": 1,   
+    // 1 = BUY
     "updated_at": "2026-01-15T10:15:25.381Z",
     "last_updated": "2026-01-15T10:15:25.367Z"
   }
@@ -87,7 +100,6 @@ getLiveMatrix();`;
                     'x-api-key': testKey
                 }
             });
-
             setStatus(res.status);
             const data = await res.json();
             setConsoleOutput(data);
@@ -100,24 +112,44 @@ getLiveMatrix();`;
 
     return (
         <div style={{ paddingBottom: '50px' }}>
-            <h3>API Documentation</h3>
-            
-            {/* Display Key underneath the title */}
-            <div style={{ background: '#f0f0f0', padding: '5px 10px', border: '1px solid #ccc', fontSize: '12px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <strong>YOUR KEY: </strong> 
-                <code style={{ background: 'none', border: 'none', padding: 0 }}>{initialKey || 'NOT FOUND'}</code>
-                <span 
-                    onClick={() => {
-                        if (initialKey) {
-                            navigator.clipboard.writeText(initialKey);
-                            alert('API key copied to clipboard!');
-                        }
-                    }}
-                    style={{ cursor: initialKey ? 'pointer' : 'default', color: initialKey ? '#000' : '#ccc' }}
-                    title="Copy to clipboard"
-                >
-                    📋
-                </span>
+            {/* CHANGED: Removed flex/justify-between to stack elements */}
+            <div>
+                <h3>API Documentation</h3>
+                
+                {/* CHANGED: Moved Key Display underneath title and added Copy Button */}
+                <div style={{ 
+                    background: '#f0f0f0', 
+                    padding: '10px 15px', 
+                    border: '1px solid #ccc', 
+                    fontSize: '13px',
+                    marginBottom: '20px', // Added spacing below
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    borderRadius: '4px'
+                }}>
+                    <strong>YOUR KEY: </strong> 
+                    <code style={{ background: '#fff', border: '1px solid #ddd', padding: '2px 6px', borderRadius: '3px' }}>
+                        {initialKey || 'NOT FOUND'}
+                    </code>
+                    
+                    {/* NEW: Copy Button */}
+                    <button 
+                        onClick={handleCopy}
+                        disabled={!initialKey}
+                        style={{
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            padding: '2px 8px',
+                            background: '#333',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '3px'
+                        }}
+                    >
+                        {copySuccess || 'Copy'}
+                    </button>
+                </div>
             </div>
             
             <p>Authentication requires the <code>x-api-key</code> header.</p>
@@ -189,6 +221,7 @@ getLiveMatrix();`;
                             value={testKey} 
                             onChange={(e) => setTestKey(e.target.value)}
                             placeholder="Enter API Key"
+                            autoComplete="off" // CHANGED: Added autocomplete off
                             style={{ margin: 0, flexGrow: 1 }}
                         />
                         <button type="submit" disabled={isLoading} style={{ width: 'auto', whiteSpace: 'nowrap' }}>
