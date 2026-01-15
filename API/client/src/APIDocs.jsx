@@ -1,14 +1,28 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+
+// specific URL handling for Vite vs Production
+const BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export default function APIDocs() {
-    // 1. Get Key from Local Storage
+    // 1. Get Key from Local Storage for initial state
     const userStr = localStorage.getItem('user');
     const user = userStr ? JSON.parse(userStr) : {};
-    const apiKey = user.api_key || "YOUR_API_KEY_HERE";
+    const initialKey = user.api_key || "";
+
+    // 2. State for the Interactive Console
+    const [testKey, setTestKey] = useState(initialKey);
+    const [consoleOutput, setConsoleOutput] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [status, setStatus] = useState(null); // HTTP Status code
+
+    // Update state if user loads later (edge case)
+    useEffect(() => {
+        if (initialKey && !testKey) setTestKey(initialKey);
+    }, [initialKey]);
 
     const codeExample = `// Configuration
 const API_ENDPOINT = "https://api.primatesignals.com/live_matrix"; 
-const API_KEY = "${apiKey}"; // Your Key Auto-filled
+const API_KEY = "${testKey || 'YOUR_API_KEY_HERE'}";
 
 /**
  * Fetches the Live Matrix data from the Primate Signals API.
@@ -39,20 +53,97 @@ async function getLiveMatrix() {
 // Execute
 getLiveMatrix();`;
 
+    // 3. Simulation Handler
+    const handleSimulate = async (e) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setConsoleOutput(null);
+        setStatus(null);
+
+        try {
+            const res = await fetch(`${BASE_URL}/live_matrix`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': testKey
+                }
+            });
+
+            setStatus(res.status);
+            const data = await res.json();
+            setConsoleOutput(data);
+        } catch (err) {
+            setConsoleOutput({ error: "Network/Fetch Error", details: err.message });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
-        <div>
+        <div style={{ paddingBottom: '50px' }}>
             <div style={{ display:'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3>API Documentation</h3>
-                {/* 2. Display Key at Top */}
+                {/* Display Key at Top */}
                 <div style={{ background: '#f0f0f0', padding: '5px 10px', border: '1px solid #ccc', fontSize: '12px' }}>
                     <strong>YOUR KEY: </strong> 
-                    <code style={{ background: 'none', border: 'none', padding: 0 }}>{apiKey}</code>
+                    <code style={{ background: 'none', border: 'none', padding: 0 }}>{initialKey || 'NOT FOUND'}</code>
                 </div>
             </div>
             
             <p>Authentication requires the <code>x-api-key</code> header.</p>
 
-            <pre>{codeExample}</pre>
+            {/* Code Block */}
+            <pre style={{ marginBottom: '30px' }}>{codeExample}</pre>
+
+            {/* Interactive Console Section */}
+            <hr />
+            <h3>Live API Console</h3>
+            <p style={{ fontSize: '14px' }}>Test your key directly from the browser.</p>
+
+            <div style={{ 
+                border: '1px solid #000', 
+                padding: '20px', 
+                background: '#fff' 
+            }}>
+                <form onSubmit={handleSimulate} style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '12px' }}>
+                        X-API-KEY
+                    </label>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <input 
+                            type="text" 
+                            value={testKey} 
+                            onChange={(e) => setTestKey(e.target.value)}
+                            placeholder="Enter API Key"
+                            style={{ margin: 0, flexGrow: 1 }}
+                        />
+                        <button type="submit" disabled={isLoading} style={{ width: 'auto', whiteSpace: 'nowrap' }}>
+                            {isLoading ? 'Sending...' : 'Run Request'}
+                        </button>
+                    </div>
+                </form>
+
+                <div style={{ 
+                    background: '#000', 
+                    color: '#0f0', 
+                    padding: '15px', 
+                    fontFamily: 'monospace', 
+                    fontSize: '12px',
+                    minHeight: '150px',
+                    overflowX: 'auto'
+                }}>
+                    <div style={{ borderBottom: '1px solid #333', paddingBottom: '5px', marginBottom: '10px', color: '#fff' }}>
+                        Console Output {status && <span style={{ float: 'right', color: status === 200 ? '#0f0' : '#f00' }}>HTTP {status}</span>}
+                    </div>
+                    {consoleOutput ? (
+                        <pre style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', whiteSpace: 'pre-wrap' }}>
+                            {JSON.stringify(consoleOutput, null, 2)}
+                        </pre>
+                    ) : (
+                        <span style={{ color: '#555' }}>// Waiting for execution...</span>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }
