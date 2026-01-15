@@ -105,13 +105,12 @@ getLiveMatrix();`;
 
     return (
         <div style={{ paddingBottom: '50px' }}>
-            <div style={{ display:'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3>API Documentation</h3>
-                {/* Display Key at Top */}
-                <div style={{ background: '#f0f0f0', padding: '5px 10px', border: '1px solid #ccc', fontSize: '12px' }}>
-                    <strong>YOUR KEY: </strong> 
-                    <code style={{ background: 'none', border: 'none', padding: 0 }}>{initialKey || 'NOT FOUND'}</code>
-                </div>
+            <h3>API Documentation</h3>
+            
+            {/* Display Key underneath the title */}
+            <div style={{ background: '#f0f0f0', padding: '5px 10px', border: '1px solid #ccc', fontSize: '12px', marginBottom: '15px' }}>
+                <strong>YOUR KEY: </strong> 
+                <code style={{ background: 'none', border: 'none', padding: 0 }}>{initialKey || 'NOT FOUND'}</code>
             </div>
             
             <p>Authentication requires the <code>x-api-key</code> header.</p>
