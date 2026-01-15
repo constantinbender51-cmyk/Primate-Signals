@@ -336,6 +336,20 @@ app.post('/auth/login', async (req, res) => {
     }
 });
 
+// --- ADD THIS NEW ROUTE HERE ---
+// 5D. GET CURRENT USER (Refresh Profile)
+app.get('/auth/me', authenticate, (req, res) => {
+    // req.user is populated by the authenticate middleware
+    res.json({ 
+        id: req.user.id,
+        email: req.user.email, 
+        subscription_status: req.user.subscription_status,
+        stripe_customer_id: req.user.stripe_customer_id,
+        api_key: req.user.api_key
+    });
+});
+// -------------------------------
+
 // --- 6. DATA ROUTES ---
 app.get('/live_matrix', authenticate, requireSubscription, async (req, res) => {
     try {
