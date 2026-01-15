@@ -165,7 +165,8 @@ export default function Dashboard() {
                         <p style={{ fontSize: '12px', color: '#666', marginTop: '10px', fontStyle: 'italic' }}>
                             This is for educational purposes only. This is not investment advice. Past performance is not indicative of future results. 
                             The publisher may hold or trade these assets. 
-                            Trading carries a high risk of loss. Signals are generated through discrete probabilistic modelling.
+                            Trading carries a high risk of loss.
+                            Signals are generated through discrete probabilistic modelling.
                         </p>
                         
                         <div style={{ border: '2px solid #000', padding: '15px', marginTop: '10px' }}>
@@ -196,12 +197,16 @@ export default function Dashboard() {
             {/* History Section */}
             <h3>Signal History (7 Days)</h3>
             <div style={{ marginBottom: '15px' }}>
-                <p style={{ margin: '5px 0' }}>Accuracy: <strong>{accuracy}%</strong></p>
-                <p style={{ margin: '5px 0' }}>
-                    Total PnL: <strong style={{ color: totalPnL >= 0 ? 'green' : 'red' }}>{totalPnL > 0 ? '+' : ''}{totalPnL}%</strong>
-                </p>
+                <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                    <p style={{ margin: '5px 0' }}>Accuracy: <strong>{accuracy}%</strong></p>
+                    <p style={{ margin: '5px 0' }}>
+                        Total PnL: <strong style={{ color: totalPnL >= 0 ? 'green' : 'red' }}>
+                            {totalPnL > 0 ? '+' : ''}{totalPnL}%
+                        </strong>
+                    </p>
+                </div>
                 <p style={{ fontSize: '11px', color: '#888', fontStyle: 'italic' }}>
-                    This is not actual performance data. 
+                    This is not actual performance data.
                 </p>
             </div>
             
