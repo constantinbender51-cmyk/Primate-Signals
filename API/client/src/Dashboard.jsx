@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom'; // Added useSearchParams
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from './api';
 
@@ -17,7 +17,7 @@ export default function Dashboard() {
     const [historyData, setHistoryData] = useState([]);
     const [matrixStatus, setMatrixStatus] = useState('loading'); 
     const [apiKey, setApiKey] = useState(null);
-    const [searchParams] = useSearchParams(); // To detect Stripe return
+    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
 
     // 1. Handle Stripe Return & Profile Refresh
@@ -28,19 +28,12 @@ export default function Dashboard() {
             const refreshProfile = async () => {
                 const toastId = toast.loading("Verifying subscription...");
                 try {
-                    // Call the new endpoint to get fresh data from DB
                     const res = await api.get('/auth/me');
-                    
-                    // Update LocalStorage with fresh user object (now 'active')
                     localStorage.setItem('user', JSON.stringify(res.data));
-                    
                     toast.success("Subscription Active!", { id: toastId });
-                    
-                    // Clear URL and Force Reload to update Layout/Header state
                     window.location.href = '/'; 
                 } catch (err) {
                     toast.error("Activation pending. Please wait.", { id: toastId });
-                    // Even if it fails (webhook delay), clear the URL so they aren't stuck
                     navigate('/', { replace: true });
                 }
             };
@@ -94,7 +87,6 @@ export default function Dashboard() {
         return { assets: uniqueAssets, grid: lookup };
     }, [matrixData]);
 
-    // Calculate Accuracy and PnL
     const { accuracy, totalPnL, enrichedHistory } = useMemo(() => {
         let wins = 0, losses = 0;
         let cumulativePnL = 0;
@@ -158,35 +150,40 @@ export default function Dashboard() {
                 </div>
 
                 {!isMatrixLocked ? (
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Asset</th>
-                                {TF_ORDER.map(tf => <th key={tf}>{tf}</th>)}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {assets.length > 0 ? assets.map(asset => (
-                                <tr key={asset}>
-                                    <td>{asset}</td>
-                                    {TF_ORDER.map(tf => (
-                                        <td key={tf}>{getSignalText(grid[asset]?.[tf])}</td>
-                                    ))}
-                                </tr>
-                            )) : (
-                                <tr><td colSpan="6">Waiting for market data...</td></tr>
-                            )}
-                        </tbody>
-                    </table>
-                ) : (
                     <>
-                        <p style={{ fontSize: '12px', color: '#666', marginTop: '10px', fontStyle: 'italic' }}>
+                        {/* --- DISCLAIMER: ONLY VISIBLE TO ACTIVE USERS --- */}
+                        <p style={{ fontSize: '12px', color: '#666', marginTop: '10px', fontStyle: 'italic', marginBottom: '15px' }}>
                             This is for educational purposes only. This is not investment advice. Past performance is not indicative of future results. 
                             The publisher may hold or trade these assets. 
                             Trading carries a high risk of loss.
                             Signals are generated through discrete probabilistic modelling.
                         </p>
-                        
+                        {/* ------------------------------------------------ */}
+
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Asset</th>
+                                    {TF_ORDER.map(tf => <th key={tf}>{tf}</th>)}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {assets.length > 0 ? assets.map(asset => (
+                                    <tr key={asset}>
+                                        <td>{asset}</td>
+                                        {TF_ORDER.map(tf => (
+                                            <td key={tf}>{getSignalText(grid[asset]?.[tf])}</td>
+                                        ))}
+                                    </tr>
+                                )) : (
+                                    <tr><td colSpan="6">Waiting for market data...</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </>
+                ) : (
+                    <>
+                        {/* RESTRICTED VIEW (No Disclaimer here) */}
                         <div style={{ border: '2px solid #000', padding: '15px', marginTop: '10px' }}>
                             <p><strong>ACCESS RESTRICTED</strong></p>
                             <p>
