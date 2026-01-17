@@ -4,7 +4,7 @@ const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || '', 
 });
 
-// 1. Request Interceptor (Existing)
+// 1. Request Interceptor (Keeps your token attached)
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -13,21 +13,29 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-// 2. Response Interceptor (NEW)
+// 2. Response Interceptor (FIXED)
 api.interceptors.response.use(
-    (response) => response, // Return successful responses as is
+    (response) => response,
     (error) => {
-        // If the server says "401 Unauthorized" (Token expired or invalid)
+        // If the server says "401 Unauthorized"
         if (error.response && error.response.status === 401) {
-            // Clear the stale data
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
             
-            // Force redirect to login to get a fresh token
-            // (We use window.location because navigate isn't available in this plain JS file)
-            if (window.location.pathname !== '/login') {
-                window.location.href = '/login';
+            // CHECK: Do we actually have a token?
+            const token = localStorage.getItem('token');
+
+            // If we HAD a token, but got a 401, it means the token expired. 
+            // Clear it and redirect.
+            if (token) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                
+                if (window.location.pathname !== '/login') {
+                    window.location.href = '/login';
+                }
             }
+
+            // If we DIDN'T have a token (Guest), ignore this interceptor.
+            // Pass the error back to Dashboard.jsx so it can render the "Restricted/Locked" view.
         }
         return Promise.reject(error);
     }
