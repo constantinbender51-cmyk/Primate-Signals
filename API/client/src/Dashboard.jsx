@@ -137,7 +137,12 @@ export default function Dashboard() {
                 {!isMatrixLocked ? (
                     <>
                         <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '1.5rem', lineHeight: '1.5' }}>
-                            Educational modeling only. Discrete probabilistic modelling signals. Trading carries high risk.
+                            Disclaimer: Educational Purposes Only
+The information provided is for educational and informational purposes only and should not be construed as financial, investment, or legal advice. Trading financial instruments carries a high level of risk and may not be suitable for all investors. You could lose some or all of your initial investment; do not trade with capital you cannot afford to lose.
+​Methodology & Performance
+Signals are generated through discrete probabilistic modeling. These models represent theoretical outcomes and are not guarantees of future market movement. Please note that past performance is not indicative of future results. Data presented may be hypothetical or simulated and does not represent actual trade execution or performance.
+​Conflict of Interest
+The publisher and its affiliates may hold positions in, or actively trade, the assets mentioned herein. This may create a conflict of interest, and readers should perform their own due diligence before making any financial decisions.
                         </p>
                         <table>
                             <thead>
