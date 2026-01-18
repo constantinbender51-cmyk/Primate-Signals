@@ -1,25 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
-// specific URL handling for Vite vs Production
 const BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export default function APIDocs() {
-    // 1. Get Key from Local Storage for initial state
     const userStr = localStorage.getItem('user');
     const user = userStr ? JSON.parse(userStr) : {};
     const initialKey = user.api_key || "";
 
-    // 2. State for the Interactive Console
-    // CHANGED: Initialized with empty string (No auto-fill)
     const [testKey, setTestKey] = useState(""); 
     const [consoleOutput, setConsoleOutput] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState(null);
     const [copySuccess, setCopySuccess] = useState('');
 
-    // NOTE: Auto-fill useEffect has been removed completely.
-
-    // NEW: Handle Copy Functionality
     const handleCopy = () => {
         if (initialKey) {
             navigator.clipboard.writeText(initialKey);
@@ -45,47 +38,15 @@ async function getLiveMatrix() {
       }
     });
 
-    if (!response.ok) {
-      throw new Error("API Request failed: " + response.status);
-    }
+    if (!response.ok) throw new Error("API Request failed: " + response.status);
 
     const data = await response.json();
-    console.log("Matrix data received:", data);
     return data;
   } catch (error) {
     console.error("Failed to fetch live matrix:", error.message);
   }
-}
+}`;
 
-// Execute
-getLiveMatrix();`;
-
-    const responseExample = `[
-  {
-    "asset": "BCHUSDT",
-    "tf": "60m",
-    "signal_val": 0,       // 0 = WAIT
-    "updated_at": "2026-01-15T10:15:25.381Z",
-    "last_updated": "2026-01-15T10:15:25.367Z"
-  },
-  {
-    "asset": "BCHUSDT",
-    "tf": "240m",
-    "signal_val": -1,      // -1 = SELL
-    "updated_at": "2026-01-15T10:15:25.381Z",
-    "last_updated": "2026-01-15T10:15:25.367Z"
-  },
-  {
-    "asset": "ETHUSDT",
-    "tf": "1d",
-    "signal_val": 1,   
-    // 1 = BUY
-    "updated_at": "2026-01-15T10:15:25.381Z",
-    "last_updated": "2026-01-15T10:15:25.367Z"
-  }
-]`;
-
-    // 3. Simulation Handler
     const handleSimulate = async (e) => {
         e.preventDefault();
         setIsLoading(true);
@@ -111,131 +72,133 @@ getLiveMatrix();`;
     };
 
     return (
-        <div style={{ paddingBottom: '50px' }}>
-            {/* Header Section */}
-            <h3 style={{ marginBottom: '5px' }}>API Documentation</h3>
+        <div style={{ paddingBottom: '100px', animation: 'fadeIn 0.5s ease-in' }}>
+            <header style={{ marginBottom: '3rem' }}>
+                <h3 style={{ border: 'none', margin: '0 0 0.5rem 0', fontSize: '1.75rem' }}>API Reference</h3>
+                <p style={{ color: '#6b7280', fontSize: '15px' }}>
+                    Integrate real-time signals into your own trading bots or dashboards.
+                </p>
+            </header>
             
-            {/* CHANGED: Minimal Key Display directly under title. No boxes, no backgrounds. */}
-            <div style={{ marginBottom: '30px', fontSize: '14px' }}>
-                Your Key: <code style={{ fontWeight: 'bold' }}>{initialKey || 'NOT FOUND'}</code>
+            <div style={{ 
+                background: '#f8fafc', 
+                border: '1px solid #e2e8f0', 
+                borderRadius: '8px', 
+                padding: '1.25rem', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                marginBottom: '3rem'
+            }}>
+                <div>
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>Your Private API Key</span>
+                    <code style={{ fontSize: '14px', color: '#1e293b', fontWeight: '600' }}>{initialKey || 'KEY_NOT_FOUND'}</code>
+                </div>
                 <button 
                     onClick={handleCopy}
                     disabled={!initialKey}
-                    title="Copy API Key"
                     style={{
-                        marginLeft: '10px',
-                        cursor: 'pointer',
-                        fontSize: '11px',
-                        padding: '2px 5px',
-                        background: 'transparent',
-                        border: '1px solid #999',
-                        borderRadius: '3px',
-                        color: '#333'
+                        background: '#fff',
+                        border: '1px solid #d1d5db',
+                        color: '#374151',
+                        fontSize: '13px',
+                        padding: '6px 12px'
                     }}
                 >
-                    {copySuccess || 'Copy'}
+                    {copySuccess || 'Copy Key'}
                 </button>
             </div>
-            
-            <p>Authentication requires the <code>x-api-key</code> header.</p>
 
-            {/* Request Code Block */}
-            <pre style={{ marginBottom: '30px' }}>{codeExample}</pre>
+            <section style={{ marginBottom: '4rem' }}>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1rem' }}>Authentication</h4>
+                <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '1.5rem' }}>
+                    Authenticate your requests by including your API key in the <code>x-api-key</code> header of every request.
+                </p>
+                <pre>{codeExample}</pre>
+            </section>
 
-            {/* Response Structure Section */}
-            <h3>Response Structure</h3>
-            <p>The API returns a JSON array containing signal objects. Each object represents a specific asset on a specific timeframe.</p>
-            
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', fontSize: '14px' }}>
-                <thead>
-                    <tr style={{ background: '#f0f0f0', textAlign: 'left' }}>
-                        <th style={{ border: '1px solid #ddd', padding: '8px' }}>Field</th>
-                        <th style={{ border: '1px solid #ddd', padding: '8px' }}>Type</th>
-                        <th style={{ border: '1px solid #ddd', padding: '8px' }}>Description</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}><code>asset</code></td>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>String</td>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>The trading pair symbol (e.g., "BTCUSDT").</td>
-                    </tr>
-                    <tr>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}><code>tf</code></td>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>String</td>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>Timeframe (e.g., "15m", "60m", "240m", "1d").</td>
-                    </tr>
-                    <tr>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}><code>signal_val</code></td>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>Integer</td>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>
-                            <strong>1</strong>: BUY<br/>
-                            <strong>-1</strong>: SELL<br/>
-                            <strong>0</strong>: WAIT / NEUTRAL
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}><code>updated_at</code></td>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>String</td>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>ISO 8601 Timestamp of the last signal calculation.</td>
-                    </tr>
-                </tbody>
-            </table>
+            <section style={{ marginBottom: '4rem' }}>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1.5rem' }}>Endpoint: Live Matrix</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>asset</code></td>
+                            <td>String</td>
+                            <td>The trading pair symbol (e.g., "BTCUSDT").</td>
+                        </tr>
+                        <tr>
+                            <td><code>tf</code></td>
+                            <td>String</td>
+                            <td>Timeframe (e.g., "15m", "1d").</td>
+                        </tr>
+                        <tr>
+                            <td><code>signal_val</code></td>
+                            <td>Integer</td>
+                            <td>1: BUY | -1: SELL | 0: WAIT</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
 
-            <pre style={{ background: '#f9f9f9', border: '1px solid #ddd', padding: '15px' }}>
-                {responseExample}
-            </pre>
+            <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '4rem 0' }} />
 
-            {/* Interactive Console Section */}
-            <hr style={{ margin: '40px 0' }} />
-            <h3>Live API Console</h3>
-            <p style={{ fontSize: '14px' }}>Test your key directly from the browser.</p>
-
-            <div style={{ 
-                border: '1px solid #000', 
-                padding: '20px', 
-                background: '#fff' 
-            }}>
-                <form onSubmit={handleSimulate} style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '12px' }}>
-                        X-API-KEY
-                    </label>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                        <input 
-                            type="text" 
-                            value={testKey} 
-                            onChange={(e) => setTestKey(e.target.value)}
-                            placeholder="Enter API Key"
-                            autoComplete="off"
-                            style={{ margin: 0, flexGrow: 1 }}
-                        />
-                        <button type="submit" disabled={isLoading} style={{ width: 'auto', whiteSpace: 'nowrap' }}>
-                            {isLoading ? 'Sending...' : 'Run Request'}
-                        </button>
-                    </div>
-                </form>
+            <section>
+                <h3 style={{ border: 'none', margin: '0 0 0.5rem 0' }}>Live Console</h3>
+                <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '1.5rem' }}>Test your integration directly from the browser.</p>
 
                 <div style={{ 
-                    background: '#000', 
-                    color: '#0f0', 
-                    padding: '15px', 
-                    fontFamily: 'monospace', 
-                    fontSize: '12px',
-                    minHeight: '150px',
-                    overflowX: 'auto'
+                    background: '#fff', 
+                    border: '1px solid #e5e7eb', 
+                    borderRadius: '12px', 
+                    overflow: 'hidden',
+                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
                 }}>
-                    <div style={{ borderBottom: '1px solid #333', paddingBottom: '5px', marginBottom: '10px', color: '#fff' }}>
-                        Console Output {status && <span style={{ float: 'right', color: status === 200 ? '#0f0' : '#f00' }}>HTTP {status}</span>}
+                    <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                        <form onSubmit={handleSimulate} style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
+                            <div style={{ flexGrow: 1 }}>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>
+                                    X-API-KEY
+                                </label>
+                                <input 
+                                    type="text" 
+                                    value={testKey} 
+                                    onChange={(e) => setTestKey(e.target.value)}
+                                    placeholder="Paste your API key here"
+                                    style={{ margin: 0 }}
+                                />
+                            </div>
+                            <button type="submit" disabled={isLoading} style={{ height: '42px', whiteSpace: 'nowrap' }}>
+                                {isLoading ? 'Sending...' : 'Test Request'}
+                            </button>
+                        </form>
                     </div>
-                    {consoleOutput ? (
-                        <pre style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', whiteSpace: 'pre-wrap' }}>
-                            {JSON.stringify(consoleOutput, null, 2)}
-                        </pre>
-                    ) : (
-                        <span style={{ color: '#555' }}>// Waiting for execution...</span>
-                    )}
+
+                    <div style={{ background: '#0f172a', padding: '1.5rem', minHeight: '200px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid #1e293b', paddingBottom: '0.5rem' }}>
+                            <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '700' }}>OUTPUT</span>
+                            {status && (
+                                <span style={{ color: status === 200 ? '#10b981' : '#ef4444', fontSize: '11px', fontWeight: '700' }}>
+                                    HTTP {status}
+                                </span>
+                            )}
+                        </div>
+                        {consoleOutput ? (
+                            <pre style={{ background: 'transparent', padding: 0, margin: 0, color: '#38bdf8' }}>
+                                {JSON.stringify(consoleOutput, null, 2)}
+                            </pre>
+                        ) : (
+                            <span style={{ color: '#475569', fontSize: '13px', fontStyle: 'italic' }}>// Ready for execution...</span>
+                        )}
+                    </div>
                 </div>
-            </div>
+            </section>
         </div>
     );
 }
