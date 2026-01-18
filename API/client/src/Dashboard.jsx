@@ -3,9 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from './api';
 
-const TF_ORDER = ['15m', '30m', '60m', '240m', '1d']; //
+const TF_ORDER = ['15m', '30m', '60m', '240m', '1d'];
 
-const getSignalBadge = (val) => { // Refactored from getSignalText
+const getSignalBadge = (val) => {
     const baseStyle = {
         padding: '4px 8px',
         borderRadius: '4px',
@@ -22,14 +22,13 @@ const getSignalBadge = (val) => { // Refactored from getSignalText
 };
 
 export default function Dashboard() {
-    const [matrixData, setMatrixData] = useState([]); //
-    const [historyData, setHistoryData] = useState([]); //
-    const [matrixStatus, setMatrixStatus] = useState('loading'); //
-    const [apiKey, setApiKey] = useState(null); //
-    const [searchParams] = useSearchParams(); //
-    const navigate = useNavigate(); //
+    const [matrixData, setMatrixData] = useState([]);
+    const [historyData, setHistoryData] = useState([]);
+    const [matrixStatus, setMatrixStatus] = useState('loading');
+    const [apiKey, setApiKey] = useState(null);
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
 
-    // Verify subscription on Stripe return
     useEffect(() => {
         const sessionId = searchParams.get('session_id');
         if (sessionId) {
@@ -49,7 +48,6 @@ export default function Dashboard() {
         }
     }, [searchParams, navigate]);
 
-    // Data Fetching
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -74,7 +72,7 @@ export default function Dashboard() {
         fetchData();
     }, [navigate]);
 
-    const { assets, grid } = useMemo(() => { //
+    const { assets, grid } = useMemo(() => {
         if (!matrixData.length) return { assets: [], grid: {} };
         const uniqueAssets = [...new Set(matrixData.map(d => d.asset))].sort();
         const lookup = {};
@@ -88,7 +86,7 @@ export default function Dashboard() {
         return { assets: uniqueAssets, grid: lookup };
     }, [matrixData]);
 
-    const { accuracy, totalPnL, enrichedHistory } = useMemo(() => { //
+    const { accuracy, totalPnL, enrichedHistory } = useMemo(() => {
         let wins = 0, losses = 0, cumulativePnL = 0;
         const processed = historyData.map(row => {
             const entry = parseFloat(row.price_at_signal);
@@ -112,7 +110,7 @@ export default function Dashboard() {
         };
     }, [historyData]);
 
-    const handleSubscribe = async () => { //
+    const handleSubscribe = async () => {
         try {
             const res = await api.post('/create-checkout-session');
             window.location.href = res.data.url;
@@ -122,7 +120,7 @@ export default function Dashboard() {
         }
     };
 
-    const isMatrixLocked = matrixStatus === 'unpaid'; //
+    const isMatrixLocked = matrixStatus === 'unpaid';
 
     return (
         <div style={{ animation: 'fadeIn 0.5s ease-in' }}>
@@ -136,14 +134,6 @@ export default function Dashboard() {
 
                 {!isMatrixLocked ? (
                     <>
-                        <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '1.5rem', lineHeight: '1.5' }}>
-                            Disclaimer: Educational Purposes Only
-The information provided is for educational and informational purposes only and should not be construed as financial, investment, or legal advice. Trading financial instruments carries a high level of risk and may not be suitable for all investors. You could lose some or all of your initial investment; do not trade with capital you cannot afford to lose.
-​Methodology & Performance
-Signals are generated through discrete probabilistic modeling. These models represent theoretical outcomes and are not guarantees of future market movement. Please note that past performance is not indicative of future results. Data presented may be hypothetical or simulated and does not represent actual trade execution or performance.
-​Conflict of Interest
-The publisher and its affiliates may hold positions in, or actively trade, the assets mentioned herein. This may create a conflict of interest, and readers should perform their own due diligence before making any financial decisions.
-                        </p>
                         <table>
                             <thead>
                                 <tr>
@@ -164,6 +154,18 @@ The publisher and its affiliates may hold positions in, or actively trade, the a
                                 )}
                             </tbody>
                         </table>
+                        
+                        {/* Disclaimer moved below the table */}
+                        <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '1.5rem', lineHeight: '1.6', opacity: 0.8 }}>
+                            <strong>Disclaimer: Educational Purposes Only</strong><br/>
+                            The information provided is for educational and informational purposes only and should not be construed as financial, investment, or legal advice. Trading financial instruments carries a high level of risk and may not be suitable for all investors. You could lose some or all of your initial investment; do not trade with capital you cannot afford to lose.
+                            <br/><br/>
+                            <strong>Methodology & Performance</strong><br/>
+                            Signals are generated through discrete probabilistic modeling. These models represent theoretical outcomes and are not guarantees of future market movement. Please note that past performance is not indicative of future results. Data presented may be hypothetical or simulated and does not represent actual trade execution or performance.
+                            <br/><br/>
+                            <strong>Conflict of Interest</strong><br/>
+                            The publisher and its affiliates may hold positions in, or actively trade, the assets mentioned herein. This may create a conflict of interest, and readers should perform their own due diligence before making any financial decisions.
+                        </p>
                     </>
                 ) : (
                     <div style={{ 
