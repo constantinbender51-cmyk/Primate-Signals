@@ -4,118 +4,94 @@ import api from './api';
 import toast from 'react-hot-toast';
 
 export default function Layout() {
-  const navigate = useNavigate();
-  
-  // 1. Get User Data
-  const token = localStorage.getItem('token');
-  const userStr = localStorage.getItem('user');
-  const user = userStr ? JSON.parse(userStr) : {};
-  
-  const isLoggedIn = !!token;
-  
-  // 2. Check Active Status (Active or Trialing)
-  const isActive = isLoggedIn && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
+  const navigate = useNavigate(); //
+  const token = localStorage.getItem('token'); //
+  const userStr = localStorage.getItem('user'); //
+  const user = userStr ? JSON.parse(userStr) : {}; //
+  const isLoggedIn = !!token; //
+  const isActive = isLoggedIn && (user.subscription_status === 'active' || user.subscription_status === 'trialing'); //
 
-  const handleLogout = (e) => {
+  const handleLogout = (e) => { //
     e.preventDefault();
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/login');
   };
 
-  // Manage existing subscription (Stripe Portal)
-  const handleManage = async () => { 
+  const handleManage = async () => { //
     try {
       const res = await api.post('/create-portal-session');
       window.location.href = res.data.url;
     } catch (err) { toast.error("Error opening portal"); }
   };
 
-  // Create new subscription (Stripe Checkout)
-  const handleSubscribe = async () => {
-    if (!isLoggedIn) {
-        navigate('/register');
-        return;
-    }
+  const handleSubscribe = async () => { //
+    if (!isLoggedIn) { navigate('/register'); return; }
     try {
         const res = await api.post('/create-checkout-session');
         window.location.href = res.data.url;
-    } catch (err) {
-        toast.error("Error starting checkout");
-    }
+    } catch (err) { toast.error("Error starting checkout"); }
   };
 
   return (
     <>
-      <Toaster 
-        position="top-center" 
-        toastOptions={{
-            style: {
-                background: '#fff',
-                color: '#000',
-                border: '1px solid black',
-                borderRadius: '0',
-                fontFamily: 'Times New Roman'
-            },
-        }}
-      />
+      <Toaster position="top-center" />
 
-      {/* HEADER */}
-      <div>
-        <h1 style={{ display: 'inline-block', marginRight: '10px' }}>
-             <Link to="/" style={{ textDecoration: 'none', color: '#000' }}>Primate</Link>
-        </h1>
-        <div style={{ display: 'inline-block' }}>
-            {isLoggedIn ? (
-                <span><button onClick={handleLogout}>Logout</button></span>
-            ) : (
-                <span><Link to="/login">Login</Link></span>
-            )}
-            {' | '}
-            {/* 3. Opaque and Unclickable API Link unless Active */}
-            <Link 
-                to="/api-docs"
-                style={{
-                    opacity: isActive ? 1 : 0.3,
-                    pointerEvents: isActive ? 'auto' : 'none',
-                    cursor: isActive ? 'pointer' : 'default',
-                    textDecoration: isActive ? 'underline' : 'none'
-                }}
-                title={isActive ? "View Documentation" : "Subscription Required"}
-            >
-                API
-            </Link>
-        </div>
+      <header style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: '3rem',
+          paddingBottom: '1.5rem',
+          borderBottom: '1px solid #e5e7eb' 
+      }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2.5rem' }}>
+              <Link to="/" style={{ textDecoration: 'none', color: '#111827', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.025em' }}>
+                  Primate<span style={{ color: '#2563eb' }}>.</span>
+              </Link>
+              <nav style={{ display: 'flex', gap: '1.5rem', fontSize: '14px', fontWeight: '500' }}>
+                  <Link to="/" style={{ textDecoration: 'none', color: '#374151' }}>Signals</Link>
+                  <Link 
+                      to="/api-docs"
+                      style={{
+                          textDecoration: 'none',
+                          color: isActive ? '#374151' : '#9ca3af',
+                          opacity: isActive ? 1 : 0.5,
+                          pointerEvents: isActive ? 'auto' : 'none' //
+                      }}
+                  >
+                      API Docs
+                  </Link>
+              </nav>
+          </div>
 
-        {/* 4. Top Right Button Logic */}
-        <div style={{ display: 'inline-block', float: 'right' }}>
-            {isActive ? (
-                <button onClick={handleManage}>Manage Subscription</button>
-            ) : (
-                <button 
-                    onClick={handleSubscribe} 
-                    style={{ backgroundColor: '#000', color: '#fff', border: '1px solid #000' }}
-                >
-                    Try for free
-                </button>
-            )}
-        </div>
-      </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+              {isLoggedIn ? (
+                  <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#6b7280', padding: 0, fontWeight: '400' }}>Logout</button>
+              ) : (
+                  <Link to="/login" style={{ textDecoration: 'none', color: '#374151', fontSize: '14px', fontWeight: '500' }}>Login</Link>
+              )}
+              
+              {isActive ? (
+                  <button onClick={handleManage} style={{ background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db' }}>Manage</button>
+              ) : (
+                  <button onClick={handleSubscribe} style={{ boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>Get Started</button>
+              )}
+          </div>
+      </header>
       
-      <div style={{ fontStyle: 'italic', marginBottom: '20px' }}>
-        Trading Signals
-      </div>
-
       <main>
         <Outlet />
       </main>
 
-      <footer style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid #000', fontSize: '12px' }}>
-          <p>&copy; {new Date().getFullYear()} Primate Research.</p>
-          <div>
-              <Link to="/legal/impressum">Impressum</Link> |{' '}
-              <Link to="/legal/privacy-policy">Privacy Policy</Link> |{' '}
-              <Link to="/legal/terms-of-service">Terms of Service</Link>
+      <footer style={{ marginTop: '6rem', padding: '2rem 0', borderTop: '1px solid #e5e7eb', fontSize: '13px', color: '#6b7280' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <p>&copy; {new Date().getFullYear()} Primate Research.</p>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                  <Link to="/legal/impressum" style={{ color: 'inherit', textDecoration: 'none' }}>Impressum</Link>
+                  <Link to="/legal/privacy-policy" style={{ color: 'inherit', textDecoration: 'none' }}>Privacy</Link>
+                  <Link to="/legal/terms-of-service" style={{ color: 'inherit', textDecoration: 'none' }}>Terms</Link>
+              </div>
           </div>
       </footer>
     </>
