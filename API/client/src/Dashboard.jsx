@@ -1,35 +1,238 @@
-// Replace your getSignalText with this:
-const getSignalText = (val) => {
-    const style = {
+import { useEffect, useState, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import api from './api';
+
+const TF_ORDER = ['15m', '30m', '60m', '240m', '1d']; //
+
+const getSignalBadge = (val) => { // Refactored from getSignalText
+    const baseStyle = {
         padding: '4px 8px',
         borderRadius: '4px',
         fontSize: '11px',
-        fontWeight: 'bold',
+        fontWeight: '700',
         display: 'inline-block',
-        minWidth: '50px',
+        minWidth: '54px',
         textAlign: 'center'
     };
 
-    if (val === 1) return <span style={{ ...style, background: '#dcfce7', color: '#166534' }}>BUY</span>;
-    if (val === -1) return <span style={{ ...style, background: '#fee2e2', color: '#991b1b' }}>SELL</span>;
-    return <span style={{ ...style, background: '#f3f4f6', color: '#374151' }}>WAIT</span>;
+    if (val === 1) return <span style={{ ...baseStyle, background: '#dcfce7', color: '#166534' }}>BUY</span>;
+    if (val === -1) return <span style={{ ...baseStyle, background: '#fee2e2', color: '#991b1b' }}>SELL</span>;
+    return <span style={{ ...baseStyle, background: '#f3f4f6', color: '#374151' }}>WAIT</span>;
 };
 
-// Inside the return, replace the Restricted View div with this:
-<div style={{ 
-    background: '#fff', 
-    border: '1px solid #e5e7eb', 
-    borderRadius: '12px', 
-    padding: '2rem', 
-    textAlign: 'center',
-    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
-}}>
-    <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔒</div>
-    <h3 style={{ margin: 0, border: 'none' }}>Premium Access Required</h3>
-    <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>
-        Join 500+ traders getting real-time probabilistic signals.
-    </p>
-    <button onClick={handleSubscribe} style={{ padding: '12px 24px', fontSize: '16px' }}>
-        Start Free Trial — 49.90€/mo
-    </button>
-</div>
+export default function Dashboard() {
+    const [matrixData, setMatrixData] = useState([]); //
+    const [historyData, setHistoryData] = useState([]); //
+    const [matrixStatus, setMatrixStatus] = useState('loading'); //
+    const [apiKey, setApiKey] = useState(null); //
+    const [searchParams] = useSearchParams(); //
+    const navigate = useNavigate(); //
+
+    // Verify subscription on Stripe return
+    useEffect(() => {
+        const sessionId = searchParams.get('session_id');
+        if (sessionId) {
+            const refreshProfile = async () => {
+                const toastId = toast.loading("Verifying subscription...");
+                try {
+                    const res = await api.get('/auth/me');
+                    localStorage.setItem('user', JSON.stringify(res.data));
+                    toast.success("Subscription Active!", { id: toastId });
+                    window.location.href = '/'; 
+                } catch (err) {
+                    toast.error("Activation pending.", { id: toastId });
+                    navigate('/', { replace: true });
+                }
+            };
+            refreshProfile();
+        }
+    }, [searchParams, navigate]);
+
+    // Data Fetching
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const historyRes = await api.get('/signal_history');
+                setHistoryData(historyRes.data.results);
+            } catch (err) { /* Silent fail */ }
+
+            try {
+                const matrixRes = await api.get('/live_matrix');
+                setMatrixData(matrixRes.data.results);
+                setMatrixStatus('active');
+            } catch (err) {
+                if (err.response?.status === 403 || err.response?.status === 401) {
+                    setMatrixStatus('unpaid');
+                    setMatrixData([]); 
+                }
+            }
+            
+            const userStr = localStorage.getItem('user');
+            if (userStr) setApiKey(JSON.parse(userStr).api_key);
+        };
+        fetchData();
+    }, [navigate]);
+
+    const { assets, grid } = useMemo(() => { //
+        if (!matrixData.length) return { assets: [], grid: {} };
+        const uniqueAssets = [...new Set(matrixData.map(d => d.asset))].sort();
+        const lookup = {};
+        uniqueAssets.forEach(asset => {
+            lookup[asset] = {};
+            TF_ORDER.forEach(tf => {
+                const point = matrixData.find(d => d.asset === asset && d.tf === tf);
+                lookup[asset][tf] = point ? point.signal_val : 0;
+            });
+        });
+        return { assets: uniqueAssets, grid: lookup };
+    }, [matrixData]);
+
+    const { accuracy, totalPnL, enrichedHistory } = useMemo(() => { //
+        let wins = 0, losses = 0, cumulativePnL = 0;
+        const processed = historyData.map(row => {
+            const entry = parseFloat(row.price_at_signal);
+            const close = parseFloat(row.close_price);
+            let pnlPercent = 0;
+            if (!isNaN(entry) && !isNaN(close) && entry !== 0) {
+                pnlPercent = (row.signal === 'BUY' || row.signal === 1) 
+                    ? ((close - entry) / entry) * 100 
+                    : ((entry - close) / entry) * 100;
+            }
+            if (row.outcome === 'WIN') wins++;
+            else if (row.outcome === 'LOSS') losses++;
+            cumulativePnL += pnlPercent;
+            return { ...row, pnlVal: pnlPercent };
+        });
+        const total = wins + losses;
+        return { 
+            accuracy: total > 0 ? ((wins / total) * 100).toFixed(2) : 0,
+            totalPnL: cumulativePnL.toFixed(2),
+            enrichedHistory: processed
+        };
+    }, [historyData]);
+
+    const handleSubscribe = async () => { //
+        try {
+            const res = await api.post('/create-checkout-session');
+            window.location.href = res.data.url;
+        } catch (err) { 
+            if (!localStorage.getItem('token')) navigate('/login');
+            else toast.error("Unavailable");
+        }
+    };
+
+    const isMatrixLocked = matrixStatus === 'unpaid'; //
+
+    return (
+        <div style={{ animation: 'fadeIn 0.5s ease-in' }}>
+            <div style={{ marginBottom: '2.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h3 style={{ margin: 0, border: 'none' }}>Live Signal Matrix</h3>
+                    <span className="tiny">
+                        Updated: {matrixData.length > 0 ? new Date(matrixData[0].updated_at).toLocaleTimeString() : '-'}
+                    </span>
+                </div>
+
+                {!isMatrixLocked ? (
+                    <>
+                        <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                            Educational modeling only. Discrete probabilistic modelling signals. Trading carries high risk.
+                        </p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Asset</th>
+                                    {TF_ORDER.map(tf => <th key={tf}>{tf}</th>)}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {assets.length > 0 ? assets.map(asset => (
+                                    <tr key={asset}>
+                                        <td style={{ fontWeight: '600' }}>{asset}</td>
+                                        {TF_ORDER.map(tf => (
+                                            <td key={tf}>{getSignalBadge(grid[asset]?.[tf])}</td>
+                                        ))}
+                                    </tr>
+                                )) : (
+                                    <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>Fetching market data...</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </>
+                ) : (
+                    <div style={{ 
+                        background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '3rem 2rem', 
+                        textAlign: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' 
+                    }}>
+                        <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🔒</div>
+                        <h3 style={{ margin: '0 0 0.5rem 0', border: 'none' }}>Premium Access Required</h3>
+                        <p style={{ color: '#6b7280', marginBottom: '2rem', fontSize: '15px' }}>
+                            Unlock real-time probability-based signals for all timeframes.
+                        </p>
+                        <button onClick={handleSubscribe} style={{ padding: '12px 32px', fontSize: '15px' }}>
+                            Start Free Trial — 49.90€/mo
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            <h3 style={{ border: 'none', marginBottom: '1.5rem' }}>Performance History (7D)</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                <div style={{ background: '#fff', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                    <div className="tiny" style={{ marginBottom: '4px' }}>ACCURACY</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '800' }}>{accuracy}%</div>
+                </div>
+                <div style={{ background: '#fff', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                    <div className="tiny" style={{ marginBottom: '4px' }}>TOTAL PNL</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '800', color: totalPnL >= 0 ? '#10b981' : '#ef4444' }}>
+                        {totalPnL > 0 ? '+' : ''}{totalPnL}%
+                    </div>
+                </div>
+            </div>
+            
+            <div style={{ overflowX: 'auto' }}>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time (UTC)</th>
+                            <th>Asset</th>
+                            <th>TF</th>
+                            <th>Signal</th>
+                            <th>PnL %</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {enrichedHistory.length > 0 ? enrichedHistory.map((row, i) => (
+                            <tr key={i}>
+                                <td style={{ fontSize: '12px' }}>{row.time_str}</td>
+                                <td style={{ fontWeight: '500' }}>{row.asset}</td>
+                                <td>{row.tf}</td>
+                                <td>{row.signal}</td>
+                                <td style={{ fontWeight: '700', color: row.pnlVal >= 0 ? '#10b981' : '#ef4444' }}>
+                                    {row.pnlVal ? `${row.pnlVal > 0 ? '+' : ''}${row.pnlVal.toFixed(2)}%` : '-'}
+                                </td>
+                                <td>
+                                    <span style={{ color: row.outcome === 'WIN' ? '#10b981' : '#ef4444', fontWeight: '600' }}>
+                                        {row.outcome}
+                                    </span>
+                                </td>
+                            </tr>
+                        )) : (
+                            <tr><td colSpan="6" style={{ textAlign: 'center', padding: '1rem' }}>No history recorded</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {!isMatrixLocked && apiKey && (
+                <div style={{ marginTop: '4rem', padding: '1.5rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <h4 style={{ margin: '0 0 0.5rem 0' }}>Developer Access</h4>
+                    <p className="tiny" style={{ marginBottom: '1rem' }}>Your private API key for raw JSON integration</p>
+                    <code style={{ wordBreak: 'break-all', display: 'block', padding: '1rem' }}>{apiKey}</code>
+                </div>
+            )}
+        </div>
+    );
+}
