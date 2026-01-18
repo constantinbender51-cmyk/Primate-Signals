@@ -15,6 +15,7 @@ const getSignalBadge = (val) => {
         minWidth: '54px',
         textAlign: 'center'
     };
+
     if (val === 1) return <span style={{ ...baseStyle, background: '#dcfce7', color: '#166534' }}>BUY</span>;
     if (val === -1) return <span style={{ ...baseStyle, background: '#fee2e2', color: '#991b1b' }}>SELL</span>;
     return <span style={{ ...baseStyle, background: '#f3f4f6', color: '#374151' }}>WAIT</span>;
@@ -52,7 +53,7 @@ export default function Dashboard() {
             try {
                 const historyRes = await api.get('/signal_history');
                 setHistoryData(historyRes.data.results);
-            } catch (err) { }
+            } catch (err) { /* Silent fail */ }
 
             try {
                 const matrixRes = await api.get('/live_matrix');
@@ -64,6 +65,7 @@ export default function Dashboard() {
                     setMatrixData([]); 
                 }
             }
+            
             const userStr = localStorage.getItem('user');
             if (userStr) setApiKey(JSON.parse(userStr).api_key);
         };
@@ -153,11 +155,14 @@ export default function Dashboard() {
                             </tbody>
                         </table>
 
-                        {/* Moved Below Table */}
-                        <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '1rem', lineHeight: '1.4' }}>
-                            Disclaimer: Educational Purposes Only. Trading carries risk. 
-                            Signals are theoretical probabilistic models and not financial advice. 
-                            Past performance does not guarantee future results.
+                        {/* FULL DISCLAIMER TEXT BELOW TABLE */}
+                        <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '1.5rem', lineHeight: '1.5', whiteSpace: 'pre-line' }}>
+                            <strong>Disclaimer: </strong>Educational Purposes Only{"\n"}
+                            The information provided is for educational and informational purposes only and should not be construed as financial, investment, or legal advice. Trading financial instruments carries a high level of risk and may not be suitable for all investors. You could lose some or all of your initial investment; do not trade with capital you cannot afford to lose.{"\n\n"}
+                            <strong></strong>Methodology & Performance{"\n"}
+                            Signals are generated through discrete probabilistic modeling. These models represent theoretical outcomes and are not guarantees of future market movement. Please note that past performance is not indicative of future results. Data presented may be hypothetical or simulated and does not represent actual trade execution or performance.{"\n\n"}
+                            <strong></strong>Conflict of Interest{"\n"}
+                            The publisher and its affiliates may hold positions in, or actively trade, the assets mentioned herein. This may create a conflict of interest, and readers should perform their own due diligence before making any financial decisions.
                         </p>
                     </>
                 ) : (
