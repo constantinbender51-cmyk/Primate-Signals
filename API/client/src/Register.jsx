@@ -40,55 +40,95 @@ export default function Register() {
     };
 
     return (
-        <div className="auth-card" style={{ maxWidth: '400px', margin: '0 auto' }}>
-            <h3>Create Account</h3>
+        <div style={{ 
+            maxWidth: '400px', 
+            margin: '4rem auto', 
+            padding: '2.5rem', 
+            background: '#fff', 
+            borderRadius: '12px', 
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+            border: '1px solid #e5e7eb'
+        }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '0.5rem', textAlign: 'center' }}>
+                {step === 1 ? 'Create Account' : 'Verify Email'}
+            </h2>
+            <p style={{ color: '#6b7280', textAlign: 'center', marginBottom: '2rem', fontSize: '14px' }}>
+                {step === 1 
+                    ? 'Get started with professional trading signals.' 
+                    : `Enter the 4-digit code sent to ${email}`}
+            </p>
             
             {step === 1 ? (
                 <form onSubmit={handleRegister}>
-                    <input 
-                        type="email" 
-                        placeholder="EMAIL ADDRESS" 
-                        value={email} 
-                        onChange={e => setEmail(e.target.value)} 
-                        required 
-                    />
-                    <input 
-                        type="password" 
-                        placeholder="PASSWORD" 
-                        value={password} 
-                        onChange={e => setPassword(e.target.value)} 
-                        required 
-                    />
-                    <button type="submit" disabled={isLoading} style={{ width: '100%', marginTop: '1rem' }}>
-                        {isLoading ? 'Sending...' : 'Register'}
+                    <div style={{ marginBottom: '1.25rem' }}>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+                            Email Address
+                        </label>
+                        <input 
+                            type="email" 
+                            placeholder="name@company.com" 
+                            value={email} 
+                            onChange={e => setEmail(e.target.value)} 
+                            required 
+                            style={{ margin: 0 }}
+                        />
+                    </div>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+                            Password
+                        </label>
+                        <input 
+                            type="password" 
+                            placeholder="Create a strong password" 
+                            value={password} 
+                            onChange={e => setPassword(e.target.value)} 
+                            required 
+                            style={{ margin: 0 }}
+                        />
+                    </div>
+                    <button type="submit" disabled={isLoading} style={{ width: '100%', padding: '12px' }}>
+                        {isLoading ? 'Sending...' : 'Create Account'}
                     </button>
                     
-                    <div style={{ marginTop: '2rem', fontSize: '0.8rem', textAlign: 'center' }}>
-                        <span style={{ color: '#666' }}>EXISTING USER? </span>
-                        <Link to="/login">LOGIN HERE</Link>
+                    <div style={{ marginTop: '2rem', textAlign: 'center', fontSize: '14px' }}>
+                        <span style={{ color: '#6b7280' }}>Already have an account? </span>
+                        <Link to="/login" style={{ color: '#2563eb', fontWeight: '600', textDecoration: 'none' }}>Log in</Link>
                     </div>
                 </form>
             ) : (
                 <form onSubmit={handleVerify}>
-                    <p style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>
-                        Enter the 4-digit code sent to <strong>{email}</strong>
-                    </p>
-                    <input 
-                        type="text" 
-                        placeholder="0000" 
-                        value={code} 
-                        onChange={e => setCode(e.target.value)} 
-                        maxLength="4"
-                        style={{ letterSpacing: '5px', textAlign: 'center', fontSize: '1.2rem' }}
-                        required 
-                    />
-                    <button type="submit" disabled={isLoading} style={{ width: '100%', marginTop: '1rem' }}>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <input 
+                            type="text" 
+                            placeholder="0000" 
+                            value={code} 
+                            onChange={e => setCode(e.target.value)} 
+                            maxLength="4"
+                            style={{ 
+                                letterSpacing: '10px', 
+                                textAlign: 'center', 
+                                fontSize: '1.5rem', 
+                                fontWeight: 'bold',
+                                padding: '15px'
+                            }}
+                            required 
+                        />
+                    </div>
+                    <button type="submit" disabled={isLoading} style={{ width: '100%', padding: '12px' }}>
                         {isLoading ? 'Verifying...' : 'Verify Code'}
                     </button>
                     <button 
                         type="button" 
                         onClick={() => setStep(1)} 
-                        style={{ background: 'none', border: 'none', color: '#666', marginTop: '10px', fontSize: '0.8rem', textDecoration: 'underline' }}
+                        style={{ 
+                            background: 'none', 
+                            border: 'none', 
+                            color: '#6b7280', 
+                            marginTop: '1.5rem', 
+                            fontSize: '13px', 
+                            textDecoration: 'underline',
+                            width: '100%'
+                        }}
                     >
                         Wrong email? Go back.
                     </button>
