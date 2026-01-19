@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import api from './api';
 
 export default function Dashboard() {
@@ -51,12 +50,14 @@ export default function Dashboard() {
     const cellStyle = { padding: '5px 10px', textAlign: 'left' };
 
     return (
-        <div style={{ fontFamily: 'sans-serif', padding: '20px' }}>
-            <h1>Primate</h1>
+        <div style={{ padding: '0 0 20px 0' }}>
+            {/* View Title */}
             <h2>Trading Signals</h2>
-            <p>For educational purposes only.</p>
+            <p className="tiny" style={{ marginBottom: '2rem' }}>
+                Real-time market analysis. For educational purposes only.
+            </p>
 
-            <h3>Signals</h3>
+            <h3>Active Signals</h3>
             <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                 <thead>
                     <tr>
@@ -67,14 +68,18 @@ export default function Dashboard() {
                     </tr>
                 </thead>
                 <tbody>
-                    {signals.map((row, i) => (
+                    {signals.length > 0 ? signals.map((row, i) => (
                         <tr key={i}>
-                            <td style={cellStyle}>{row.direction}</td>
+                            <td style={{...cellStyle, color: row.direction === 'Long' ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold'}}>
+                                {row.direction}
+                            </td>
                             <td style={cellStyle}>{row.asset}</td>
                             <td style={cellStyle}>{row.start}</td>
                             <td style={cellStyle}>{row.end}</td>
                         </tr>
-                    ))}
+                    )) : (
+                        <tr><td colSpan="4" style={{textAlign: 'center', padding: '2rem', color: '#9ca3af'}}>No active signals</td></tr>
+                    )}
                 </tbody>
             </table>
 
@@ -92,21 +97,17 @@ export default function Dashboard() {
                 <tbody>
                     {history.map((row, i) => (
                         <tr key={i}>
-                            <td style={cellStyle}>{row.direction}</td>
+                            <td style={{...cellStyle, color: row.direction === 'Long' ? 'var(--success)' : 'var(--danger)'}}>
+                                {row.direction}
+                            </td>
                             <td style={cellStyle}>{row.asset}</td>
                             <td style={cellStyle}>{row.start}</td>
                             <td style={cellStyle}>{row.end}</td>
-                            <td style={cellStyle}>{row.change}</td>
+                            <td style={{...cellStyle, fontWeight: 'bold'}}>{row.change}</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
-
-            <div style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
-                <Link to="/impressum">Impressum</Link>
-                <Link to="/privacy">Privacy policy</Link>
-                <Link to="/terms">Terms of service</Link>
-            </div>
         </div>
     );
 }
