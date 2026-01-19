@@ -147,10 +147,9 @@ export default function Dashboard() {
             {/* HEADER */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <div>
-                    <h2 style={{ margin: 0 }}>Active Opportunities</h2>
+                    <h2 style={{ margin: 0 }}>Live Signal Action List</h2>
                     <p style={{ margin: '4px 0 0 0', color: '#6b7280', fontSize: '14px' }}>
-                        Only assets with non-zero signals are shown below. <br/>
-                        <em>If an asset is missing, it is Neutral (Close Positions).</em>
+                        Rebalance Interval: Every 15 minutes (XX:00, XX:15, XX:30, XX:45)
                     </p>
                 </div>
                 <span className="tiny">
@@ -263,11 +262,11 @@ export default function Dashboard() {
                     </div>
 
                     <div>
-                        <h4 style={{ fontSize: '16px', marginBottom: '0.5rem', color: '#1f2937' }}>3. Handling Hidden Assets</h4>
+                        <h4 style={{ fontSize: '16px', marginBottom: '0.5rem', color: '#1f2937' }}>3. Automation vs Manual</h4>
                         <p style={{ fontSize: '14px', color: '#4b5563', lineHeight: '1.5' }}>
-                            This dashboard automatically <strong>hides assets with no signal</strong> (Net Score 0). 
+                            <strong>Manual:</strong> Adjust your position size to match the "Instruction" every 15m. If instruction drops from Buy 3 to Buy 1, close 2 units.
                             <br/>
-                            If an asset you are trading disappears from this list, it means the signal has turned Neutral. <strong>You should close your position immediately.</strong>
+                            <strong>Automated (Recommended):</strong> Use the API Key below. Program a bot to poll the endpoint every 15m and sync your exchange position to the Net Score.
                         </p>
                     </div>
                 </div>
