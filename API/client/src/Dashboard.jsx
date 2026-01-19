@@ -5,13 +5,25 @@ import api from './api';
 export default function Dashboard() {
     const [matrixData, setMatrixData] = useState([]);
     const [historyData, setHistoryData] = useState([]);
+    const [updatedAt, setUpdatedAt] = useState(null);
 
     useEffect(() => {
-        api.get('/live_matrix').then(res => setMatrixData(res.data.results || [])).catch(() => {});
-        api.get('/signal_history').then(res => setHistoryData(res.data.results || [])).catch(() => {});
+        const fetchData = async () => {
+            try {
+                await Promise.all([
+                    api.get('/live_matrix').then(res => setMatrixData(res.data.results || [])),
+                    api.get('/signal_history').then(res => setHistoryData(res.data.results || []))
+                ]);
+            } catch (e) {
+                // Silent error handling
+            } finally {
+                setUpdatedAt(new Date());
+            }
+        };
+
+        fetchData();
     }, []);
 
-    // Format: YYYY-MM-DD HH:mm:ss
     const formatDateTime = (dateInput) => {
         if (!dateInput) return '-';
         const date = new Date(dateInput);
@@ -24,13 +36,15 @@ export default function Dashboard() {
             hour: '2-digit', 
             minute: '2-digit', 
             second: '2-digit' 
-        }).replace(' ', ' ');
+        });
     };
 
-    // Helper to calculate Start (floor) and End (start + duration) based on timeframe
-    const getCandleTimes = (dateInput, timeframe) => {
+    const getCandleTimes = (dateInput, tf) => {
         const start = new Date(dateInput);
         let duration = 0;
+
+        // Normalize tf to string and handle common abbreviations
+        const timeframe = String(tf).toLowerCase();
 
         switch (timeframe) {
             case '15m':
@@ -50,9 +64,13 @@ export default function Dashboard() {
                 duration = 4 * 60 * 60 * 1000;
                 break;
             case '1d':
-            default:
                 start.setHours(0, 0, 0, 0);
                 duration = 24 * 60 * 60 * 1000;
+                break;
+            default:
+                // Fallback to 15m rounding if tf is undefined or unrecognized
+                start.setMinutes(Math.floor(start.getMinutes() / 15) * 15, 0, 0);
+                duration = 15 * 60 * 1000;
                 break;
         }
 
@@ -65,16 +83,15 @@ export default function Dashboard() {
         
         matrixData.forEach(d => {
             if (!assets[d.asset]) {
-                // Default to '1d' if d.timeframe is missing
-                assets[d.asset] = { score: 0, start: d.updated_at, timeframe: d.timeframe || '1d' };
+                // Using d.tf for timeframe
+                assets[d.asset] = { score: 0, start: d.updated_at, tf: d.tf || '1d' };
             }
             assets[d.asset].score += d.signal_val;
         });
 
         return Object.entries(assets)
             .map(([asset, data]) => {
-                const { start, end } = getCandleTimes(data.start, data.timeframe);
-
+                const { start, end } = getCandleTimes(data.start, data.tf);
                 return {
                     direction: data.score > 0 ? 'Long' : (data.score < 0 ? 'Short' : null),
                     asset,
@@ -97,11 +114,14 @@ export default function Dashboard() {
                     : ((entry - close) / entry) * 100;
             }
 
+            // Using row.tf for timeframe calculation
+            const { start, end } = getCandleTimes(row.time_str, row.tf || '15m');
+
             return {
                 direction: (row.signal === 'BUY' || row.signal === 1) ? 'Long' : 'Short',
                 asset: row.asset,
-                start: formatDateTime(row.time_str),
-                end: formatDateTime(row.closed_at),
+                start: formatDateTime(start),
+                end: formatDateTime(end),
                 change: change.toFixed(2) + '%'
             };
         });
@@ -110,8 +130,11 @@ export default function Dashboard() {
     const cellStyle = { padding: '5px 10px', textAlign: 'left' };
 
     return (
-        <div style={{ fontFamily: 'sans-serif', padding: '20px' }}>
-            <h1></h1>
+        <div style={{ fontFamily: 'sans-serif', padding: '20px', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: '20px', right: '20px', fontSize: '0.85rem', color: '#555' }}>
+                Updated at: {formatDateTime(updatedAt)}
+            </div>
+
             <h2>Trading Signals</h2>
             <p>For educational purposes only.</p>
 
@@ -122,7 +145,7 @@ export default function Dashboard() {
                         <th style={cellStyle}>Direction</th>
                         <th style={cellStyle}>Asset</th>
                         <th style={cellStyle}>Start</th>
-                        <th style={cellStyle}>End (Exp)</th>
+                        <th style={cellStyle}>End</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -137,7 +160,7 @@ export default function Dashboard() {
                 </tbody>
             </table>
 
-            <h3>Order History</h3>
+            <h3 style={{ marginTop: '40px' }}>Order History</h3>
             <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                 <thead>
                     <tr>
@@ -161,7 +184,7 @@ export default function Dashboard() {
                 </tbody>
             </table>
 
-            <div style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
+            <div style={{ marginTop: '40px', display: 'flex', gap: '15px' }}>
                 <Link to="/impressum">Impressum</Link>
                 <Link to="/privacy">Privacy</Link>
                 <Link to="/terms">Terms</Link>
