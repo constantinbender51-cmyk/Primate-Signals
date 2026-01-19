@@ -22,23 +22,6 @@ const calculateNetSignal = (tfData) => {
     return { score, details };
 };
 
-const getSignalBadge = (val, mini = false) => {
-    const baseStyle = {
-        padding: mini ? '2px 6px' : '4px 8px',
-        borderRadius: '4px',
-        fontSize: mini ? '10px' : '11px',
-        fontWeight: '700',
-        display: 'inline-block',
-        minWidth: mini ? 'auto' : '54px',
-        textAlign: 'center',
-        marginRight: mini ? '4px' : '0'
-    };
-
-    if (val === 1) return <span style={{ ...baseStyle, background: '#dcfce7', color: '#166534' }}>BUY</span>;
-    if (val === -1) return <span style={{ ...baseStyle, background: '#fee2e2', color: '#991b1b' }}>SELL</span>;
-    return <span style={{ ...baseStyle, background: '#f3f4f6', color: '#374151' }}>WAIT</span>;
-};
-
 export default function Dashboard() {
     const [matrixData, setMatrixData] = useState([]);
     const [historyData, setHistoryData] = useState([]);
@@ -92,29 +75,33 @@ export default function Dashboard() {
         fetchData();
     }, [navigate]);
 
-    // --- Data Processing for List View ---
+    // --- Data Processing for List View (Filtered) ---
     const processedAssets = useMemo(() => {
         if (!matrixData.length) return [];
         
         const uniqueAssets = [...new Set(matrixData.map(d => d.asset))].sort();
         
-        return uniqueAssets.map(asset => {
-            // Build a lookup for this specific asset's timeframes
-            const assetTfs = {};
-            TF_ORDER.forEach(tf => {
-                const point = matrixData.find(d => d.asset === asset && d.tf === tf);
-                assetTfs[tf] = point ? point.signal_val : 0;
-            });
+        return uniqueAssets
+            .map(asset => {
+                // Build a lookup for this specific asset's timeframes
+                const assetTfs = {};
+                TF_ORDER.forEach(tf => {
+                    const point = matrixData.find(d => d.asset === asset && d.tf === tf);
+                    assetTfs[tf] = point ? point.signal_val : 0;
+                });
 
-            const { score, details } = calculateNetSignal(assetTfs);
+                const { score, details } = calculateNetSignal(assetTfs);
 
-            return {
-                asset,
-                score,
-                details,
-                rawGrid: assetTfs
-            };
-        });
+                return {
+                    asset,
+                    score,
+                    details,
+                    rawGrid: assetTfs
+                };
+            })
+            // FILTER: Only show assets where the score is NOT 0
+            .filter(item => item.score !== 0);
+
     }, [matrixData]);
 
     // --- History Stats Calculation ---
@@ -160,9 +147,10 @@ export default function Dashboard() {
             {/* HEADER */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <div>
-                    <h2 style={{ margin: 0 }}>Live Signal Action List</h2>
+                    <h2 style={{ margin: 0 }}>Active Opportunities</h2>
                     <p style={{ margin: '4px 0 0 0', color: '#6b7280', fontSize: '14px' }}>
-                        Rebalance Interval: Every 15 minutes (XX:00, XX:15, XX:30, XX:45)
+                        Only assets with non-zero signals are shown below. <br/>
+                        <em>If an asset is missing, it is Neutral (Close Positions).</em>
                     </p>
                 </div>
                 <span className="tiny">
@@ -187,7 +175,7 @@ export default function Dashboard() {
                 </div>
             )}
 
-            {/* SIGNAL LIST (ACTIVE) */}
+            {/* SIGNAL LIST (ACTIVE & FILTERED) */}
             {!isMatrixLocked && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '3rem' }}>
                     {processedAssets.length > 0 ? processedAssets.map((item) => (
@@ -207,8 +195,8 @@ export default function Dashboard() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
                                     <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{item.asset}</h3>
                                     <span style={{ 
-                                        background: item.score > 0 ? '#dcfce7' : item.score < 0 ? '#fee2e2' : '#f3f4f6',
-                                        color: item.score > 0 ? '#166534' : item.score < 0 ? '#991b1b' : '#374151',
+                                        background: item.score > 0 ? '#dcfce7' : '#fee2e2',
+                                        color: item.score > 0 ? '#166534' : '#991b1b',
                                         padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: '700'
                                     }}>
                                         Net Score: {item.score > 0 ? '+' : ''}{item.score}
@@ -216,13 +204,13 @@ export default function Dashboard() {
                                 </div>
                                 <div style={{ fontSize: '13px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                                     <span>Composite:</span>
-                                    {item.details.length > 0 ? item.details.map((d, idx) => (
+                                    {item.details.map((d, idx) => (
                                         <span key={d.tf} style={{ display: 'inline-flex', alignItems: 'center' }}>
                                             {idx > 0 && <span style={{ margin: '0 4px' }}>+</span>}
                                             <span style={{ fontWeight: '600', color: '#374151' }}>{d.tf}</span>
                                             ({d.val === 1 ? 'BUY' : 'SELL'})
                                         </span>
-                                    )) : <span>Neutral (All Wait)</span>}
+                                    ))}
                                 </div>
                             </div>
 
@@ -233,22 +221,20 @@ export default function Dashboard() {
                                 background: '#f8fafc', 
                                 padding: '1rem', 
                                 borderRadius: '6px',
-                                borderLeft: `4px solid ${item.score > 0 ? '#10b981' : item.score < 0 ? '#ef4444' : '#9ca3af'}`
+                                borderLeft: `4px solid ${item.score > 0 ? '#10b981' : '#ef4444'}`
                             }}>
                                 <div style={{ fontSize: '11px', textTransform: 'uppercase', color: '#6b7280', fontWeight: '700', marginBottom: '4px' }}>
                                     Current Instruction
                                 </div>
                                 <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#1f2937' }}>
-                                    {item.score === 0 ? 'CLOSE / WAIT' : (
-                                        <>
-                                            {item.score > 0 ? 'BUY' : 'SELL'} <span style={{ textDecoration: 'underline' }}>{Math.abs(item.score)} UNITS</span>
-                                        </>
-                                    )}
+                                    {item.score > 0 ? 'BUY' : 'SELL'} <span style={{ textDecoration: 'underline' }}>{Math.abs(item.score)} UNITS</span>
                                 </div>
                             </div>
                         </div>
                     )) : (
-                        <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>Loading market data...</div>
+                        <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280', background: '#f9fafb', borderRadius: '8px' }}>
+                            {matrixData.length === 0 ? 'Loading market data...' : 'No active signals. All markets are currently in WAIT mode.'}
+                        </div>
                     )}
                 </div>
             )}
@@ -277,11 +263,11 @@ export default function Dashboard() {
                     </div>
 
                     <div>
-                        <h4 style={{ fontSize: '16px', marginBottom: '0.5rem', color: '#1f2937' }}>3. Automation vs Manual</h4>
+                        <h4 style={{ fontSize: '16px', marginBottom: '0.5rem', color: '#1f2937' }}>3. Handling Hidden Assets</h4>
                         <p style={{ fontSize: '14px', color: '#4b5563', lineHeight: '1.5' }}>
-                            <strong>Manual:</strong> Adjust your position size to match the "Instruction" every 15m. If instruction drops from Buy 3 to Buy 1, close 2 units.
+                            This dashboard automatically <strong>hides assets with no signal</strong> (Net Score 0). 
                             <br/>
-                            <strong>Automated (Recommended):</strong> Use the API Key below. Program a bot to poll the endpoint every 15m and sync your exchange position to the Net Score.
+                            If an asset you are trading disappears from this list, it means the signal has turned Neutral. <strong>You should close your position immediately.</strong>
                         </p>
                     </div>
                 </div>
