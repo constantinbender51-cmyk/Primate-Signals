@@ -11,13 +11,17 @@ export default function Dashboard() {
         const fetchData = async () => {
             try {
                 await Promise.all([
-                    api.get('/live_matrix').then(res => setMatrixData(res.data.results || [])),
+                    api.get('/live_matrix').then(res => {
+                        const data = res.data.results || [];
+                        setMatrixData(data);
+                        if (data.length > 0 && data[0].updated_at) {
+                            setUpdatedAt(data[0].updated_at);
+                        }
+                    }),
                     api.get('/signal_history').then(res => setHistoryData(res.data.results || []))
                 ]);
             } catch (e) {
                 // Silent error handling
-            } finally {
-                setUpdatedAt(new Date());
             }
         };
 
