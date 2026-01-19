@@ -40,8 +40,6 @@ export default function Dashboard() {
 
     const cellStyle = { padding: '12px 10px', textAlign: 'left', borderBottom: '1px solid #eee' };
 
-    // --- Effects ---
-
     useEffect(() => {
         const sessionId = searchParams.get('session_id');
         if (sessionId) {
@@ -59,10 +57,7 @@ export default function Dashboard() {
 
     useEffect(() => {
         const fetchData = async () => {
-            // Fetch History (Public)
             api.get('/signal_history').then(res => setHistoryData(res.data.results || [])).catch(() => {});
-
-            // Fetch Matrix (Protected)
             try {
                 const res = await api.get('/live_matrix');
                 setMatrixData(res.data.results || []);
@@ -75,8 +70,6 @@ export default function Dashboard() {
         };
         fetchData();
     }, []);
-
-    // --- Data Processing ---
 
     const signals = useMemo(() => {
         const assets = {};
@@ -104,13 +97,16 @@ export default function Dashboard() {
         return historyData.map(row => {
             const entry = parseFloat(row.price_at_signal);
             const close = parseFloat(row.close_price);
-            let change = 0;
+            let pctChange = 0;
+            let pnl = 0;
             
             if (entry && close) {
-                // Direction-based PnL calculation
-                change = (row.signal === 'BUY' || row.signal === 1) 
-                    ? ((close - entry) / entry) * 100 
-                    : ((entry - close) / entry) * 100;
+                // Raw market movement
+                pctChange = ((close - entry) / entry) * 100;
+                
+                // PnL based on signal direction
+                const isBuy = (row.signal === 'BUY' || row.signal === 1);
+                pnl = isBuy ? pctChange : -pctChange;
             }
 
             const { start, end } = getCandleTimes(row.time_str, row.tf || '15m');
@@ -120,7 +116,8 @@ export default function Dashboard() {
                 asset: row.asset,
                 start: formatDateTime(start),
                 end: formatDateTime(end),
-                change: change.toFixed(2) + '%'
+                change: pctChange.toFixed(2) + '%',
+                pnlValue: pnl // Used for color logic
             };
         });
     }, [historyData]);
@@ -142,7 +139,6 @@ export default function Dashboard() {
                 <p style={{ color: '#666', margin: 0 }}>For educational purposes only.</p>
             </header>
 
-            {/* Section: Signals (Locked) */}
             <section style={{ marginBottom: '60px' }}>
                 <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Signals</h3>
                 
@@ -191,7 +187,6 @@ export default function Dashboard() {
                 )}
             </section>
 
-            {/* Section: Signal History (Public) */}
             <section>
                 <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Signal History</h3>
                 <div style={{ overflowX: 'auto' }}>
@@ -212,7 +207,11 @@ export default function Dashboard() {
                                     <td style={cellStyle}>{row.asset}</td>
                                     <td style={cellStyle}>{row.start}</td>
                                     <td style={cellStyle}>{row.end}</td>
-                                    <td style={{ ...cellStyle, fontWeight: 'bold', color: parseFloat(row.change) >= 0 ? '#10b981' : '#ef4444' }}>
+                                    <td style={{ 
+                                        ...cellStyle, 
+                                        fontWeight: 'bold', 
+                                        color: row.pnlValue >= 0 ? '#10b981' : '#ef4444' 
+                                    }}>
                                         {parseFloat(row.change) > 0 ? '+' : ''}{row.change}
                                     </td>
                                 </tr>
