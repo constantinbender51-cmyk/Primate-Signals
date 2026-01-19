@@ -164,8 +164,11 @@ export default function Dashboard() {
                             <strong></strong>Conflict of Interest{"\n"}
                             The publisher and its affiliates may hold positions in, or actively trade, the assets mentioned herein. This may create a conflict of interest, and readers should perform their own due diligence before making any financial decisions.
                         </p>
-<p>How to trade:
-Recommended is to sum all the timeframe depended signals together per asset and trade a positions size adjusted to your specific risk multiplied by this sum. Update your position every 15m synchronized to 00:00:30s. place stops or don't, we are not responsible for any losses you might concur. We recommend a 1.5% stop loss order with every open position you hold. 
+<p>Strategy Execution
+​Signal Aggregation: Sum the signals across all timeframes for each asset to derive a Net Signal Score.
+​Position Sizing: Calculate your trade size by multiplying your standard risk unit by the Net Signal Score.
+​Timing: Rebalance positions every 15 minutes. Execute trades at 30 seconds past the interval (e.g., XX:00:30) to ensure signal synchronization.
+​Risk Management: We explicitly recommend a 1.5% stop-loss on all open positions. Users are solely responsible for risk management; we accept no liability for losses incurred.
 </p>
                     </>
                 ) : (
