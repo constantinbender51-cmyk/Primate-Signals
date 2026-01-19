@@ -11,20 +11,45 @@ export default function Dashboard() {
         api.get('/signal_history').then(res => setHistoryData(res.data.results || [])).catch(() => {});
     }, []);
 
+    // Helper to enforce "Date hours seconds" formatting
+    const formatDateTime = (dateInput) => {
+        if (!dateInput) return '-';
+        const date = new Date(dateInput);
+        if (isNaN(date.getTime())) return '-';
+
+        // Returns format: YYYY-MM-DD HH:mm:ss (24h format)
+        return date.toLocaleString('sv-SE', { 
+            year: 'numeric', 
+            month: '2-digit', 
+            day: '2-digit', 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        }).replace(' ', ' ');
+    };
+
     const signals = useMemo(() => {
         const assets = {};
         matrixData.forEach(d => {
+            // Capture the earliest timestamp for the start of the signal aggregation
             if (!assets[d.asset]) assets[d.asset] = { score: 0, start: d.updated_at };
             assets[d.asset].score += d.signal_val;
         });
 
         return Object.entries(assets)
-            .map(([asset, data]) => ({
-                direction: data.score > 0 ? 'Long' : (data.score < 0 ? 'Short' : null),
-                asset,
-                start: data.start,
-                end: '-' 
-            }))
+            .map(([asset, data]) => {
+                // Calculate Start Date object
+                const startDate = new Date(data.start);
+                // Calculate End Date (Start + 1 Day/24 Hours)
+                const endDate = new Date(startDate.getTime() + (24 * 60 * 60 * 1000));
+
+                return {
+                    direction: data.score > 0 ? 'Long' : (data.score < 0 ? 'Short' : null),
+                    asset,
+                    start: formatDateTime(startDate),
+                    end: formatDateTime(endDate)
+                };
+            })
             .filter(item => item.direction !== null);
     }, [matrixData]);
 
@@ -33,16 +58,19 @@ export default function Dashboard() {
             const entry = parseFloat(row.price_at_signal);
             const close = parseFloat(row.close_price);
             let change = 0;
+            
+            // Percentage change calculation: ((End - Start) / Start) * 100
             if (entry && close) {
                 change = (row.signal === 'BUY' || row.signal === 1) 
                     ? ((close - entry) / entry) * 100 
                     : ((entry - close) / entry) * 100;
             }
+
             return {
                 direction: (row.signal === 'BUY' || row.signal === 1) ? 'Long' : 'Short',
                 asset: row.asset,
-                start: row.time_str,
-                end: row.closed_at || '-',
+                start: formatDateTime(row.time_str),
+                end: formatDateTime(row.closed_at), // Handles undefined/null via helper
                 change: change.toFixed(2) + '%'
             };
         });
@@ -63,7 +91,7 @@ export default function Dashboard() {
                         <th style={cellStyle}>Direction</th>
                         <th style={cellStyle}>Asset</th>
                         <th style={cellStyle}>Start</th>
-                        <th style={cellStyle}>End</th>
+                        <th style={cellStyle}>End (Exp)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -103,9 +131,9 @@ export default function Dashboard() {
             </table>
 
             <div style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
-                <Link to="/impressum"></Link>
-                <Link to="/privacy"></Link>
-                <Link to="/terms"></Link>
+                <Link to="/impressum">Impressum</Link>
+                <Link to="/privacy">Privacy</Link>
+                <Link to="/terms">Terms</Link>
             </div>
         </div>
     );
