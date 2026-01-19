@@ -52,7 +52,7 @@ export default function Dashboard() {
 
     return (
         <div style={{ fontFamily: 'sans-serif', padding: '20px' }}>
-            <h1>Primate</h1>
+            <h1></h1>
             <h2>Trading Signals</h2>
             <p>For educational purposes only.</p>
 
@@ -103,9 +103,9 @@ export default function Dashboard() {
             </table>
 
             <div style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
-                <Link to="/impressum">Impressum</Link>
-                <Link to="/privacy">Privacy policy</Link>
-                <Link to="/terms">Terms of service</Link>
+                <Link to="/impressum"></Link>
+                <Link to="/privacy"></Link>
+                <Link to="/terms"></Link>
             </div>
         </div>
     );
