@@ -11,13 +11,12 @@ export default function Dashboard() {
         api.get('/signal_history').then(res => setHistoryData(res.data.results || [])).catch(() => {});
     }, []);
 
-    // Helper to enforce "Date hours seconds" formatting
+    // Format: YYYY-MM-DD HH:mm:ss
     const formatDateTime = (dateInput) => {
         if (!dateInput) return '-';
         const date = new Date(dateInput);
         if (isNaN(date.getTime())) return '-';
 
-        // Returns format: YYYY-MM-DD HH:mm:ss (24h format)
         return date.toLocaleString('sv-SE', { 
             year: 'numeric', 
             month: '2-digit', 
@@ -28,26 +27,59 @@ export default function Dashboard() {
         }).replace(' ', ' ');
     };
 
+    // Helper to calculate Start (floor) and End (start + duration) based on timeframe
+    const getCandleTimes = (dateInput, timeframe) => {
+        const start = new Date(dateInput);
+        let duration = 0;
+
+        switch (timeframe) {
+            case '15m':
+                start.setMinutes(Math.floor(start.getMinutes() / 15) * 15, 0, 0);
+                duration = 15 * 60 * 1000;
+                break;
+            case '30m':
+                start.setMinutes(Math.floor(start.getMinutes() / 30) * 30, 0, 0);
+                duration = 30 * 60 * 1000;
+                break;
+            case '1h':
+                start.setMinutes(0, 0, 0);
+                duration = 60 * 60 * 1000;
+                break;
+            case '4h':
+                start.setHours(Math.floor(start.getHours() / 4) * 4, 0, 0, 0);
+                duration = 4 * 60 * 60 * 1000;
+                break;
+            case '1d':
+            default:
+                start.setHours(0, 0, 0, 0);
+                duration = 24 * 60 * 60 * 1000;
+                break;
+        }
+
+        const end = new Date(start.getTime() + duration);
+        return { start, end };
+    };
+
     const signals = useMemo(() => {
         const assets = {};
+        
         matrixData.forEach(d => {
-            // Capture the earliest timestamp for the start of the signal aggregation
-            if (!assets[d.asset]) assets[d.asset] = { score: 0, start: d.updated_at };
+            if (!assets[d.asset]) {
+                // Default to '1d' if d.timeframe is missing
+                assets[d.asset] = { score: 0, start: d.updated_at, timeframe: d.timeframe || '1d' };
+            }
             assets[d.asset].score += d.signal_val;
         });
 
         return Object.entries(assets)
             .map(([asset, data]) => {
-                // Calculate Start Date object
-                const startDate = new Date(data.start);
-                // Calculate End Date (Start + 1 Day/24 Hours)
-                const endDate = new Date(startDate.getTime() + (24 * 60 * 60 * 1000));
+                const { start, end } = getCandleTimes(data.start, data.timeframe);
 
                 return {
                     direction: data.score > 0 ? 'Long' : (data.score < 0 ? 'Short' : null),
                     asset,
-                    start: formatDateTime(startDate),
-                    end: formatDateTime(endDate)
+                    start: formatDateTime(start),
+                    end: formatDateTime(end)
                 };
             })
             .filter(item => item.direction !== null);
@@ -59,7 +91,6 @@ export default function Dashboard() {
             const close = parseFloat(row.close_price);
             let change = 0;
             
-            // Percentage change calculation: ((End - Start) / Start) * 100
             if (entry && close) {
                 change = (row.signal === 'BUY' || row.signal === 1) 
                     ? ((close - entry) / entry) * 100 
@@ -70,7 +101,7 @@ export default function Dashboard() {
                 direction: (row.signal === 'BUY' || row.signal === 1) ? 'Long' : 'Short',
                 asset: row.asset,
                 start: formatDateTime(row.time_str),
-                end: formatDateTime(row.closed_at), // Handles undefined/null via helper
+                end: formatDateTime(row.closed_at),
                 change: change.toFixed(2) + '%'
             };
         });
