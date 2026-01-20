@@ -29,7 +29,7 @@ const calculateExpiry = (baseDateStr, minutesToAdd) => {
     return new Date(date.getTime() + minutesToAdd * 60000);
 };
 
-// Map USDT symbols to Kraken PF format (e.g., BCHUSDT -> PF_BCHUSD) for the CHART log matching
+// Map USDT symbols to Kraken PF format (e.g., BCHUSDT -> PF_BCHUSD)
 const mapSymbolToLogFormat = (symbol) => {
     if (!symbol) return '';
     const core = symbol.replace('USDT', '');
@@ -86,13 +86,13 @@ const PnLChart = ({ data }) => {
 
 export default function Dashboard() {
     const [matrixData, setMatrixData] = useState([]);
-    const [chartData, setChartData] = useState([]);  // Data from GitHub
-    const [tableData, setTableData] = useState([]);  // Data from /history endpoint
+    const [chartData, setChartData] = useState([]);  
+    const [tableData, setTableData] = useState([]);  
     const [matrixStatus, setMatrixStatus] = useState('loading');
     const [searchParams] = useSearchParams();
     
-    // Pagination for Table
-    const [historyExpanded, setHistoryExpanded] = useState(false);
+    // Pagination: Set default to true so controls are visible immediately
+    const [historyExpanded, setHistoryExpanded] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
     
@@ -115,7 +115,7 @@ export default function Dashboard() {
 
     useEffect(() => {
         const fetchData = async () => {
-            // 1. Live Matrix Fetch
+            // 1. Live Matrix
             try {
                 const res = await api.get('/live_matrix'); 
                 const rawPayload = res.data.results || res.data;
@@ -132,7 +132,7 @@ export default function Dashboard() {
                 if (err.response?.status === 403 || err.response?.status === 401) setMatrixStatus('unpaid');
             }
 
-            // 2. Chart Data Fetch (Keep GitHub Source)
+            // 2. Chart Data
             try {
                 const res = await api.get('/api/proxy/history');
                 const rawText = res.data;
@@ -167,13 +167,11 @@ export default function Dashboard() {
                 setChartData(parsedChart.reverse());
             } catch (err) { console.error("Chart fetch error:", err); }
 
-            // 3. Table Data Fetch (New /trade_history Endpoint)
+            // 3. Table Data
             try {
                 const res = await api.get('/trade_history');
-                // Expecting array of objects from the new endpoint
                 const rawHistory = res.data.results || res.data; 
                 if (Array.isArray(rawHistory)) {
-                    // Sort newest first
                     const sorted = [...rawHistory].sort((a, b) => new Date(b.time) - new Date(a.time));
                     setTableData(sorted);
                 }
@@ -181,6 +179,31 @@ export default function Dashboard() {
         };
         fetchData();
     }, []);
+
+    // --- Metrics Calculations ---
+    const metrics = useMemo(() => {
+        let totalPnL = 0;
+        let wins = 0;
+        let losses = 0;
+
+        tableData.forEach(row => {
+            // PnL Sum
+            if (typeof row.pnl === 'number') {
+                totalPnL += row.pnl;
+            } else if (!isNaN(parseFloat(row.pnl))) {
+                totalPnL += parseFloat(row.pnl);
+            }
+
+            // Accuracy Count
+            if (row.outcome === 'WIN') wins++;
+            else if (row.outcome === 'LOSS') losses++;
+        });
+
+        const totalTrades = wins + losses;
+        const accuracy = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : 0;
+
+        return { totalPnL, accuracy, wins, losses };
+    }, [tableData]);
 
     // Matrix Logic
     const activeSignals = useMemo(() => {
@@ -211,13 +234,16 @@ export default function Dashboard() {
             .sort((a, b) => Math.abs(b.sum) - Math.abs(a.sum));
     }, [matrixData]);
 
-    // Pagination Logic for Table
+    // Pagination Logic
     const totalPages = Math.ceil(tableData.length / ITEMS_PER_PAGE);
     const displayedHistory = useMemo(() => {
-        if (!historyExpanded) return tableData.slice(0, 10);
+        // If not expanded, maybe show fewer? But user wants it default active.
+        // We just toggle "view all" vs "paged" if that logic remains, 
+        // but user asked to "activate show more button by default to show next/prev".
+        // So we just use standard pagination logic.
         const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
         return tableData.slice(startIdx, startIdx + ITEMS_PER_PAGE);
-    }, [tableData, historyExpanded, currentPage]);
+    }, [tableData, currentPage]);
 
     const handleSubscribe = async () => {
         try {
@@ -302,10 +328,33 @@ export default function Dashboard() {
             <section>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                     <h3 style={{ margin: 0 }}>Trade Log History</h3>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                        <button onClick={() => setHistoryExpanded(!historyExpanded)} style={{ background: 'none', color: '#2563eb', border: 'none', cursor: 'pointer', fontWeight:'500' }}>
-                            {historyExpanded ? 'Collapse View' : 'View All'}
-                        </button>
+                </div>
+
+                {/* METRICS DASHBOARD */}
+                <div style={{ 
+                    display: 'flex', gap: '20px', marginBottom: '20px', 
+                    background: '#f9fafb', padding: '15px', borderRadius: '8px', border: '1px solid #eee' 
+                }}>
+                    <div style={{ marginRight: '20px' }}>
+                        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom:'4px' }}>Total PnL</div>
+                        <div style={{ 
+                            fontSize: '20px', fontWeight: 'bold', 
+                            color: metrics.totalPnL >= 0 ? '#10b981' : '#ef4444' 
+                        }}>
+                            {metrics.totalPnL >= 0 ? '+' : ''}{metrics.totalPnL.toFixed(4)}
+                        </div>
+                    </div>
+                    <div style={{ marginRight: '20px' }}>
+                        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom:'4px' }}>Accuracy Score</div>
+                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#374151' }}>
+                            {metrics.accuracy}%
+                        </div>
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom:'4px' }}>W/L Ratio</div>
+                        <div style={{ fontSize: '20px', fontWeight: '500', color: '#374151' }}>
+                            <span style={{color: '#10b981'}}>{metrics.wins}</span> / <span style={{color: '#ef4444'}}>{metrics.losses}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -363,13 +412,24 @@ export default function Dashboard() {
                     </table>
                 </div>
 
-                {historyExpanded && (
-                    <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '15px', alignItems:'center' }}>
-                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</button>
-                        <span style={{ fontSize:'14px', color:'#666' }}>Page {currentPage} of {totalPages}</span>
-                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</button>
-                    </div>
-                )}
+                {/* Pagination Controls - Always Visible */}
+                <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '15px', alignItems:'center' }}>
+                    <button 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+                        disabled={currentPage === 1}
+                        style={{ padding: '6px 12px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                        Prev
+                    </button>
+                    <span style={{ fontSize:'14px', color:'#666' }}>Page {currentPage} of {totalPages}</span>
+                    <button 
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+                        disabled={currentPage === totalPages}
+                        style={{ padding: '6px 12px', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
+                    >
+                        Next
+                    </button>
+                </div>
             </section>
         </div>
     );
