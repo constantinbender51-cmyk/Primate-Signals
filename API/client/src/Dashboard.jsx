@@ -7,18 +7,24 @@ import api from './api';
 
 const formatDateTime = (dateInput) => {
     if (!dateInput) return '-';
+    // Handle specific "YYYY-MM-DD HH:mm" strings if necessary, but Date() usually handles ISO-like strings
     const date = new Date(dateInput);
-    if (isNaN(date.getTime())) return '-';
+    if (isNaN(date.getTime())) return dateInput; // Fallback to raw string if parsing fails
     return date.toLocaleString('sv-SE', { 
         year: 'numeric', month: '2-digit', day: '2-digit', 
-        hour: '2-digit', minute: '2-digit', second: '2-digit' 
+        hour: '2-digit', minute: '2-digit'
     });
 };
 
 const getCandleTimes = (dateInput, tf) => {
     const start = new Date(dateInput);
+    if (isNaN(start.getTime())) {
+        // Fallback if dateInput is invalid
+        return { start: new Date(), end: new Date() };
+    }
+    
     let duration = 0;
-    const timeframe = String(tf).toLowerCase();
+    const timeframe = String(tf || '15m').toLowerCase();
 
     switch (timeframe) {
         case '15m': start.setMinutes(Math.floor(start.getMinutes() / 15) * 15, 0, 0); duration = 15 * 60 * 1000; break;
@@ -31,34 +37,34 @@ const getCandleTimes = (dateInput, tf) => {
     return { start, end: new Date(start.getTime() + duration) };
 };
 
-// --- Custom Chart Component (No ext. libs) ---
+// --- Custom Chart Component ---
 const PnLChart = ({ data }) => {
+    // Basic validation
     if (!data || data.length < 2) return <div style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center', color:'#ccc'}}>Not enough data</div>;
 
     const height = 200;
     const width = 800;
     const padding = 20;
 
-    // 1. Process Data: Filter last 7 days (1w)
+    // 1. Process Data
     const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    // Use last 14 days to be safe with sparse data
+    const filterDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000); 
     
-    // Sort by date ascending
     const sorted = [...data]
-        .filter(d => new Date(d.time) >= oneWeekAgo)
+        .filter(d => new Date(d.time) >= filterDate)
         .sort((a, b) => new Date(a.time) - new Date(b.time));
 
-    // Calculate Cumulative PnL
+    if (sorted.length < 2) return <div style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center', color:'#ccc'}}>No data for chart</div>;
+
+    // Calculate Cumulative
     let runningTotal = 0;
     const points = sorted.map(d => {
-        runningTotal += parseFloat(d.pnl);
+        runningTotal += parseFloat(d.pnl || 0);
         return { time: new Date(d.time), val: runningTotal };
     });
 
-    if (points.length === 0) return <div style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center', color:'#ccc'}}>No data for this week</div>;
-
-    // 2. Scales
-    const minVal = Math.min(0, ...points.map(p => p.val)); // Ensure 0 is in view
+    const minVal = Math.min(0, ...points.map(p => p.val)); 
     const maxVal = Math.max(0, ...points.map(p => p.val));
     const rangeY = maxVal - minVal || 1;
     
@@ -66,7 +72,6 @@ const PnLChart = ({ data }) => {
     const maxTime = points[points.length - 1].time.getTime();
     const rangeX = maxTime - minTime || 1;
 
-    // 3. Map to SVG coords
     const getX = (t) => padding + ((t.getTime() - minTime) / rangeX) * (width - (padding * 2));
     const getY = (v) => (height - padding) - ((v - minVal) / rangeY) * (height - (padding * 2));
 
@@ -79,10 +84,7 @@ const PnLChart = ({ data }) => {
     return (
         <div style={{ position: 'relative', width: '100%', border: '1px solid #000', borderRadius: '4px', padding: '10px' }}>
             <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-                {/* Zero Line */}
                 <line x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="4" />
-                
-                {/* Chart Line */}
                 <path d={pathD} fill="none" stroke="#2563eb" strokeWidth="2" />
             </svg>
             <div style={{ textAlign: 'center', marginTop: '5px', fontSize: '12px', fontWeight: 'bold', color: '#000' }}>1w</div>
@@ -96,9 +98,13 @@ export default function Dashboard() {
     const [historyData, setHistoryData] = useState([]);
     const [matrixStatus, setMatrixStatus] = useState('loading');
     const [searchParams] = useSearchParams();
-    const [historyExpanded, setHistoryExpanded] = useState(false); // State for toggle
+    
+    // Pagination
+    const [historyExpanded, setHistoryExpanded] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
+    
     const navigate = useNavigate();
-
     const cellStyle = { padding: '12px 10px', textAlign: 'left', borderBottom: '1px solid #eee' };
 
     useEffect(() => {
@@ -118,7 +124,16 @@ export default function Dashboard() {
 
     useEffect(() => {
         const fetchData = async () => {
-            api.get('/signal_history').then(res => setHistoryData(res.data.results || [])).catch(() => {});
+            // Signal History Fetch
+            api.get('/signal_history')
+                .then(res => {
+                    if (res.data.results) {
+                        setHistoryData(res.data.results);
+                    }
+                })
+                .catch(err => console.error("History fetch error:", err));
+            
+            // Matrix Fetch
             try {
                 const res = await api.get('/live_matrix');
                 setMatrixData(res.data.results || []);
@@ -132,6 +147,7 @@ export default function Dashboard() {
         fetchData();
     }, []);
 
+    // Matrix Logic
     const signals = useMemo(() => {
         const assets = {};
         matrixData.forEach(d => {
@@ -154,36 +170,46 @@ export default function Dashboard() {
             .filter(item => item.direction !== null);
     }, [matrixData]);
 
-    // Process history for table
+    // History Logic (UPDATED MAPPING)
     const history = useMemo(() => {
         return historyData.map(row => {
-            const entry = parseFloat(row.entry_price || row.price_at_signal || 0);
-            const close = parseFloat(row.exit_price || row.close_price || 0);
-            let pctChange = 0;
-            let pnl = 0;
+            // 1. Determine Time
+            // User data has 'time_str' or 'created_at'.
+            const timeRaw = row.time_str || row.created_at;
+            const { start, end } = getCandleTimes(timeRaw, row.tf || row.timeframe || '15m');
             
-            if (entry && close) {
-                pctChange = ((close - entry) / entry) * 100;
-                const isBuy = (row.signal === 'BUY' || row.signal === 1 || row.action === 'BUY');
-                pnl = isBuy ? pctChange : -pctChange;
-            }
-
-            // Fallback for timeframe/dates if missing in DB row
-            const { start, end } = getCandleTimes(row.created_at || row.time_str, row.tf || '15m');
+            // 2. Determine PnL
+            // Use the explicit 'pnl' column if it exists, otherwise 0
+            const pnlValue = parseFloat(row.pnl || row.profit_loss || 0);
+            
+            // 3. Determine Change % string
+            // If pnl is like -0.107, we can just show that, or multiply by 100 if it's raw decimal.
+            // Assuming your data '-0.1079' is percentage (e.g. -0.1%), or raw?
+            // Usually pnl is raw percent. Let's assume it is ready for display.
+            const changeStr = pnlValue.toFixed(2) + '%';
 
             return {
-                direction: (row.signal === 'BUY' || row.signal === 1 || row.action === 'BUY') ? 'Long' : 'Short',
+                direction: (row.signal === 'BUY' || row.action === 'BUY') ? 'Long' : 'Short',
                 asset: row.asset || row.symbol,
                 start: formatDateTime(start),
                 end: formatDateTime(end),
-                change: pctChange.toFixed(2) + '%',
-                pnlValue: pnl,
-                time: row.created_at || row.time_str
+                change: changeStr,
+                pnlValue: pnlValue,
+                time: timeRaw
             };
         });
     }, [historyData]);
 
-    const displayedHistory = historyExpanded ? history : history.slice(0, 10);
+    const totalPages = Math.ceil(history.length / ITEMS_PER_PAGE);
+    
+    const displayedHistory = useMemo(() => {
+        if (!historyExpanded) {
+            return history.slice(0, 10);
+        } else {
+            const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+            return history.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+        }
+    }, [history, historyExpanded, currentPage]);
 
     const handleSubscribe = async () => {
         try {
@@ -197,8 +223,7 @@ export default function Dashboard() {
 
     return (
         <div style={{ fontFamily: 'sans-serif', maxWidth: '1000px', margin: '0 auto', padding: '40px 20px' }}>
-            {/* Header Removed as requested */}
-
+            
             <section style={{ marginBottom: '60px' }}>
                 <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Signals</h3>
                 
@@ -246,7 +271,7 @@ export default function Dashboard() {
                             </table>
                         </div>
 
-                        {/* Chart Section */}
+                        {/* Chart */}
                         <div style={{ marginBottom: '40px' }}>
                             <PnLChart data={history.map(h => ({ time: h.time, pnl: h.pnlValue }))} />
                         </div>
@@ -255,36 +280,38 @@ export default function Dashboard() {
             </section>
 
             <section>
-                <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Signal History</h3>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px', marginBottom: '20px' }}>
+                    <h3 style={{ margin: 0, border: 'none', padding: 0 }}>Signal History</h3>
+                </div>
                 
-                {/* Expand Toggle */}
-                <div style={{ marginBottom: '10px' }}>
+                <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '20px' }}>
                     <button 
                         onClick={() => setHistoryExpanded(!historyExpanded)}
                         style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#000',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: 0,
-                            fontWeight: 'bold',
-                            fontSize: '16px'
+                            background: 'none', border: 'none', color: '#000', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', padding: 0, fontWeight: 'bold', fontSize: '16px'
                         }}
                     >
-                        {/* Pointed down bigger than sign on the left */}
                         <span style={{ 
-                            display: 'inline-block', 
-                            transform: historyExpanded ? 'rotate(-90deg)' : 'rotate(90deg)', 
-                            marginRight: '8px',
-                            fontSize: '1.2em',
-                            transition: 'transform 0.2s'
-                        }}>
-                            &gt;
-                        </span>
+                            display: 'inline-block', transform: historyExpanded ? 'rotate(-90deg)' : 'rotate(90deg)', 
+                            marginRight: '8px', fontSize: '1.2em', transition: 'transform 0.2s'
+                        }}>&gt;</span>
                         {historyExpanded ? 'Collapse' : 'Expand History'}
                     </button>
+
+                    {historyExpanded && history.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <button 
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                                style={{ background: '#f3f4f6', color: '#374151', padding: '4px 8px', fontSize: '12px' }}
+                            >Prev</button>
+                            <span style={{ fontSize: '12px', color: '#6b7280' }}>Page {currentPage} of {totalPages}</span>
+                            <button 
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                                style={{ background: '#f3f4f6', color: '#374151', padding: '4px 8px', fontSize: '12px' }}
+                            >Next</button>
+                        </div>
+                    )}
                 </div>
 
                 <div style={{ overflowX: 'auto' }}>
@@ -305,12 +332,8 @@ export default function Dashboard() {
                                     <td style={cellStyle}>{row.asset}</td>
                                     <td style={cellStyle}>{row.start}</td>
                                     <td style={cellStyle}>{row.end}</td>
-                                    <td style={{ 
-                                        ...cellStyle, 
-                                        fontWeight: 'bold', 
-                                        color: row.pnlValue >= 0 ? '#10b981' : '#ef4444' 
-                                    }}>
-                                        {parseFloat(row.change) > 0 ? '+' : ''}{row.change}
+                                    <td style={{ ...cellStyle, fontWeight: 'bold', color: row.pnlValue >= 0 ? '#10b981' : '#ef4444' }}>
+                                        {row.pnlValue > 0 ? '+' : ''}{row.change}
                                     </td>
                                 </tr>
                             )) : (
