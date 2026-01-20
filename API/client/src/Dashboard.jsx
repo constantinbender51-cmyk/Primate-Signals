@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from './api';
 
@@ -7,57 +7,36 @@ import api from './api';
 
 const formatDateTime = (dateInput) => {
     if (!dateInput) return '-';
-    // Handle specific "YYYY-MM-DD HH:mm" strings if necessary, but Date() usually handles ISO-like strings
     const date = new Date(dateInput);
-    if (isNaN(date.getTime())) return dateInput; // Fallback to raw string if parsing fails
+    if (isNaN(date.getTime())) return dateInput;
+    // Format: YYYY-MM-DD HH:mm
     return date.toLocaleString('sv-SE', { 
         year: 'numeric', month: '2-digit', day: '2-digit', 
         hour: '2-digit', minute: '2-digit'
     });
 };
 
-const getCandleTimes = (dateInput, tf) => {
-    const start = new Date(dateInput);
-    if (isNaN(start.getTime())) {
-        // Fallback if dateInput is invalid
-        return { start: new Date(), end: new Date() };
-    }
-    
-    let duration = 0;
-    const timeframe = String(tf || '15m').toLowerCase();
-
-    switch (timeframe) {
-        case '15m': start.setMinutes(Math.floor(start.getMinutes() / 15) * 15, 0, 0); duration = 15 * 60 * 1000; break;
-        case '30m': start.setMinutes(Math.floor(start.getMinutes() / 30) * 30, 0, 0); duration = 30 * 60 * 1000; break;
-        case '1h': case '60m': start.setMinutes(0, 0, 0); duration = 60 * 60 * 1000; break;
-        case '4h': case '240m': start.setHours(Math.floor(start.getHours() / 4) * 4, 0, 0, 0); duration = 4 * 60 * 60 * 1000; break;
-        case '1d': start.setHours(0, 0, 0, 0); duration = 24 * 60 * 60 * 1000; break;
-        default: start.setMinutes(Math.floor(start.getMinutes() / 15) * 15, 0, 0); duration = 15 * 60 * 1000; break;
-    }
-    return { start, end: new Date(start.getTime() + duration) };
+// Map USDT symbols to Kraken PF format (e.g., BCHUSDT -> PF_BCHUSD)
+// User requirement: "BCHUSDT becomes PF_BCHUSD"
+const mapSymbolToLogFormat = (symbol) => {
+    // Remove 'USDT'
+    const core = symbol.replace('USDT', '');
+    // Construct new format
+    return `PF_${core}USD`;
 };
 
 // --- Custom Chart Component ---
 const PnLChart = ({ data }) => {
-    // Basic validation
     if (!data || data.length < 2) return <div style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center', color:'#ccc'}}>Not enough data</div>;
 
     const height = 200;
     const width = 800;
     const padding = 20;
 
-    // 1. Process Data
-    const now = new Date();
-    // Use last 14 days to be safe with sparse data
-    const filterDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000); 
-    
-    const sorted = [...data]
-        .filter(d => new Date(d.time) >= filterDate)
-        .sort((a, b) => new Date(a.time) - new Date(b.time));
+    // Sort by time (oldest to newest) for the chart
+    const sorted = [...data].sort((a, b) => new Date(a.time) - new Date(b.time));
 
-    if (sorted.length < 2) return <div style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center', color:'#ccc'}}>No data for chart</div>;
-
-    // Calculate Cumulative
+    // Calculate Cumulative PnL
     let runningTotal = 0;
     const points = sorted.map(d => {
         runningTotal += parseFloat(d.pnl || 0);
@@ -82,16 +61,21 @@ const PnLChart = ({ data }) => {
     const zeroY = getY(0);
 
     return (
-        <div style={{ position: 'relative', width: '100%', border: '1px solid #000', borderRadius: '4px', padding: '10px' }}>
+        <div style={{ position: 'relative', width: '100%', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '20px', background: '#fff' }}>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#6b7280' }}>Cumulative PnL</h4>
             <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-                <line x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="4" />
-                <path d={pathD} fill="none" stroke="#2563eb" strokeWidth="2" />
+                {/* Zero Line */}
+                <line x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} stroke="#9ca3af" strokeWidth="1" strokeDasharray="4" opacity="0.5" />
+                {/* Chart Line */}
+                <path d={pathD} fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <div style={{ textAlign: 'center', marginTop: '5px', fontSize: '12px', fontWeight: 'bold', color: '#000' }}>1w</div>
+            <div style={{ display:'flex', justifyContent:'space-between', marginTop: '5px', fontSize: '11px', color: '#9ca3af' }}>
+                <span>{formatDateTime(points[0].time)}</span>
+                <span>{formatDateTime(points[points.length-1].time)}</span>
+            </div>
         </div>
     );
 };
-
 
 export default function Dashboard() {
     const [matrixData, setMatrixData] = useState([]);
@@ -112,10 +96,9 @@ export default function Dashboard() {
         if (sessionId) {
             const verify = async () => {
                 try {
-                    const res = await api.get('/auth/me');
-                    localStorage.setItem('user', JSON.stringify(res.data));
+                    await api.get('/auth/me'); // Just check auth
                     toast.success("Subscription Active!");
-                    window.location.href = '/'; 
+                    navigate('/', { replace: true });
                 } catch (e) { navigate('/', { replace: true }); }
             };
             verify();
@@ -124,148 +107,162 @@ export default function Dashboard() {
 
     useEffect(() => {
         const fetchData = async () => {
-            // Signal History Fetch
-            api.get('/signal_history')
-                .then(res => {
-                    if (res.data.results) {
-                        setHistoryData(res.data.results);
-                    }
-                })
-                .catch(err => console.error("History fetch error:", err));
-            
-            // Matrix Fetch
+            // 1. Live Matrix Fetch (Your JSON format)
             try {
-                const res = await api.get('/live_matrix');
-                setMatrixData(res.data.results || []);
+                // Expected response: {"BTCUSDT": {"sum": 0}, "BCHUSDT": {"sum": 1}, ...}
+                const res = await api.get('/live_matrix'); 
+                
+                // Transform the Object into an Array for the UI
+                const rawData = res.data; // Depending on how you serve it, this might be res.data directly or res.data.results
+                
+                // Handle both array wrapper or direct object
+                const actualData = rawData.results ? rawData.results : rawData; 
+                
+                // If it's the specific object structure you pasted:
+                // Check if it's an array or object. If object, convert.
+                let transformed = [];
+                if (!Array.isArray(actualData) && typeof actualData === 'object') {
+                    transformed = Object.entries(actualData).map(([key, val]) => ({
+                        asset: key,
+                        score: val.sum
+                    }));
+                } else if (Array.isArray(actualData)) {
+                    // Fallback if your endpoint returns the old array format
+                    transformed = actualData;
+                }
+
+                setMatrixData(transformed);
                 setMatrixStatus('active');
             } catch (err) {
+                console.error("Matrix error", err);
                 if (err.response?.status === 403 || err.response?.status === 401) {
                     setMatrixStatus('unpaid');
                 }
+            }
+
+            // 2. History Fetch (Log File via Proxy)
+            try {
+                const res = await api.get('/api/proxy/history');
+                const rawText = res.data;
+                
+                // The 20 Assets tracked (USDT base)
+                const trackedAssets = [
+                    "BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", 
+                    "AVAXUSDT", "DOTUSDT", "LINKUSDT", "TRXUSDT", "BCHUSDT", "XLMUSDT", 
+                    "LTCUSDT", "SUIUSDT", "HBARUSDT", "SHIBUSDT", "TONUSDT", "UNIUSDT", 
+                    "ZECUSDT", "BNBUSDT"
+                ];
+                
+                // Generate lookup set for fast filtering: e.g., "PF_BCHUSD"
+                const validLogSymbols = new Set(trackedAssets.map(mapSymbolToLogFormat));
+                
+                // Also add XBT special case for BTC just in case Kraken uses XBT
+                validLogSymbols.add("PF_XBTUSD"); 
+
+                const lines = rawText.split('\n');
+                const parsed = [];
+                
+                // Regex Logic based on user input:
+                // "The x/y is position size the number after that is pnl"
+                // Line: 2026-01-20 04:01:24 PF_ETHUSD -0.023/-0.024 0.02 Reduced
+                // Groups: 
+                // 1. Date Time
+                // 2. Symbol
+                // 3. Size (x/y)
+                // 4. PnL
+                // 5. Type
+                const regex = /^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s+(\S+)\s+(\S+)\s+([-\d.]+)\s+(.*)$/;
+
+                lines.forEach(line => {
+                    const match = line.match(regex);
+                    if (match) {
+                        const [_, timeStr, symbol, sizeStr, pnlStr, typeStr] = match;
+                        
+                        // Strict Filtering: Only include if in our tracked list
+                        if (validLogSymbols.has(symbol)) {
+                            parsed.push({
+                                time: timeStr,
+                                asset: symbol,
+                                size: sizeStr,          // "-0.023/-0.024"
+                                pnl: parseFloat(pnlStr), // 0.02
+                                type: typeStr.trim()     // "Reduced"
+                            });
+                        }
+                    }
+                });
+                
+                setHistoryData(parsed.reverse()); // Show newest first
+            } catch (err) {
+                console.error("History fetch error:", err);
             }
         };
         fetchData();
     }, []);
 
-    // Matrix Logic
-    const signals = useMemo(() => {
-        const assets = {};
-        matrixData.forEach(d => {
-            if (!assets[d.asset]) {
-                assets[d.asset] = { score: 0, start: d.updated_at, tf: d.tf || '15m' };
-            }
-            assets[d.asset].score += d.signal_val;
-        });
-
-        return Object.entries(assets)
-            .map(([asset, data]) => {
-                const { start, end } = getCandleTimes(data.start, data.tf);
-                return {
-                    direction: data.score > 0 ? 'Long' : (data.score < 0 ? 'Short' : null),
-                    asset,
-                    start: formatDateTime(start),
-                    end: formatDateTime(end)
-                };
-            })
-            .filter(item => item.direction !== null);
+    // Matrix Logic (Active Signals)
+    const activeSignals = useMemo(() => {
+        return matrixData
+            .filter(d => d.score !== 0) // Only show non-zero sums
+            .map(d => ({
+                direction: d.score > 0 ? 'Long' : 'Short',
+                asset: d.asset,
+                strength: Math.abs(d.score)
+            }));
     }, [matrixData]);
 
-    // History Logic (UPDATED MAPPING)
-    const history = useMemo(() => {
-        return historyData.map(row => {
-            // 1. Determine Time
-            // User data has 'time_str' or 'created_at'.
-            const timeRaw = row.time_str || row.created_at;
-            const { start, end } = getCandleTimes(timeRaw, row.tf || row.timeframe || '15m');
-            
-            // 2. Determine PnL
-            // Use the explicit 'pnl' column if it exists, otherwise 0
-            const pnlValue = parseFloat(row.pnl || row.profit_loss || 0);
-            
-            // 3. Determine Change % string
-            // If pnl is like -0.107, we can just show that, or multiply by 100 if it's raw decimal.
-            // Assuming your data '-0.1079' is percentage (e.g. -0.1%), or raw?
-            // Usually pnl is raw percent. Let's assume it is ready for display.
-            const changeStr = pnlValue.toFixed(2) + '%';
-
-            return {
-                direction: (row.signal === 'BUY' || row.action === 'BUY') ? 'Long' : 'Short',
-                asset: row.asset || row.symbol,
-                start: formatDateTime(start),
-                end: formatDateTime(end),
-                change: changeStr,
-                pnlValue: pnlValue,
-                time: timeRaw
-            };
-        }).reverse();
-    }, [historyData]);
-
-    const totalPages = Math.ceil(history.length / ITEMS_PER_PAGE);
-    
+    // Pagination Logic
+    const totalPages = Math.ceil(historyData.length / ITEMS_PER_PAGE);
     const displayedHistory = useMemo(() => {
-        if (!historyExpanded) {
-            return history.slice(0, 10);
-        } else {
-            const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
-            return history.slice(startIdx, startIdx + ITEMS_PER_PAGE);
-        }
-    }, [history, historyExpanded, currentPage]);
+        if (!historyExpanded) return historyData.slice(0, 10);
+        const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+        return historyData.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+    }, [historyData, historyExpanded, currentPage]);
 
     const handleSubscribe = async () => {
         try {
             const res = await api.post('/create-checkout-session');
             window.location.href = res.data.url;
         } catch (err) { 
-            if (!localStorage.getItem('token')) navigate('/login');
-            else toast.error("Unavailable");
+            toast.error("Unavailable");
         }
     };
 
     return (
         <div style={{ fontFamily: 'sans-serif', maxWidth: '1000px', margin: '0 auto', padding: '40px 20px' }}>
             
+            {/* --- LIVE SIGNALS SECTION --- */}
             <section style={{ marginBottom: '60px' }}>
-                <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Signals</h3>
+                <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Active Signals</h3>
                 
                 {matrixStatus === 'unpaid' ? (
-                    <div style={{ 
-                        background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '3rem 2rem', 
-                        textAlign: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', margin: '20px 0' 
-                    }}>
-                        <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🔒</div>
-                        <h3 style={{ margin: '0 0 0.5rem 0' }}>Premium Access Required</h3>
-                        <p style={{ color: '#6b7280', marginBottom: '2rem' }}>
-                            Unlock real-time probability-based signals and active trade setups.
-                        </p>
-                        <button onClick={handleSubscribe} style={{ 
-                            padding: '12px 32px', fontSize: '15px', background: '#000', color: '#fff', 
-                            border: 'none', borderRadius: '6px', cursor: 'pointer' 
-                        }}>
-                            Get Access — 49.90€/mo
-                        </button>
+                    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '3rem', textAlign: 'center' }}>
+                         <h3>Premium Access Required</h3>
+                         <p style={{color:'#666', marginBottom:'1rem'}}>Unlock real-time probability-based signals.</p>
+                         <button onClick={handleSubscribe}>Subscribe</button>
                     </div>
                 ) : (
                     <>
+                        {/* Table */}
                         <div style={{ overflowX: 'auto', marginBottom: '40px' }}>
                             <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                                 <thead>
                                     <tr>
                                         <th style={cellStyle}>Direction</th>
                                         <th style={cellStyle}>Asset</th>
-                                        <th style={cellStyle}>Start</th>
-                                        <th style={cellStyle}>End</th>
+                                        <th style={cellStyle}>Strength</th>
+                                        <th style={cellStyle}>Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {signals.length > 0 ? signals.map((row, i) => (
+                                    {activeSignals.length > 0 ? activeSignals.map((row, i) => (
                                         <tr key={i}>
                                             <td style={{ ...cellStyle, color: row.direction === 'Long' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{row.direction}</td>
                                             <td style={cellStyle}>{row.asset}</td>
-                                            <td style={cellStyle}>{row.start}</td>
-                                            <td style={cellStyle}>{row.end}</td>
+                                            <td style={cellStyle}>{row.strength}</td>
+                                            <td style={cellStyle}>ACTIVE</td>
                                         </tr>
                                     )) : (
-                                        <tr><td colSpan="4" style={{ ...cellStyle, textAlign: 'center', color: '#999' }}>No active signals</td></tr>
+                                        <tr><td colSpan="4" style={{ ...cellStyle, textAlign: 'center', color: '#999' }}>No active signals (Market Neutral)</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -273,67 +270,43 @@ export default function Dashboard() {
 
                         {/* Chart */}
                         <div style={{ marginBottom: '40px' }}>
-                            <PnLChart data={history.map(h => ({ time: h.time, pnl: h.pnlValue }))} />
+                            <PnLChart data={historyData} />
                         </div>
                     </>
                 )}
             </section>
 
+            {/* --- HISTORY SECTION --- */}
             <section>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px', marginBottom: '20px' }}>
-                    <h3 style={{ margin: 0, border: 'none', padding: 0 }}>Signal History</h3>
-                </div>
-                
-                <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <button 
-                        onClick={() => setHistoryExpanded(!historyExpanded)}
-                        style={{
-                            background: 'none', border: 'none', color: '#000', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', padding: 0, fontWeight: 'bold', fontSize: '16px'
-                        }}
-                    >
-                        <span style={{ 
-                            display: 'inline-block', transform: historyExpanded ? 'rotate(-90deg)' : 'rotate(90deg)', 
-                            marginRight: '8px', fontSize: '1.2em', transition: 'transform 0.2s'
-                        }}>&gt;</span>
-                        {historyExpanded ? 'Collapse' : 'Expand History'}
-                    </button>
-
-                    {historyExpanded && history.length > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <button 
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                                style={{ background: '#f3f4f6', color: '#374151', padding: '4px 8px', fontSize: '12px' }}
-                            >Prev</button>
-                            <span style={{ fontSize: '12px', color: '#6b7280' }}>Page {currentPage} of {totalPages}</span>
-                            <button 
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                                style={{ background: '#f3f4f6', color: '#374151', padding: '4px 8px', fontSize: '12px' }}
-                            >Next</button>
-                        </div>
-                    )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                    <h3 style={{ margin: 0 }}>Trade Log History</h3>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <button onClick={() => setHistoryExpanded(!historyExpanded)} style={{ background: 'none', color: '#2563eb', border: 'none' }}>
+                            {historyExpanded ? 'Collapse' : 'Expand All'}
+                        </button>
+                    </div>
                 </div>
 
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                         <thead>
                             <tr>
-                                <th style={cellStyle}>Direction</th>
+                                <th style={cellStyle}>Time</th>
                                 <th style={cellStyle}>Asset</th>
-                                <th style={cellStyle}>Start</th>
-                                <th style={cellStyle}>End</th>
-                                <th style={cellStyle}>%Change</th>
+                                <th style={cellStyle}>Type</th>
+                                <th style={cellStyle}>Pos Size (Cur/Tot)</th>
+                                <th style={cellStyle}>PnL</th>
                             </tr>
                         </thead>
                         <tbody>
                             {displayedHistory.length > 0 ? displayedHistory.map((row, i) => (
                                 <tr key={i}>
-                                    <td style={{ ...cellStyle, color: row.direction === 'Long' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{row.direction}</td>
+                                    <td style={cellStyle}>{formatDateTime(row.time)}</td>
                                     <td style={cellStyle}>{row.asset}</td>
-                                    <td style={cellStyle}>{row.start}</td>
-                                    <td style={cellStyle}>{row.end}</td>
-                                    <td style={{ ...cellStyle, fontWeight: 'bold', color: row.pnlValue >= 0 ? '#10b981' : '#ef4444' }}>
-                                        {row.pnlValue > 0 ? '+' : ''}{row.change}
+                                    <td style={{...cellStyle, textTransform: 'capitalize'}}>{row.type}</td>
+                                    <td style={{...cellStyle, fontFamily:'monospace', fontSize:'12px'}}>{row.size}</td>
+                                    <td style={{ ...cellStyle, fontWeight: 'bold', color: row.pnl >= 0 ? '#10b981' : '#ef4444' }}>
+                                        {row.pnl > 0 ? '+' : ''}{row.pnl}
                                     </td>
                                 </tr>
                             )) : (
@@ -342,13 +315,16 @@ export default function Dashboard() {
                         </tbody>
                     </table>
                 </div>
-            </section>
 
-            <footer style={{ marginTop: '60px', display: 'flex', gap: '20px', fontSize: '0.85rem' }}>
-                <Link to="/impressum" style={{ color: '#888', textDecoration: 'none' }}>Impressum</Link>
-                <Link to="/privacy" style={{ color: '#888', textDecoration: 'none' }}>Privacy</Link>
-                <Link to="/terms" style={{ color: '#888', textDecoration: 'none' }}>Terms</Link>
-            </footer>
+                {/* Pagination Controls */}
+                {historyExpanded && (
+                    <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</button>
+                        <span>Page {currentPage} of {totalPages}</span>
+                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</button>
+                    </div>
+                )}
+            </section>
         </div>
     );
 }
