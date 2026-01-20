@@ -203,6 +203,19 @@ app.post('/create-checkout-session', authenticate, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Stripe error' }); }
 });
 
+app.post('/create-portal-session', authenticate, async (req, res) => {
+    try {
+        const session = await stripe.billingPortal.sessions.create({
+            customer: req.user.stripe_customer_id,
+            return_url: `${process.env.CLIENT_URL}/profile`, // Redirects them back to profile after they are done
+        });
+        res.json({ url: session.url });
+    } catch (err) {
+        console.error('Portal Error:', err);
+        res.status(500).json({ error: 'Failed to create portal session' });
+    }
+});
+
 app.use(express.static(path.join(__dirname, 'client/dist')));
 app.get('*', (req, res) => {
     if (req.path.startsWith('/api')) return res.status(404).json({error: 'Not Found'});
