@@ -55,7 +55,7 @@ export default function Layout() {
         Primate 
         {/* Updated Image Source */}
         
-        <span style={{ fontWeight: '300' }}>Signals</span><img 
+        <span style={{ fontWeight: '300' }}> Signals</span><img 
           src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/vg2.png" 
           alt="voodooghost" 
           style={{ height: '48px', margin: '0 -6px' }} 
