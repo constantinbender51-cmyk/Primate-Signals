@@ -197,7 +197,7 @@ export default function Dashboard() {
                 pnlValue: pnlValue,
                 time: timeRaw
             };
-        });
+        }).reverse();
     }, [historyData]);
 
     const totalPages = Math.ceil(history.length / ITEMS_PER_PAGE);
