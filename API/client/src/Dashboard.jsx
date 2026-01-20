@@ -274,8 +274,8 @@ export default function Dashboard() {
                 
                 {matrixStatus === 'unpaid' ? (
                     <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '3rem', textAlign: 'center' }}>
-                         <h3>Premium Access Required</h3>
-                         <button onClick={handleSubscribe}>Subscribe</button>
+                         <h3>Subscription Required</h3>
+                         <button onClick={handleSubscribe}>Try for free</button>
                     </div>
                 ) : (
                     <>
