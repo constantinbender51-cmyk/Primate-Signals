@@ -139,9 +139,9 @@ async function getLiveMatrix() {
                     <td style={{ padding: '12px 0' }}><code>sum</code></td>
                     <td style={{ padding: '12px 0' }}><span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>Integer</span></td>
                     <td style={{ padding: '12px 0' }}>
-                        The primary signal direction.<br/>
-                        <strong>1</strong> = BUY<br/>
-                        <strong>-1</strong> = SELL<br/>
+                        The sum of component signals.<br/>
+                        <strong>1</strong> = 0, 0, 1, 0, 0<br/>
+                        <strong>-2</strong> = 1, -1, -1, -1, 0<br/>
                         <strong>0</strong> = NEUTRAL / WAIT
                     </td>
                 </tr>
