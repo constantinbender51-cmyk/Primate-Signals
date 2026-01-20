@@ -9,6 +9,8 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const path = require('path');
 const fs = require('fs');
 const nodemailer = require('nodemailer'); 
+// Ensure fetch is available (Native in Node 18+, otherwise requires node-fetch)
+// const fetch = require('node-fetch'); // Uncomment if using Node < 18
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -171,18 +173,35 @@ const requireSubscription = (req, res, next) => {
 
 // --- 4. ROUTES ---
 
-// NEW: Proxy Route for GitHub Raw Logs
+// NEW: Proxy Route for GitHub Raw Logs (History)
 app.get('/api/proxy/history', async (req, res) => {
     try {
-        // Fetches the raw text file from GitHub
         const response = await fetch('https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/kraken_logs.txt');
         if (!response.ok) throw new Error('Failed to fetch logs');
         const text = await response.text();
         res.set('Content-Type', 'text/plain');
         res.send(text);
     } catch (err) {
-        console.error("Proxy Error:", err);
+        console.error("Proxy Error (History):", err);
         res.status(500).json({ error: 'Failed to fetch history logs' });
+    }
+});
+
+// NEW: Proxy Route for Live Matrix Signals
+app.get('/live_matrix', authenticate, requireSubscription, async (req, res) => {
+    try {
+        const response = await fetch('https://workspace-production-9fae.up.railway.app/predictions');
+        
+        if (!response.ok) {
+            throw new Error(`External API responded with status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        res.json(data); // Send JSON directly to frontend
+
+    } catch (err) { 
+        console.error("Proxy Error (Live Matrix):", err);
+        res.status(500).json({ error: 'Failed to fetch live signals' }); 
     }
 });
 
@@ -260,17 +279,7 @@ app.get('/auth/me', authenticate, (req, res) => {
     res.json(req.user);
 });
 
-// Data
-app.get('/live_matrix', authenticate, requireSubscription, async (req, res) => {
-    try {
-        const client = await pool.connect();
-        const result = await client.query('SELECT * FROM live_matrix');
-        client.release();
-        res.json({ results: result.rows });
-    } catch (err) { res.status(500).json({ error: 'DB Error' }); }
-});
-
-// Signal History - Kept for legacy DB rows if needed, otherwise dashboard uses /api/proxy/history
+// Signal History - Kept for legacy DB rows if needed
 app.get('/signal_history', async (req, res) => {
     try {
         const client = await pool.connect();
