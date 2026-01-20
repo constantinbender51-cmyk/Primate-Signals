@@ -182,10 +182,10 @@ export default function Dashboard() {
                 asset: d.asset,
                 rawScore: d.score,
                 direction: d.score > 0 ? 'Long' : 'Short',
-                strength: Math.abs(d.score), // 1 to 5
-                intensity: Math.abs(d.score) / 5 // 0.2 to 1.0 for opacity/visuals
+                units: Math.abs(d.score), // 1 to 5 (renamed from strength)
+                start: '-' // Placeholder as data source has no time yet
             }))
-            .sort((a, b) => b.strength - a.strength); // Sort strongest first
+            .sort((a, b) => b.units - a.units); // Sort strongest first
     }, [matrixData]);
 
     // Pagination Logic
@@ -225,16 +225,16 @@ export default function Dashboard() {
                             <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                                 <thead>
                                     <tr>
-                                        <th style={cellStyle}>Asset</th>
+                                        {/* Columns: Direction | Asset | Units | Start */}
                                         <th style={cellStyle}>Direction</th>
-                                        <th style={cellStyle}>Score (Max 5)</th>
-                                        <th style={cellStyle}>Status</th>
+                                        <th style={cellStyle}>Asset</th>
+                                        <th style={cellStyle}>Units</th>
+                                        <th style={cellStyle}>Start</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {activeSignals.length > 0 ? activeSignals.map((row, i) => (
                                         <tr key={i}>
-                                            <td style={{ ...cellStyle, fontWeight: '500' }}>{row.asset}</td>
                                             <td style={cellStyle}>
                                                 <span style={{ 
                                                     color: row.direction === 'Long' ? '#10b981' : '#ef4444', 
@@ -247,20 +247,21 @@ export default function Dashboard() {
                                                     {row.direction.toUpperCase()}
                                                 </span>
                                             </td>
+                                            <td style={{ ...cellStyle, fontWeight: '500' }}>{row.asset}</td>
                                             <td style={cellStyle}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span style={{ fontWeight: 'bold' }}>{row.strength}/5</span>
+                                                    <span style={{ fontWeight: 'bold' }}>{row.units}</span>
                                                     {/* Visual Bar */}
                                                     <div style={{ width: '60px', height: '6px', background: '#eee', borderRadius: '3px', overflow: 'hidden' }}>
                                                         <div style={{ 
-                                                            width: `${(row.strength / 5) * 100}%`, 
+                                                            width: `${(row.units / 5) * 100}%`, 
                                                             height: '100%', 
                                                             background: row.direction === 'Long' ? '#10b981' : '#ef4444' 
                                                         }}></div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td style={{...cellStyle, fontSize:'12px', color:'#6b7280'}}>ACTIVE</td>
+                                            <td style={{...cellStyle, fontSize:'12px', color:'#6b7280'}}>{row.start}</td>
                                         </tr>
                                     )) : (
                                         <tr><td colSpan="4" style={{ ...cellStyle, textAlign: 'center', color: '#999', padding: '20px' }}>No active signals (All assets neutral at 0)</td></tr>
