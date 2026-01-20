@@ -53,7 +53,6 @@ const initDB = async () => {
         // Migrations
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP;`);
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS next_billing_date TIMESTAMP;`);
-        // ... (Keep other migrations if needed, but they are safe to run repeatedly)
 
         // Ensure Admin Exists
         await client.query(`
@@ -172,6 +171,21 @@ const requireSubscription = (req, res, next) => {
 
 // --- 4. ROUTES ---
 
+// NEW: Proxy Route for GitHub Raw Logs
+app.get('/api/proxy/history', async (req, res) => {
+    try {
+        // Fetches the raw text file from GitHub
+        const response = await fetch('https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/kraken_logs.txt');
+        if (!response.ok) throw new Error('Failed to fetch logs');
+        const text = await response.text();
+        res.set('Content-Type', 'text/plain');
+        res.send(text);
+    } catch (err) {
+        console.error("Proxy Error:", err);
+        res.status(500).json({ error: 'Failed to fetch history logs' });
+    }
+});
+
 // Auth
 app.post('/auth/register', async (req, res) => {
     const { email, password } = req.body;
@@ -194,7 +208,6 @@ app.post('/auth/register', async (req, res) => {
         );
         client.release();
 
-        // Send Email (Fire and forget)
         transporter.sendMail({
             from: `"Primate Signals" <${process.env.SMTP_USER}>`,
             to: email,
@@ -257,12 +270,10 @@ app.get('/live_matrix', authenticate, requireSubscription, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'DB Error' }); }
 });
 
-// *** FIXED SIGNAL HISTORY ENDPOINT ***
+// Signal History - Kept for legacy DB rows if needed, otherwise dashboard uses /api/proxy/history
 app.get('/signal_history', async (req, res) => {
     try {
         const client = await pool.connect();
-        // CHANGED: Removed 'ORDER BY created_at' which was causing crash. 
-        // Using 'ORDER BY id DESC' as a safe default for latest items.
         const result = await client.query('SELECT * FROM signal_history ORDER BY id DESC');
         client.release();
         res.json({ results: result.rows });
