@@ -118,34 +118,54 @@ async function getLiveMatrix() {
             </section>
 
             <section style={{ marginBottom: '4rem' }}>
-                <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1.5rem' }}>Endpoint: Live Matrix</h4>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Field</th>
-                            <th>Type</th>
-                            <th>Description</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><code>asset</code></td>
-                            <td>String</td>
-                            <td>The trading pair symbol (e.g., "BTCUSDT").</td>
-                        </tr>
-                        <tr>
-                            <td><code>tf</code></td>
-                            <td>String</td>
-                            <td>Timeframe (e.g., "15m", "1d").</td>
-                        </tr>
-                        <tr>
-                            <td><code>signal_val</code></td>
-                            <td>Integer</td>
-                            <td>1: BUY | -1: SELL | 0: WAIT</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </section>
+    <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1.5rem' }}>Response Format</h4>
+    <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+        The API returns a JSON object (dictionary) where each key is a trading pair symbol (e.g., <code>BTCUSDT</code>). 
+        The value associated with each key is an object containing the real-time signal data.
+    </p>
+
+    <h5 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '1rem', color: '#334155' }}>Signal Object Structure</h5>
+    <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' }}>
+            <thead>
+                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <th style={{ padding: '12px 0', color: '#64748b' }}>Field</th>
+                    <th style={{ padding: '12px 0', color: '#64748b' }}>Type</th>
+                    <th style={{ padding: '12px 0', color: '#64748b' }}>Description</th>
+                </tr>
+            </thead>
+            <tbody style={{ color: '#334155' }}>
+                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '12px 0' }}><code>sum</code></td>
+                    <td style={{ padding: '12px 0' }}><span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>Integer</span></td>
+                    <td style={{ padding: '12px 0' }}>
+                        The primary signal direction.<br/>
+                        <strong>1</strong> = BUY<br/>
+                        <strong>-1</strong> = SELL<br/>
+                        <strong>0</strong> = NEUTRAL / WAIT
+                    </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '12px 0' }}><code>comp</code></td>
+                    <td style={{ padding: '12px 0' }}><span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>Array&lt;Int&gt;</span></td>
+                    <td style={{ padding: '12px 0' }}>
+                        A list of raw component signals contributing to the sum.<br/>
+                        <em>Example: <code>[0, 1, 0, 0, 0]</code></em>
+                    </td>
+                </tr>
+                <tr>
+                    <td style={{ padding: '12px 0' }}><code>upd</code></td>
+                    <td style={{ padding: '12px 0' }}><span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>String</span></td>
+                    <td style={{ padding: '12px 0' }}>
+                        The UTC timestamp of the last calculation.<br/>
+                        <em>Format: YYYY-MM-DD HH:MM:SS</em>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
 
             <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '4rem 0' }} />
 
