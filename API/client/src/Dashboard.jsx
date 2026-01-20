@@ -23,13 +23,18 @@ const formatTimeOnly = (dateInput) => {
     return date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
 };
 
-const calculateExpiry = (baseDateStr, minutesToAdd) => {
+// Rounds UP to the next interval boundary
+const calculateExpiry = (baseDateStr, minutesDuration) => {
     const date = new Date(baseDateStr);
     if (isNaN(date.getTime())) return null;
-    return new Date(date.getTime() + minutesToAdd * 60000);
+
+    const intervalMs = minutesDuration * 60 * 1000;
+    const currentMs = date.getTime();
+    const msToNextBoundary = intervalMs - (currentMs % intervalMs);
+    
+    return new Date(currentMs + msToNextBoundary);
 };
 
-// Map USDT symbols to Kraken PF format (e.g., BCHUSDT -> PF_BCHUSD)
 const mapSymbolToLogFormat = (symbol) => {
     if (!symbol) return '';
     const core = symbol.replace('USDT', '');
@@ -91,7 +96,6 @@ export default function Dashboard() {
     const [matrixStatus, setMatrixStatus] = useState('loading');
     const [searchParams] = useSearchParams();
     
-    // Pagination: Set default to true so controls are visible immediately
     const [historyExpanded, setHistoryExpanded] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
@@ -128,7 +132,6 @@ export default function Dashboard() {
                 setMatrixData(transformed);
                 setMatrixStatus('active');
             } catch (err) {
-                console.error("Matrix error", err);
                 if (err.response?.status === 403 || err.response?.status === 401) setMatrixStatus('unpaid');
             }
 
@@ -180,28 +183,22 @@ export default function Dashboard() {
         fetchData();
     }, []);
 
-    // --- Metrics Calculations ---
+    // --- Metrics ---
     const metrics = useMemo(() => {
         let totalPnL = 0;
         let wins = 0;
         let losses = 0;
 
         tableData.forEach(row => {
-            // PnL Sum
-            if (typeof row.pnl === 'number') {
-                totalPnL += row.pnl;
-            } else if (!isNaN(parseFloat(row.pnl))) {
-                totalPnL += parseFloat(row.pnl);
-            }
-
-            // Accuracy Count
+            if (typeof row.pnl === 'number') totalPnL += row.pnl;
+            else if (!isNaN(parseFloat(row.pnl))) totalPnL += parseFloat(row.pnl);
+            
             if (row.outcome === 'WIN') wins++;
             else if (row.outcome === 'LOSS') losses++;
         });
 
         const totalTrades = wins + losses;
         const accuracy = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : 0;
-
         return { totalPnL, accuracy, wins, losses };
     }, [tableData]);
 
@@ -237,10 +234,6 @@ export default function Dashboard() {
     // Pagination Logic
     const totalPages = Math.ceil(tableData.length / ITEMS_PER_PAGE);
     const displayedHistory = useMemo(() => {
-        // If not expanded, maybe show fewer? But user wants it default active.
-        // We just toggle "view all" vs "paged" if that logic remains, 
-        // but user asked to "activate show more button by default to show next/prev".
-        // So we just use standard pagination logic.
         const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
         return tableData.slice(startIdx, startIdx + ITEMS_PER_PAGE);
     }, [tableData, currentPage]);
@@ -301,7 +294,12 @@ export default function Dashboard() {
                                                             <span style={{fontWeight: 'bold', margin: '0 4px', color: c.val !== 0 ? (c.val > 0 ? '#10b981' : '#ef4444') : '#374151'}}>
                                                                 {c.val}
                                                             </span>
-                                                            <span style={{color: '#9ca3af', fontSize: '11px'}}>{c.expiry}</span>
+                                                            {/* Only show expiry if signal is active (not 0) */}
+                                                            {c.val !== 0 && (
+                                                                <span style={{color: '#9ca3af', fontSize: '11px', marginLeft:'4px'}}>
+                                                                    ({c.expiry})
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     ))}
                                                 </div>
@@ -330,7 +328,7 @@ export default function Dashboard() {
                     <h3 style={{ margin: 0 }}>Trade Log History</h3>
                 </div>
 
-                {/* METRICS DASHBOARD */}
+                {/* METRICS */}
                 <div style={{ 
                     display: 'flex', gap: '20px', marginBottom: '20px', 
                     background: '#f9fafb', padding: '15px', borderRadius: '8px', border: '1px solid #eee' 
@@ -382,8 +380,7 @@ export default function Dashboard() {
                                     <td style={cellStyle}>
                                         <span style={{ 
                                             color: row.signal === 'BUY' ? '#10b981' : '#ef4444',
-                                            fontWeight: 'bold',
-                                            fontSize: '12px'
+                                            fontWeight: 'bold', fontSize: '12px'
                                         }}>
                                             {row.signal}
                                         </span>
@@ -396,10 +393,7 @@ export default function Dashboard() {
                                         <span style={{
                                             background: row.outcome === 'WIN' ? '#ecfdf5' : (row.outcome === 'LOSS' ? '#fef2f2' : '#f3f4f6'),
                                             color: row.outcome === 'WIN' ? '#047857' : (row.outcome === 'LOSS' ? '#b91c1c' : '#374151'),
-                                            padding: '2px 6px',
-                                            borderRadius: '4px',
-                                            fontSize: '11px',
-                                            fontWeight: '500'
+                                            padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: '500'
                                         }}>
                                             {row.outcome}
                                         </span>
@@ -412,7 +406,7 @@ export default function Dashboard() {
                     </table>
                 </div>
 
-                {/* Pagination Controls - Always Visible */}
+                {/* Pagination Controls */}
                 <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '15px', alignItems:'center' }}>
                     <button 
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
