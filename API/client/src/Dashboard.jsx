@@ -17,11 +17,8 @@ const formatDateTime = (dateInput) => {
 };
 
 // Map USDT symbols to Kraken PF format (e.g., BCHUSDT -> PF_BCHUSD)
-// User requirement: "BCHUSDT becomes PF_BCHUSD"
 const mapSymbolToLogFormat = (symbol) => {
-    // Remove 'USDT'
     const core = symbol.replace('USDT', '');
-    // Construct new format
     return `PF_${core}USD`;
 };
 
@@ -96,7 +93,7 @@ export default function Dashboard() {
         if (sessionId) {
             const verify = async () => {
                 try {
-                    await api.get('/auth/me'); // Just check auth
+                    await api.get('/auth/me'); 
                     toast.success("Subscription Active!");
                     navigate('/', { replace: true });
                 } catch (e) { navigate('/', { replace: true }); }
@@ -107,29 +104,20 @@ export default function Dashboard() {
 
     useEffect(() => {
         const fetchData = async () => {
-            // 1. Live Matrix Fetch (Your JSON format)
+            // 1. Live Matrix Fetch
             try {
-                // Expected response: {"BTCUSDT": {"sum": 0}, "BCHUSDT": {"sum": 1}, ...}
+                // Expected format: {"BTCUSDT": {"sum": 0}, "BCHUSDT": {"sum": 1}, ...}
                 const res = await api.get('/live_matrix'); 
                 
-                // Transform the Object into an Array for the UI
-                const rawData = res.data; // Depending on how you serve it, this might be res.data directly or res.data.results
+                // Handle potential DB wrapper ({ results: ... }) or direct JSON object
+                const rawPayload = res.data.results || res.data;
                 
-                // Handle both array wrapper or direct object
-                const actualData = rawData.results ? rawData.results : rawData; 
-                
-                // If it's the specific object structure you pasted:
-                // Check if it's an array or object. If object, convert.
-                let transformed = [];
-                if (!Array.isArray(actualData) && typeof actualData === 'object') {
-                    transformed = Object.entries(actualData).map(([key, val]) => ({
-                        asset: key,
-                        score: val.sum
-                    }));
-                } else if (Array.isArray(actualData)) {
-                    // Fallback if your endpoint returns the old array format
-                    transformed = actualData;
-                }
+                // Transform Object of Objects into Array
+                // Input: { "BTCUSDT": { "sum": 0 }, ... }
+                const transformed = Object.entries(rawPayload).map(([asset, data]) => ({
+                    asset: asset,
+                    score: data.sum // Range -5 to 5
+                }));
 
                 setMatrixData(transformed);
                 setMatrixStatus('active');
@@ -145,7 +133,6 @@ export default function Dashboard() {
                 const res = await api.get('/api/proxy/history');
                 const rawText = res.data;
                 
-                // The 20 Assets tracked (USDT base)
                 const trackedAssets = [
                     "BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", 
                     "AVAXUSDT", "DOTUSDT", "LINKUSDT", "TRXUSDT", "BCHUSDT", "XLMUSDT", 
@@ -153,24 +140,13 @@ export default function Dashboard() {
                     "ZECUSDT", "BNBUSDT"
                 ];
                 
-                // Generate lookup set for fast filtering: e.g., "PF_BCHUSD"
                 const validLogSymbols = new Set(trackedAssets.map(mapSymbolToLogFormat));
-                
-                // Also add XBT special case for BTC just in case Kraken uses XBT
                 validLogSymbols.add("PF_XBTUSD"); 
 
                 const lines = rawText.split('\n');
                 const parsed = [];
                 
-                // Regex Logic based on user input:
-                // "The x/y is position size the number after that is pnl"
-                // Line: 2026-01-20 04:01:24 PF_ETHUSD -0.023/-0.024 0.02 Reduced
-                // Groups: 
-                // 1. Date Time
-                // 2. Symbol
-                // 3. Size (x/y)
-                // 4. PnL
-                // 5. Type
+                // Regex: Date Time Symbol Size PnL Type
                 const regex = /^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s+(\S+)\s+(\S+)\s+([-\d.]+)\s+(.*)$/;
 
                 lines.forEach(line => {
@@ -178,20 +154,19 @@ export default function Dashboard() {
                     if (match) {
                         const [_, timeStr, symbol, sizeStr, pnlStr, typeStr] = match;
                         
-                        // Strict Filtering: Only include if in our tracked list
                         if (validLogSymbols.has(symbol)) {
                             parsed.push({
                                 time: timeStr,
                                 asset: symbol,
-                                size: sizeStr,          // "-0.023/-0.024"
-                                pnl: parseFloat(pnlStr), // 0.02
-                                type: typeStr.trim()     // "Reduced"
+                                size: sizeStr,
+                                pnl: parseFloat(pnlStr),
+                                type: typeStr.trim()
                             });
                         }
                     }
                 });
                 
-                setHistoryData(parsed.reverse()); // Show newest first
+                setHistoryData(parsed.reverse());
             } catch (err) {
                 console.error("History fetch error:", err);
             }
@@ -202,12 +177,15 @@ export default function Dashboard() {
     // Matrix Logic (Active Signals)
     const activeSignals = useMemo(() => {
         return matrixData
-            .filter(d => d.score !== 0) // Only show non-zero sums
+            .filter(d => d.score !== 0) // Filter out neutrals
             .map(d => ({
-                direction: d.score > 0 ? 'Long' : 'Short',
                 asset: d.asset,
-                strength: Math.abs(d.score)
-            }));
+                rawScore: d.score,
+                direction: d.score > 0 ? 'Long' : 'Short',
+                strength: Math.abs(d.score), // 1 to 5
+                intensity: Math.abs(d.score) / 5 // 0.2 to 1.0 for opacity/visuals
+            }))
+            .sort((a, b) => b.strength - a.strength); // Sort strongest first
     }, [matrixData]);
 
     // Pagination Logic
@@ -232,7 +210,7 @@ export default function Dashboard() {
             
             {/* --- LIVE SIGNALS SECTION --- */}
             <section style={{ marginBottom: '60px' }}>
-                <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Active Signals</h3>
+                <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Active Matrix Signals</h3>
                 
                 {matrixStatus === 'unpaid' ? (
                     <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '3rem', textAlign: 'center' }}>
@@ -247,22 +225,45 @@ export default function Dashboard() {
                             <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                                 <thead>
                                     <tr>
-                                        <th style={cellStyle}>Direction</th>
                                         <th style={cellStyle}>Asset</th>
-                                        <th style={cellStyle}>Strength</th>
+                                        <th style={cellStyle}>Direction</th>
+                                        <th style={cellStyle}>Score (Max 5)</th>
                                         <th style={cellStyle}>Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {activeSignals.length > 0 ? activeSignals.map((row, i) => (
                                         <tr key={i}>
-                                            <td style={{ ...cellStyle, color: row.direction === 'Long' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{row.direction}</td>
-                                            <td style={cellStyle}>{row.asset}</td>
-                                            <td style={cellStyle}>{row.strength}</td>
-                                            <td style={cellStyle}>ACTIVE</td>
+                                            <td style={{ ...cellStyle, fontWeight: '500' }}>{row.asset}</td>
+                                            <td style={cellStyle}>
+                                                <span style={{ 
+                                                    color: row.direction === 'Long' ? '#10b981' : '#ef4444', 
+                                                    fontWeight: 'bold',
+                                                    background: row.direction === 'Long' ? '#ecfdf5' : '#fef2f2',
+                                                    padding: '4px 8px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '12px'
+                                                }}>
+                                                    {row.direction.toUpperCase()}
+                                                </span>
+                                            </td>
+                                            <td style={cellStyle}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ fontWeight: 'bold' }}>{row.strength}/5</span>
+                                                    {/* Visual Bar */}
+                                                    <div style={{ width: '60px', height: '6px', background: '#eee', borderRadius: '3px', overflow: 'hidden' }}>
+                                                        <div style={{ 
+                                                            width: `${(row.strength / 5) * 100}%`, 
+                                                            height: '100%', 
+                                                            background: row.direction === 'Long' ? '#10b981' : '#ef4444' 
+                                                        }}></div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td style={{...cellStyle, fontSize:'12px', color:'#6b7280'}}>ACTIVE</td>
                                         </tr>
                                     )) : (
-                                        <tr><td colSpan="4" style={{ ...cellStyle, textAlign: 'center', color: '#999' }}>No active signals (Market Neutral)</td></tr>
+                                        <tr><td colSpan="4" style={{ ...cellStyle, textAlign: 'center', color: '#999', padding: '20px' }}>No active signals (All assets neutral at 0)</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -281,8 +282,8 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                     <h3 style={{ margin: 0 }}>Trade Log History</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                        <button onClick={() => setHistoryExpanded(!historyExpanded)} style={{ background: 'none', color: '#2563eb', border: 'none' }}>
-                            {historyExpanded ? 'Collapse' : 'Expand All'}
+                        <button onClick={() => setHistoryExpanded(!historyExpanded)} style={{ background: 'none', color: '#2563eb', border: 'none', cursor: 'pointer', fontWeight:'500' }}>
+                            {historyExpanded ? 'Collapse View' : 'View All'}
                         </button>
                     </div>
                 </div>
@@ -294,17 +295,17 @@ export default function Dashboard() {
                                 <th style={cellStyle}>Time</th>
                                 <th style={cellStyle}>Asset</th>
                                 <th style={cellStyle}>Type</th>
-                                <th style={cellStyle}>Pos Size (Cur/Tot)</th>
+                                <th style={cellStyle}>Pos Size</th>
                                 <th style={cellStyle}>PnL</th>
                             </tr>
                         </thead>
                         <tbody>
                             {displayedHistory.length > 0 ? displayedHistory.map((row, i) => (
                                 <tr key={i}>
-                                    <td style={cellStyle}>{formatDateTime(row.time)}</td>
+                                    <td style={{...cellStyle, fontSize:'13px', color:'#374151'}}>{formatDateTime(row.time)}</td>
                                     <td style={cellStyle}>{row.asset}</td>
                                     <td style={{...cellStyle, textTransform: 'capitalize'}}>{row.type}</td>
-                                    <td style={{...cellStyle, fontFamily:'monospace', fontSize:'12px'}}>{row.size}</td>
+                                    <td style={{...cellStyle, fontFamily:'monospace', fontSize:'12px', color:'#4b5563'}}>{row.size}</td>
                                     <td style={{ ...cellStyle, fontWeight: 'bold', color: row.pnl >= 0 ? '#10b981' : '#ef4444' }}>
                                         {row.pnl > 0 ? '+' : ''}{row.pnl}
                                     </td>
@@ -318,10 +319,22 @@ export default function Dashboard() {
 
                 {/* Pagination Controls */}
                 {historyExpanded && (
-                    <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '10px' }}>
-                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</button>
-                        <span>Page {currentPage} of {totalPages}</span>
-                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</button>
+                    <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '15px', alignItems:'center' }}>
+                        <button 
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+                            disabled={currentPage === 1}
+                            style={{ padding: '6px 12px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+                        >
+                            Prev
+                        </button>
+                        <span style={{ fontSize:'14px', color:'#666' }}>Page {currentPage} of {totalPages}</span>
+                        <button 
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+                            disabled={currentPage === totalPages}
+                            style={{ padding: '6px 12px', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
+                        >
+                            Next
+                        </button>
                     </div>
                 )}
             </section>
