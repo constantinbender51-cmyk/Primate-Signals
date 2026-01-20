@@ -58,7 +58,7 @@ export default function Layout() {
         <span style={{ fontWeight: '300' }}>Signals</span><img 
           src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/voodooghost.jpg" 
           alt="Stone age guy icon" 
-          style={{ height: '48px', margin: '0 8px' }} 
+          style={{ height: '48px', margin: '0 -8px' }} 
         />
     </Link>
               <nav style={{ display: 'flex', gap: '1.5rem', fontSize: '14px', fontWeight: '500' }}>
