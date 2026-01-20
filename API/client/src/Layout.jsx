@@ -54,12 +54,12 @@ export default function Layout() {
     }}>
         Primate
         {/* Updated Image Source */}
-        <img 
+        
+        <span style={{ fontWeight: '300' }}>Signals</span><img 
           src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/voodooghost.jpg" 
           alt="Stone age guy icon" 
           style={{ height: '24px', margin: '0 8px' }} 
         />
-        <span style={{ fontWeight: '300' }}>Signals</span>
     </Link>
               <nav style={{ display: 'flex', gap: '1.5rem', fontSize: '14px', fontWeight: '500' }}>
                   {/* Removed duplicate Signals link */}
