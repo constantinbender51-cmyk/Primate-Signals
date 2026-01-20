@@ -55,7 +55,7 @@ export default function Layout() {
         Primate
         {/* Updated Image Source */}
         <img 
-          src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/stoneageguy.jpg" 
+          src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/voodooghost.jpg" 
           alt="Stone age guy icon" 
           style={{ height: '24px', margin: '0 8px' }} 
         />
