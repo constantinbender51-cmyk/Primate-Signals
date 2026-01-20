@@ -54,7 +54,7 @@ export default function Layout() {
               }}>
                   Primate
                   <img 
-                    src="/img/ico1.png" 
+                    src="/img/ico1.jpg" 
                     alt="" 
                     style={{ height: '24px', margin: '0 8px' }} 
                   />
