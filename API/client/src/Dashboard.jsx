@@ -345,9 +345,14 @@ export default function Dashboard() {
             {/* --- HISTORY SECTION --- */}
             <section>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                    <h3 style={{ margin: 0 }}>Trade Log History</h3>
+                   
+                 <h3 style={{ margin: 0 }}>Trade Log History</h3>
                 </div>
 
+                {/* [ADDED] Chart moved here to be visible regardless of status */}
+                <div style={{ marginBottom: '40px' }}>
+                    <PnLChart data={chartData} />
+                </div>
                 {/* METRICS */}
                 <div style={{ 
                     display: 'flex', gap: '20px', marginBottom: '20px', 
