@@ -57,8 +57,8 @@ export default function Layout() {
         
         <span style={{ fontWeight: '300' }}>Signals</span><img 
           src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/vg2.png" 
-          alt="Stone age guy icon" 
-          style={{ height: '48px', margin: '0 -7px' }} 
+          alt="voodooghost" 
+          style={{ height: '48px', margin: '0 -4px' }} 
         />
     </Link>
               <nav style={{ display: 'flex', gap: '1.5rem', fontSize: '14px', fontWeight: '500' }}>
@@ -72,7 +72,7 @@ export default function Layout() {
                           pointerEvents: isActive ? 'auto' : 'none'
                       }}
                   >
-                      API Docs
+                      API
                   </Link>
               </nav>
           </div>
@@ -99,7 +99,7 @@ export default function Layout() {
 
       <footer style={{ marginTop: '6rem', padding: '2rem 0', borderTop: '1px solid #e5e7eb', fontSize: '13px', color: '#6b7280' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <p>&copy; {new Date().getFullYear()} Primate Research.</p>
+              <p>&copy; {new Date().getFullYear()} Primate.</p>
               <div style={{ display: 'flex', gap: '1rem' }}>
                   <Link to="/legal/impressum" style={{ color: 'inherit', textDecoration: 'none' }}>Impressum</Link>
                   <Link to="/legal/privacy-policy" style={{ color: 'inherit', textDecoration: 'none' }}>Privacy</Link>
