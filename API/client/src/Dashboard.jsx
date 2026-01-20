@@ -106,14 +106,34 @@ export default function Dashboard() {
     useEffect(() => {
         const sessionId = searchParams.get('session_id');
         if (sessionId) {
-            const verify = async () => {
+            const verifySubscription = async (attempts = 0) => {
                 try {
-                    await api.get('/auth/me'); 
-                    toast.success("Subscription Active!");
+                    // Fetch fresh user data
+                    const res = await api.get('/auth/me');
+                    const user = res.data;
+
+                    // Check if the webhook has processed the update yet
+                    if (user.subscription_status === 'active') {
+                        toast.success("Subscription Active!");
+                        navigate('/', { replace: true });
+                        // Force a reload of the window to ensure all states update
+                        window.location.reload(); 
+                    } else {
+                        // If not active yet, and we haven't tried too many times, wait and retry
+                        if (attempts < 5) {
+                            setTimeout(() => verifySubscription(attempts + 1), 1000); // Wait 1 second
+                        } else {
+                            toast.error("Payment received, but activation is delayed. Please refresh shortly.");
+                            navigate('/', { replace: true });
+                        }
+                    }
+                } catch (e) {
                     navigate('/', { replace: true });
-                } catch (e) { navigate('/', { replace: true }); }
+                }
             };
-            verify();
+            
+            toast.loading("Verifying payment...", { duration: 2000 });
+            verifySubscription();
         }
     }, [searchParams, navigate]);
 
