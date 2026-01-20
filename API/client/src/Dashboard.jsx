@@ -31,11 +31,72 @@ const getCandleTimes = (dateInput, tf) => {
     return { start, end: new Date(start.getTime() + duration) };
 };
 
+// --- Custom Chart Component (No ext. libs) ---
+const PnLChart = ({ data }) => {
+    if (!data || data.length < 2) return <div style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center', color:'#ccc'}}>Not enough data</div>;
+
+    const height = 200;
+    const width = 800;
+    const padding = 20;
+
+    // 1. Process Data: Filter last 7 days (1w)
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    // Sort by date ascending
+    const sorted = [...data]
+        .filter(d => new Date(d.time) >= oneWeekAgo)
+        .sort((a, b) => new Date(a.time) - new Date(b.time));
+
+    // Calculate Cumulative PnL
+    let runningTotal = 0;
+    const points = sorted.map(d => {
+        runningTotal += parseFloat(d.pnl);
+        return { time: new Date(d.time), val: runningTotal };
+    });
+
+    if (points.length === 0) return <div style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center', color:'#ccc'}}>No data for this week</div>;
+
+    // 2. Scales
+    const minVal = Math.min(0, ...points.map(p => p.val)); // Ensure 0 is in view
+    const maxVal = Math.max(0, ...points.map(p => p.val));
+    const rangeY = maxVal - minVal || 1;
+    
+    const minTime = points[0].time.getTime();
+    const maxTime = points[points.length - 1].time.getTime();
+    const rangeX = maxTime - minTime || 1;
+
+    // 3. Map to SVG coords
+    const getX = (t) => padding + ((t.getTime() - minTime) / rangeX) * (width - (padding * 2));
+    const getY = (v) => (height - padding) - ((v - minVal) / rangeY) * (height - (padding * 2));
+
+    const pathD = points.map((p, i) => 
+        `${i === 0 ? 'M' : 'L'} ${getX(p.time)} ${getY(p.val)}`
+    ).join(' ');
+
+    const zeroY = getY(0);
+
+    return (
+        <div style={{ position: 'relative', width: '100%', border: '1px solid #000', borderRadius: '4px', padding: '10px' }}>
+            <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+                {/* Zero Line */}
+                <line x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="4" />
+                
+                {/* Chart Line */}
+                <path d={pathD} fill="none" stroke="#2563eb" strokeWidth="2" />
+            </svg>
+            <div style={{ textAlign: 'center', marginTop: '5px', fontSize: '12px', fontWeight: 'bold', color: '#000' }}>1w</div>
+        </div>
+    );
+};
+
+
 export default function Dashboard() {
     const [matrixData, setMatrixData] = useState([]);
     const [historyData, setHistoryData] = useState([]);
     const [matrixStatus, setMatrixStatus] = useState('loading');
     const [searchParams] = useSearchParams();
+    const [historyExpanded, setHistoryExpanded] = useState(false); // State for toggle
     const navigate = useNavigate();
 
     const cellStyle = { padding: '12px 10px', textAlign: 'left', borderBottom: '1px solid #eee' };
@@ -93,34 +154,36 @@ export default function Dashboard() {
             .filter(item => item.direction !== null);
     }, [matrixData]);
 
+    // Process history for table
     const history = useMemo(() => {
         return historyData.map(row => {
-            const entry = parseFloat(row.price_at_signal);
-            const close = parseFloat(row.close_price);
+            const entry = parseFloat(row.entry_price || row.price_at_signal || 0);
+            const close = parseFloat(row.exit_price || row.close_price || 0);
             let pctChange = 0;
             let pnl = 0;
             
             if (entry && close) {
-                // Raw market movement
                 pctChange = ((close - entry) / entry) * 100;
-                
-                // PnL based on signal direction
-                const isBuy = (row.signal === 'BUY' || row.signal === 1);
+                const isBuy = (row.signal === 'BUY' || row.signal === 1 || row.action === 'BUY');
                 pnl = isBuy ? pctChange : -pctChange;
             }
 
-            const { start, end } = getCandleTimes(row.time_str, row.tf || '15m');
+            // Fallback for timeframe/dates if missing in DB row
+            const { start, end } = getCandleTimes(row.created_at || row.time_str, row.tf || '15m');
 
             return {
-                direction: (row.signal === 'BUY' || row.signal === 1) ? 'Long' : 'Short',
-                asset: row.asset,
+                direction: (row.signal === 'BUY' || row.signal === 1 || row.action === 'BUY') ? 'Long' : 'Short',
+                asset: row.asset || row.symbol,
                 start: formatDateTime(start),
                 end: formatDateTime(end),
                 change: pctChange.toFixed(2) + '%',
-                pnlValue: pnl // Used for color logic
+                pnlValue: pnl,
+                time: row.created_at || row.time_str
             };
         });
     }, [historyData]);
+
+    const displayedHistory = historyExpanded ? history : history.slice(0, 10);
 
     const handleSubscribe = async () => {
         try {
@@ -134,10 +197,7 @@ export default function Dashboard() {
 
     return (
         <div style={{ fontFamily: 'sans-serif', maxWidth: '1000px', margin: '0 auto', padding: '40px 20px' }}>
-            <header style={{ marginBottom: '40px' }}>
-                <h1 style={{ margin: '0 0 10px 0' }}>Trading Signals</h1>
-                <p style={{ color: '#666', margin: 0 }}>For educational purposes only.</p>
-            </header>
+            {/* Header Removed as requested */}
 
             <section style={{ marginBottom: '60px' }}>
                 <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Signals</h3>
@@ -160,35 +220,73 @@ export default function Dashboard() {
                         </button>
                     </div>
                 ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-                            <thead>
-                                <tr>
-                                    <th style={cellStyle}>Direction</th>
-                                    <th style={cellStyle}>Asset</th>
-                                    <th style={cellStyle}>Start</th>
-                                    <th style={cellStyle}>End</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {signals.length > 0 ? signals.map((row, i) => (
-                                    <tr key={i}>
-                                        <td style={{ ...cellStyle, color: row.direction === 'Long' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{row.direction}</td>
-                                        <td style={cellStyle}>{row.asset}</td>
-                                        <td style={cellStyle}>{row.start}</td>
-                                        <td style={cellStyle}>{row.end}</td>
+                    <>
+                        <div style={{ overflowX: 'auto', marginBottom: '40px' }}>
+                            <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                                <thead>
+                                    <tr>
+                                        <th style={cellStyle}>Direction</th>
+                                        <th style={cellStyle}>Asset</th>
+                                        <th style={cellStyle}>Start</th>
+                                        <th style={cellStyle}>End</th>
                                     </tr>
-                                )) : (
-                                    <tr><td colSpan="4" style={{ ...cellStyle, textAlign: 'center', color: '#999' }}>No active signals</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    {signals.length > 0 ? signals.map((row, i) => (
+                                        <tr key={i}>
+                                            <td style={{ ...cellStyle, color: row.direction === 'Long' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{row.direction}</td>
+                                            <td style={cellStyle}>{row.asset}</td>
+                                            <td style={cellStyle}>{row.start}</td>
+                                            <td style={cellStyle}>{row.end}</td>
+                                        </tr>
+                                    )) : (
+                                        <tr><td colSpan="4" style={{ ...cellStyle, textAlign: 'center', color: '#999' }}>No active signals</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Chart Section */}
+                        <div style={{ marginBottom: '40px' }}>
+                            <PnLChart data={history.map(h => ({ time: h.time, pnl: h.pnlValue }))} />
+                        </div>
+                    </>
                 )}
             </section>
 
             <section>
                 <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Signal History</h3>
+                
+                {/* Expand Toggle */}
+                <div style={{ marginBottom: '10px' }}>
+                    <button 
+                        onClick={() => setHistoryExpanded(!historyExpanded)}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#000',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: 0,
+                            fontWeight: 'bold',
+                            fontSize: '16px'
+                        }}
+                    >
+                        {/* Pointed down bigger than sign on the left */}
+                        <span style={{ 
+                            display: 'inline-block', 
+                            transform: historyExpanded ? 'rotate(-90deg)' : 'rotate(90deg)', 
+                            marginRight: '8px',
+                            fontSize: '1.2em',
+                            transition: 'transform 0.2s'
+                        }}>
+                            &gt;
+                        </span>
+                        {historyExpanded ? 'Collapse' : 'Expand History'}
+                    </button>
+                </div>
+
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                         <thead>
@@ -201,7 +299,7 @@ export default function Dashboard() {
                             </tr>
                         </thead>
                         <tbody>
-                            {history.length > 0 ? history.map((row, i) => (
+                            {displayedHistory.length > 0 ? displayedHistory.map((row, i) => (
                                 <tr key={i}>
                                     <td style={{ ...cellStyle, color: row.direction === 'Long' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{row.direction}</td>
                                     <td style={cellStyle}>{row.asset}</td>
