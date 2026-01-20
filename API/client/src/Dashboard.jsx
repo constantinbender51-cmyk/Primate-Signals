@@ -336,7 +336,6 @@ export default function Dashboard() {
                         </div>
 
                         <div style={{ marginBottom: '40px' }}>
-                            <PnLChart data={chartData} />
                         </div>
                     </>
                 )}
