@@ -196,12 +196,18 @@ app.post('/create-checkout-session', authenticate, async (req, res) => {
             mode: 'subscription',
             customer: req.user.stripe_customer_id,
             line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+            // ADD THIS SECTION BELOW:
+            subscription_data: {
+                trial_period_days: 14
+            },
+            // -----------------------
             success_url: `${process.env.CLIENT_URL}/?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.CLIENT_URL}/`,
         });
         res.json({ url: session.url });
     } catch (err) { res.status(500).json({ error: 'Stripe error' }); }
 });
+
 
 app.post('/create-portal-session', authenticate, async (req, res) => {
     try {
