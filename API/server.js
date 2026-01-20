@@ -44,6 +44,8 @@ const initDB = async () => {
                 is_active BOOLEAN DEFAULT false,  
                 verification_code VARCHAR(4),
                 verification_expiry TIMESTAMP,
+                trial_ends_at TIMESTAMP,
+                next_billing_date TIMESTAMP,
                 created_at TIMESTAMP DEFAULT NOW()
             );
         `);
@@ -56,6 +58,9 @@ const initDB = async () => {
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_code VARCHAR(4);`);
         await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expiry TIMESTAMP;`);
         await client.query(`ALTER TABLE users ALTER COLUMN is_active SET DEFAULT false;`);
+        // New columns for Profile
+        await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP;`);
+        await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS next_billing_date TIMESTAMP;`);
 
         await client.query(`
             CREATE TABLE IF NOT EXISTS live_matrix (
@@ -110,16 +115,26 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         switch (event.type) {
             case 'checkout.session.completed': {
                 const session = event.data.object;
+                // Determine next billing date (usually period_end from subscription)
                 await client.query(
                     `UPDATE users SET subscription_status = 'active' WHERE stripe_customer_id = $1`,
                     [session.customer]
                 );
                 break;
             }
+            case 'invoice.payment_succeeded': {
+                const invoice = event.data.object;
+                const nextPayment = new Date(invoice.lines.data[0].period_end * 1000);
+                await client.query(
+                    `UPDATE users SET next_billing_date = $1, subscription_status = 'active' WHERE stripe_customer_id = $2`,
+                    [nextPayment, invoice.customer]
+                );
+                break;
+            }
             case 'customer.subscription.deleted': {
                 const subscription = event.data.object;
                 await client.query(
-                    `UPDATE users SET subscription_status = 'inactive' WHERE stripe_customer_id = $1`,
+                    `UPDATE users SET subscription_status = 'inactive', next_billing_date = NULL WHERE stripe_customer_id = $1`,
                     [subscription.customer]
                 );
                 break;
@@ -153,9 +168,8 @@ const authenticate = async (req, res, next) => {
 
     if (apiKey) {
         try {
-            // FIX: Added api_key to selection
             const result = await pool.query(
-                'SELECT id, email, subscription_status, api_key, stripe_customer_id FROM users WHERE api_key = $1 AND is_active = true', 
+                'SELECT id, email, subscription_status, api_key, stripe_customer_id, trial_ends_at, next_billing_date FROM users WHERE api_key = $1 AND is_active = true', 
                 [apiKey]
             );
             if (result.rows.length === 0) return res.status(403).json({ error: 'Invalid or inactive API Key' });
@@ -170,9 +184,8 @@ const authenticate = async (req, res, next) => {
         const token = authHeader.split(' ')[1];
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            // FIX: Added api_key to selection here as well
             const result = await pool.query(
-                'SELECT id, email, subscription_status, stripe_customer_id, api_key FROM users WHERE id = $1 AND is_active = true',
+                'SELECT id, email, subscription_status, stripe_customer_id, api_key, trial_ends_at, next_billing_date FROM users WHERE id = $1 AND is_active = true',
                 [decoded.userId]
             );
             if (result.rows.length === 0) return res.status(401).json({ error: 'User no longer exists or is inactive' });
@@ -214,12 +227,16 @@ app.post('/auth/register', async (req, res) => {
         
         const code = Math.floor(1000 + Math.random() * 9000).toString();
         const expiry = new Date(Date.now() + 10 * 60000); 
+        
+        // 30 Day Trial Logic
+        const trialEnd = new Date();
+        trialEnd.setDate(trialEnd.getDate() + 30);
 
         await client.query(
-            `INSERT INTO users (email, password_hash, stripe_customer_id, api_key, verification_code, verification_expiry, is_active) 
-             VALUES ($1, $2, $3, $4, $5, $6, false) 
+            `INSERT INTO users (email, password_hash, stripe_customer_id, api_key, verification_code, verification_expiry, trial_ends_at, is_active) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, false) 
              RETURNING id, email`,
-            [email, passwordHash, customer.id, apiKey, code, expiry]
+            [email, passwordHash, customer.id, apiKey, code, expiry, trialEnd]
         );
         
         client.release();
@@ -280,7 +297,13 @@ app.post('/auth/login', async (req, res) => {
         }
 
         const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.json({ token, user: { email: user.email, subscription_status: user.subscription_status, api_key: user.api_key} });
+        res.json({ token, user: { 
+            email: user.email, 
+            subscription_status: user.subscription_status, 
+            api_key: user.api_key,
+            trial_ends_at: user.trial_ends_at,
+            next_billing_date: user.next_billing_date
+        } });
     } catch (err) {
         res.status(500).json({ error: 'Server error during login' });
     }
@@ -288,13 +311,15 @@ app.post('/auth/login', async (req, res) => {
 
 // 5D. GET CURRENT USER (REFRESH)
 app.get('/auth/me', authenticate, (req, res) => {
-    // Now req.user includes api_key because we fixed the middleware
+    // Now req.user includes new date columns
     res.json({ 
         id: req.user.id,
         email: req.user.email, 
         subscription_status: req.user.subscription_status,
         stripe_customer_id: req.user.stripe_customer_id,
-        api_key: req.user.api_key
+        api_key: req.user.api_key,
+        trial_ends_at: req.user.trial_ends_at,
+        next_billing_date: req.user.next_billing_date
     });
 });
 
@@ -311,7 +336,7 @@ app.get('/live_matrix', authenticate, requireSubscription, async (req, res) => {
 app.get('/signal_history', async (req, res) => {
     try {
         const client = await pool.connect();
-        const result = await client.query('SELECT * FROM signal_history');
+        const result = await client.query('SELECT * FROM signal_history ORDER BY created_at DESC');
         client.release();
         res.json({ results: result.rows });
     } catch (err) { res.status(500).json({ error: 'Database error' }); }
