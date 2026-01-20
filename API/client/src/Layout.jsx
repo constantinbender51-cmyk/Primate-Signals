@@ -56,7 +56,7 @@ export default function Layout() {
         {/* Updated Image Source */}
         
         <span style={{ fontWeight: '300' }}>Signals</span><img 
-          src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/voodooghost.jpg" 
+          src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/vg2.png" 
           alt="Stone age guy icon" 
           style={{ height: '48px', margin: '0 -8px' }} 
         />
