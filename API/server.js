@@ -134,7 +134,7 @@ app.get('/live_matrix', authenticate, requireSubscription, async (req, res) => {
 });
 
 // 3. Trade History (Railway History) - NEW
-app.get('/trade_history', authenticate, requireSubscription, async (req, res) => {
+app.get('/trade_history', async (req, res) => {
     try {
         const response = await fetch('https://workspace-production-9fae.up.railway.app/history');
         if (!response.ok) throw new Error('History API failed');
