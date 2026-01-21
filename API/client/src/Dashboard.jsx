@@ -28,14 +28,28 @@ const formatTimeOnly = (dateInput) => {
     });
 };
 
-// Rounds UP to the next interval boundary (UTC aligned)
+// Rounds UP to the next interval boundary (Strictly UTC)
 const calculateExpiry = (baseDateStr, minutesDuration) => {
-    const date = new Date(baseDateStr);
+    if (!baseDateStr) return null;
+
+    // Manually parse the date string as UTC to avoid browser local timezone interpretation
+    // Assumes format "YYYY-MM-DD HH:mm:ss" (SQL standard)
+    let date;
+    const parts = baseDateStr.split(/[- :]/); // Split by dash, space, or colon
+    if (parts.length >= 5) {
+        const [y, m, d, h, min, s = 0] = parts.map(Number);
+        // Date.UTC(year, monthIndex, day, hour, minute, second)
+        date = new Date(Date.UTC(y, m - 1, d, h, min, s));
+    } else {
+        // Fallback for other formats (though less reliable without 'Z')
+        date = new Date(baseDateStr);
+    }
+
     if (isNaN(date.getTime())) return null;
 
     const intervalMs = minutesDuration * 60 * 1000;
 
-    // Align with UTC day start to prevent offsets
+    // Align with UTC day start
     const startOfDay = new Date(date);
     startOfDay.setUTCHours(0, 0, 0, 0);
     
@@ -82,7 +96,7 @@ const PnLChart = ({ data }) => {
 
     return (
         <div style={{ position: 'relative', width: '100%', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '20px', background: '#fff' }}>
-            [span_0](start_span)<h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#6b7280' }}>Cumulative PnL (GitHub Source)[span_0](end_span)</h4>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#6b7280' }}>Cumulative PnL (GitHub Source)</h4>
             <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
                 <line x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} stroke="#9ca3af" strokeWidth="1" strokeDasharray="4" opacity="0.5" />
                 <path d={pathD} fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -190,8 +204,12 @@ export default function Dashboard() {
                     if (match) {
                         const [_, timeStr, symbol, sizeStr, pnlStr, typeStr] = match;
                         if (validLogSymbols.has(symbol)) {
+                            // [FIX] Ensure chart data is also parsed as UTC
+                            const tParts = timeStr.split(/[- :]/).map(Number);
+                            const utcTime = new Date(Date.UTC(tParts[0], tParts[1]-1, tParts[2], tParts[3], tParts[4], tParts[5]));
+                            
                             parsedChart.push({
-                                time: timeStr,
+                                time: utcTime.toISOString(),
                                 asset: symbol,
                                 size: sizeStr,
                                 pnl: parseFloat(pnlStr),
