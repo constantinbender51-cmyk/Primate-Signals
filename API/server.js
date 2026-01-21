@@ -143,6 +143,39 @@ app.get('/trade_history', async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Failed to fetch trade history' }); }
 });
 
+// --- LEGAL TEXT ROUTES ---
+const LEGAL_GITHUB_BASE = 'https://raw.githubusercontent.com/constantinbender51-cmyk/Primate-Signals/main/API';
+
+app.get('/legal/impressum', async (req, res) => {
+    try {
+        const response = await fetch(`${LEGAL_GITHUB_BASE}/impressum.txt`);
+        if (!response.ok) throw new Error('GitHub fetch failed');
+        const text = await response.text();
+        res.set('Content-Type', 'text/plain');
+        res.send(text);
+    } catch (err) { res.status(500).send('Could not fetch Impressum'); }
+});
+
+app.get('/legal/privacy', async (req, res) => {
+    try {
+        const response = await fetch(`${LEGAL_GITHUB_BASE}/pp.txt`);
+        if (!response.ok) throw new Error('GitHub fetch failed');
+        const text = await response.text();
+        res.set('Content-Type', 'text/plain');
+        res.send(text);
+    } catch (err) { res.status(500).send('Could not fetch Privacy Policy'); }
+});
+
+app.get('/legal/terms', async (req, res) => {
+    try {
+        const response = await fetch(`${LEGAL_GITHUB_BASE}/tos.txt`);
+        if (!response.ok) throw new Error('GitHub fetch failed');
+        const text = await response.text();
+        res.set('Content-Type', 'text/plain');
+        res.send(text);
+    } catch (err) { res.status(500).send('Could not fetch Terms'); }
+});
+
 // --- AUTH ROUTES ---
 app.post('/auth/register', async (req, res) => {
     const { email, password } = req.body;
