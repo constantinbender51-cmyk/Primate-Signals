@@ -68,12 +68,45 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
     const client = await pool.connect();
     try {
+        // 1. Handle Initial Checkout
         if (event.type === 'checkout.session.completed') {
             const session = event.data.object;
             await client.query(`UPDATE users SET subscription_status = 'active' WHERE stripe_customer_id = $1`, [session.customer]);
+        } 
+        
+        // 2. Handle Recurring Payments (Updates Next Billing Date)
+        else if (event.type === 'invoice.payment_succeeded') {
+            const invoice = event.data.object;
+            if (invoice.subscription && invoice.lines?.data?.length > 0) {
+                const periodEnd = invoice.lines.data[0].period.end;
+                const nextBilling = new Date(periodEnd * 1000); // Convert Stripe Unix timestamp to JS Date
+                
+                await client.query(
+                    `UPDATE users SET subscription_status = 'active', next_billing_date = $1 WHERE stripe_customer_id = $2`, 
+                    [nextBilling, invoice.customer]
+                );
+            }
         }
+
+        // 3. Handle Subscription Updates (Cancellations, Trials, Status Changes)
+        else if (event.type === 'customer.subscription.updated') {
+            const subscription = event.data.object;
+            const nextBilling = new Date(subscription.current_period_end * 1000);
+            const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000) : null;
+            
+            await client.query(
+                `UPDATE users SET subscription_status = $1, next_billing_date = $2, trial_ends_at = $3 WHERE stripe_customer_id = $4`,
+                [subscription.status, nextBilling, trialEnd, subscription.customer]
+            );
+        }
+
         res.json({ received: true });
-    } catch (err) { res.status(500).send('Server Error'); } finally { client.release(); }
+    } catch (err) { 
+        console.error('Webhook Error:', err);
+        res.status(500).send('Server Error'); 
+    } finally { 
+        client.release(); 
+    }
 });
 
 app.use(express.json()); 
@@ -236,11 +269,9 @@ app.post('/create-checkout-session', authenticate, async (req, res) => {
             mode: 'subscription',
             customer: req.user.stripe_customer_id,
             line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
-            // ADD THIS SECTION BELOW:
             subscription_data: {
                 trial_period_days: 14
             },
-            // -----------------------
             success_url: `${process.env.CLIENT_URL}/?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.CLIENT_URL}/`,
         });
