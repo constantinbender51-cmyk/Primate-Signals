@@ -194,8 +194,7 @@ export default function Dashboard() {
                     sum: data.sum,
                     comp: data.comp || [0,0,0,0,0],
                     upd: data.upd,
-                    // [UPDATED] Extracted th, removed pnl
-                    th: data.th
+                    th: data.th // [UPDATED] Pass th through
                 }));
                 setMatrixData(transformed);
                 setMatrixStatus('active');
@@ -350,7 +349,6 @@ export default function Dashboard() {
                                         <th style={cellStyle}>Asset</th>
                                         <th style={cellStyle}>Direction</th>
                                         <th style={{...cellStyle, width: '40%'}}>Components (Expire)</th>
-                                        {/* [UPDATED] Removed PnL Header, Kept Th. */}
                                         <th style={cellStyle}>Th.</th>
                                         <th style={cellStyle}>Sum</th>
                                     </tr>
@@ -391,9 +389,11 @@ export default function Dashboard() {
                                                     ))}
                                                 </div>
                                             </td>
-                                            {/* [UPDATED] Data Cell for Th only */}
+                                            {/* [UPDATED] Render th vertically if it's an array */}
                                             <td style={{ ...cellStyle, fontFamily: 'monospace' }}>
-                                                {row.th !== undefined ? row.th : '-'}
+                                                {row.th !== undefined 
+                                                    ? (Array.isArray(row.th) ? row.th.map((t, idx) => <div key={idx}>{t}</div>) : row.th)
+                                                    : '-'}
                                             </td>
                                             <td style={{ ...cellStyle, fontWeight: 'bold', fontSize: '16px' }}>
                                                 {row.sum > 0 ? '+' : ''}{row.sum}
@@ -462,7 +462,6 @@ export default function Dashboard() {
                                 <th style={cellStyle}>TF</th>
                                 <th style={cellStyle}>Signal</th>
                                 <th style={cellStyle}>Price</th>
-                                {/* [UPDATED] Th. remains here */}
                                 <th style={cellStyle}>Th.</th>
                                 <th style={cellStyle}>PnL</th>
                                 <th style={cellStyle}>Outcome</th>
@@ -485,9 +484,11 @@ export default function Dashboard() {
                                         </span>
                                     </td>
                                     <td style={{...cellStyle, fontFamily:'monospace'}}>{row.price}</td>
-                                    {/* [UPDATED] Data Cell for Th. */}
+                                    {/* [UPDATED] Render th vertically if array */}
                                     <td style={{...cellStyle, fontFamily:'monospace'}}>
-                                        {row.th !== undefined ? row.th : '-'}
+                                        {row.th !== undefined 
+                                            ? (Array.isArray(row.th) ? row.th.map((t, idx) => <div key={idx}>{t}</div>) : row.th)
+                                            : '-'}
                                     </td>
                                     <td style={{ ...cellStyle, fontWeight: 'bold', color: row.pnl >= 0 ? '#10b981' : '#ef4444' }}>
                                         {row.pnl > 0 ? '+' : ''}{typeof row.pnl === 'number' ? row.pnl.toFixed(4) : row.pnl}
