@@ -193,7 +193,10 @@ export default function Dashboard() {
                     asset: asset,
                     sum: data.sum,
                     comp: data.comp || [0,0,0,0,0],
-                    upd: data.upd
+                    upd: data.upd,
+                    // [UPDATED] Added extraction of th and pnl
+                    th: data.th,
+                    pnl: data.pnl
                 }));
                 setMatrixData(transformed);
                 setMatrixStatus('active');
@@ -295,7 +298,9 @@ export default function Dashboard() {
                     sum: d.sum,
                     direction: d.sum > 0 ? 'Long' : 'Short',
                     components: components,
-                    upd: d.upd
+                    upd: d.upd,
+                    th: d.th, // Pass th through
+                    pnl: d.pnl // Pass pnl through
                 };
             })
             .sort((a, b) => Math.abs(b.sum) - Math.abs(a.sum));
@@ -346,7 +351,10 @@ export default function Dashboard() {
                                     <tr>
                                         <th style={cellStyle}>Asset</th>
                                         <th style={cellStyle}>Direction</th>
-                                        <th style={{...cellStyle, width: '50%'}}>Components (Expire)</th>
+                                        <th style={{...cellStyle, width: '40%'}}>Components (Expire)</th>
+                                        {/* [UPDATED] Added Headers for Th. and PnL */}
+                                        <th style={cellStyle}>Th.</th>
+                                        <th style={cellStyle}>PnL</th>
                                         <th style={cellStyle}>Sum</th>
                                     </tr>
                                 </thead>
@@ -386,15 +394,25 @@ export default function Dashboard() {
                                                     ))}
                                                 </div>
                                             </td>
+                                            {/* [UPDATED] Added Data Cells for Th. and PnL */}
+                                            <td style={{ ...cellStyle, fontFamily: 'monospace' }}>
+                                                {row.th !== undefined ? row.th : '-'}
+                                            </td>
+                                            <td style={{ ...cellStyle, fontWeight: 'bold', color: row.pnl >= 0 ? '#10b981' : '#ef4444' }}>
+                                                {row.pnl !== undefined ? (row.pnl > 0 ? `+${row.pnl}` : row.pnl) : '-'}
+                                            </td>
                                             <td style={{ ...cellStyle, fontWeight: 'bold', fontSize: '16px' }}>
                                                 {row.sum > 0 ? '+' : ''}{row.sum}
                                             </td>
                                         </tr>
                                     )) : (
-                                        <tr><td colSpan="4" style={{ ...cellStyle, textAlign: 'center', color: '#999', padding: '20px' }}>No active signals</td></tr>
+                                        <tr><td colSpan="6" style={{ ...cellStyle, textAlign: 'center', color: '#999', padding: '20px' }}>No active signals</td></tr>
                                     )}
                                 </tbody>
-                            </table>We use a discrete probabilistic model to predict next candle price moves
+                            </table>
+                            <div style={{marginTop: '10px', fontSize: '12px', color: '#666', fontStyle: 'italic'}}>
+                                We use a discrete probabilistic model to predict next candle price moves
+                            </div>
                         </div>
                         <div style={{ marginBottom: '40px' }}>
 
@@ -450,6 +468,8 @@ export default function Dashboard() {
                                 <th style={cellStyle}>TF</th>
                                 <th style={cellStyle}>Signal</th>
                                 <th style={cellStyle}>Price</th>
+                                {/* [UPDATED] Added Header for Th. */}
+                                <th style={cellStyle}>Th.</th>
                                 <th style={cellStyle}>PnL</th>
                                 <th style={cellStyle}>Outcome</th>
                             </tr>
@@ -471,6 +491,10 @@ export default function Dashboard() {
                                         </span>
                                     </td>
                                     <td style={{...cellStyle, fontFamily:'monospace'}}>{row.price}</td>
+                                    {/* [UPDATED] Added Data Cell for Th. */}
+                                    <td style={{...cellStyle, fontFamily:'monospace'}}>
+                                        {row.th !== undefined ? row.th : '-'}
+                                    </td>
                                     <td style={{ ...cellStyle, fontWeight: 'bold', color: row.pnl >= 0 ? '#10b981' : '#ef4444' }}>
                                         {row.pnl > 0 ? '+' : ''}{typeof row.pnl === 'number' ? row.pnl.toFixed(4) : row.pnl}
                                     </td>
@@ -485,7 +509,7 @@ export default function Dashboard() {
                                     </td>
                                 </tr>
                             )) : (
-                                <tr><td colSpan="7" style={{ ...cellStyle, textAlign: 'center', color: '#999' }}>No history records found</td></tr>
+                                <tr><td colSpan="8" style={{ ...cellStyle, textAlign: 'center', color: '#999' }}>No history records found</td></tr>
                             )}
                         </tbody>
                     </table>
