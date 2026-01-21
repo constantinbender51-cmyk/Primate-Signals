@@ -9,8 +9,9 @@ const formatDateTime = (dateInput) => {
     if (!dateInput) return '-';
     const date = new Date(dateInput);
     if (isNaN(date.getTime())) return dateInput;
-    // Format: YYYY-MM-DD HH:mm:ss
+    // Format: YYYY-MM-DD HH:mm:ss (UTC)
     return date.toLocaleString('sv-SE', { 
+        timeZone: 'UTC',
         year: 'numeric', month: '2-digit', day: '2-digit', 
         hour: '2-digit', minute: '2-digit', second: '2-digit'
     });
@@ -20,19 +21,29 @@ const formatTimeOnly = (dateInput) => {
     if (!dateInput) return '-';
     const date = new Date(dateInput);
     if (isNaN(date.getTime())) return '';
-    return date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+    // Force UTC for time only
+    return date.toLocaleTimeString('sv-SE', { 
+        timeZone: 'UTC',
+        hour: '2-digit', minute: '2-digit' 
+    });
 };
 
-// Rounds UP to the next interval boundary
+// Rounds UP to the next interval boundary (UTC aligned)
 const calculateExpiry = (baseDateStr, minutesDuration) => {
     const date = new Date(baseDateStr);
     if (isNaN(date.getTime())) return null;
 
     const intervalMs = minutesDuration * 60 * 1000;
-    const currentMs = date.getTime();
-    const msToNextBoundary = intervalMs - (currentMs % intervalMs);
+
+    // Align with UTC day start to prevent offsets
+    const startOfDay = new Date(date);
+    startOfDay.setUTCHours(0, 0, 0, 0);
     
-    return new Date(currentMs + msToNextBoundary);
+    const elapsed = date.getTime() - startOfDay.getTime();
+    // Calculate how many intervals have passed, add 1 for the next boundary
+    const nextIntervalIdx = Math.floor(elapsed / intervalMs) + 1;
+    
+    return new Date(startOfDay.getTime() + (nextIntervalIdx * intervalMs));
 };
 
 const mapSymbolToLogFormat = (symbol) => {
@@ -44,11 +55,9 @@ const mapSymbolToLogFormat = (symbol) => {
 // --- Custom Chart Component ---
 const PnLChart = ({ data }) => {
     if (!data || data.length < 2) return <div style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center', color:'#ccc'}}>Not enough data</div>;
-
     const height = 200;
     const width = 800;
     const padding = 20;
-
     const sorted = [...data].sort((a, b) => new Date(a.time) - new Date(b.time));
 
     let runningTotal = 0;
@@ -56,7 +65,6 @@ const PnLChart = ({ data }) => {
         runningTotal += parseFloat(d.pnl || 0);
         return { time: new Date(d.time), val: runningTotal };
     });
-
     const minVal = Math.min(0, ...points.map(p => p.val)); 
     const maxVal = Math.max(0, ...points.map(p => p.val));
     const rangeY = maxVal - minVal || 1;
@@ -67,16 +75,14 @@ const PnLChart = ({ data }) => {
 
     const getX = (t) => padding + ((t.getTime() - minTime) / rangeX) * (width - (padding * 2));
     const getY = (v) => (height - padding) - ((v - minVal) / rangeY) * (height - (padding * 2));
-
     const pathD = points.map((p, i) => 
         `${i === 0 ? 'M' : 'L'} ${getX(p.time)} ${getY(p.val)}`
     ).join(' ');
-
     const zeroY = getY(0);
 
     return (
         <div style={{ position: 'relative', width: '100%', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '20px', background: '#fff' }}>
-            <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#6b7280' }}>Cumulative PnL (GitHub Source)</h4>
+            [span_0](start_span)<h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#6b7280' }}>Cumulative PnL (GitHub Source)[span_0](end_span)</h4>
             <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
                 <line x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} stroke="#9ca3af" strokeWidth="1" strokeDasharray="4" opacity="0.5" />
                 <path d={pathD} fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -91,17 +97,25 @@ const PnLChart = ({ data }) => {
 
 export default function Dashboard() {
     const [matrixData, setMatrixData] = useState([]);
-    const [chartData, setChartData] = useState([]);  
+    const [chartData, setChartData] = useState([]);
     const [tableData, setTableData] = useState([]);  
     const [matrixStatus, setMatrixStatus] = useState('loading');
     const [searchParams] = useSearchParams();
     
-    const [historyExpanded, setHistoryExpanded] = useState(true);
+    // [NEW] Live UTC Clock State
+    const [currentTime, setCurrentTime] = useState(new Date());
+
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
     
     const navigate = useNavigate();
     const cellStyle = { padding: '12px 10px', textAlign: 'left', borderBottom: '1px solid #eee', verticalAlign: 'top', fontSize: '14px' };
+
+    // Clock Timer
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         const sessionId = searchParams.get('session_id');
@@ -171,7 +185,6 @@ export default function Dashboard() {
                 const lines = rawText.split('\n');
                 const parsedChart = [];
                 const regex = /^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s+(\S+)\s+(\S+)\s+([-\d.]+)\s+(.*)$/;
-
                 lines.forEach(line => {
                     const match = line.match(regex);
                     if (match) {
@@ -198,7 +211,8 @@ export default function Dashboard() {
                     const sorted = [...rawHistory].sort((a, b) => new Date(b.time) - new Date(a.time));
                     setTableData(sorted);
                 }
-            } catch (err) { console.error("Table history error:", err); }
+            } catch (err) { console.error("Table history error:", err);
+            }
         };
         fetchData();
     }, []);
@@ -268,6 +282,17 @@ export default function Dashboard() {
     return (
         <div style={{ fontFamily: 'sans-serif', maxWidth: '1000px', margin: '0 auto', padding: '40px 20px' }}>
             
+            {/* [NEW] Header with UTC Clock */}
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', borderBottom: '1px solid #eee', paddingBottom: '20px' }}>
+                <h2 style={{ margin: 0, color: '#111' }}>Trading Dashboard</h2>
+                <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '12px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Current Time (UTC)</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 'bold', color: '#374151' }}>
+                        {formatDateTime(currentTime)}
+                    </div>
+                </div>
+            </header>
+
             {/* --- LIVE SIGNALS SECTION --- */}
             <section style={{ marginBottom: '60px' }}>
                 <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Active Matrix Signals</h3>
@@ -290,7 +315,8 @@ export default function Dashboard() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {activeSignals.length > 0 ? activeSignals.map((row, i) => (
+                                    {activeSignals.length > 0 ?
+                                        activeSignals.map((row, i) => (
                                         <tr key={i}>
                                             <td style={{ ...cellStyle, fontWeight: 'bold' }}>{row.asset}</td>
                                             <td style={cellStyle}>
@@ -334,7 +360,6 @@ export default function Dashboard() {
                                 </tbody>
                             </table>
                         </div>
-
                         <div style={{ marginBottom: '40px' }}>
                         </div>
                     </>
@@ -344,8 +369,7 @@ export default function Dashboard() {
             {/* --- HISTORY SECTION --- */}
             <section>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                   
-                 <h3 style={{ margin: 0 }}>Trade Log History</h3>
+                   <h3 style={{ margin: 0 }}>Trade Log History</h3>
                 </div>
 
                 {/* [ADDED] Chart moved here to be visible regardless of status */}
