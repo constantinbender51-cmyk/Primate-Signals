@@ -11,8 +11,15 @@ export default function Register() {
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
 
-    const handleRegister = async (e) => {
+        const handleRegister = async (e) => {
         e.preventDefault();
+
+        // Password Validation
+        if (password.length < 6 || !/\d/.test(password)) {
+            toast.error("Password must be at least 6 characters and include a number");
+            return;
+        }
+
         setIsLoading(true);
         try {
             await api.post('/auth/register', { email, password });
@@ -24,6 +31,7 @@ export default function Register() {
             setIsLoading(false);
         }
     };
+
 
     const handleVerify = async (e) => {
         e.preventDefault();
