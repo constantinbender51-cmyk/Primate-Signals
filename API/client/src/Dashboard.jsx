@@ -376,9 +376,9 @@ export default function Dashboard() {
                                         <tr><td colSpan="4" style={{ ...cellStyle, textAlign: 'center', color: '#999', padding: '20px' }}>No active signals</td></tr>
                                     )}
                                 </tbody>
-                            </table>
+                            </table>We use a discrete probabilistic model to predict next candle price moves
                         </div>
-                        <div style={{ marginBottom: '40px' }}>We use a discrete probabilistic model to predict a next candle price move
+                        <div style={{ marginBottom: '40px' }}>
 
                         </div>
                     </>
