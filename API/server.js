@@ -179,6 +179,12 @@ app.get('/legal/terms', async (req, res) => {
 // --- AUTH ROUTES ---
 app.post('/auth/register', async (req, res) => {
     const { email, password } = req.body;
+
+    // Password Validation
+    if (!password || password.length < 6 || !/\d/.test(password)) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters and include a number' });
+    }
+
     try {
         const client = await pool.connect();
         const check = await client.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -194,6 +200,7 @@ app.post('/auth/register', async (req, res) => {
         res.status(201).json({ message: 'Code sent' });
     } catch (err) { res.status(500).json({ error: 'Register error' }); }
 });
+
 
 app.post('/auth/verify', async (req, res) => {
     const { email, code } = req.body;
