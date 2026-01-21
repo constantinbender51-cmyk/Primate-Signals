@@ -52,14 +52,14 @@ export default function Layout() {
         display: 'flex',
         alignItems: 'center'
     }}>
-        Primate 
-        {/* Updated Image Source */}
-        
         <img 
           src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/vg2.png" 
           alt="voodooghost" 
-          style={{ height: '48px', margin: '0 -6px' }} 
-        /><span style={{ fontWeight: '300' }}> Signals</span>
+          style={{ height: '48px', margin: '0 6px' }} 
+        />Primate 
+        {/* Updated Image Source */}
+        
+        <span style={{ fontWeight: '300' }}> Signals</span>
     </Link>
               <nav style={{ display: 'flex', gap: '1.5rem', fontSize: '14px', fontWeight: '500' }}>
                   {/* Removed duplicate Signals link */}
