@@ -194,9 +194,8 @@ export default function Dashboard() {
                     sum: data.sum,
                     comp: data.comp || [0,0,0,0,0],
                     upd: data.upd,
-                    // [UPDATED] Added extraction of th and pnl
-                    th: data.th,
-                    pnl: data.pnl
+                    // [UPDATED] Extracted th, removed pnl
+                    th: data.th
                 }));
                 setMatrixData(transformed);
                 setMatrixStatus('active');
@@ -299,8 +298,7 @@ export default function Dashboard() {
                     direction: d.sum > 0 ? 'Long' : 'Short',
                     components: components,
                     upd: d.upd,
-                    th: d.th, // Pass th through
-                    pnl: d.pnl // Pass pnl through
+                    th: d.th // Pass th through
                 };
             })
             .sort((a, b) => Math.abs(b.sum) - Math.abs(a.sum));
@@ -352,9 +350,8 @@ export default function Dashboard() {
                                         <th style={cellStyle}>Asset</th>
                                         <th style={cellStyle}>Direction</th>
                                         <th style={{...cellStyle, width: '40%'}}>Components (Expire)</th>
-                                        {/* [UPDATED] Added Headers for Th. and PnL */}
+                                        {/* [UPDATED] Removed PnL Header, Kept Th. */}
                                         <th style={cellStyle}>Th.</th>
-                                        <th style={cellStyle}>PnL</th>
                                         <th style={cellStyle}>Sum</th>
                                     </tr>
                                 </thead>
@@ -394,19 +391,16 @@ export default function Dashboard() {
                                                     ))}
                                                 </div>
                                             </td>
-                                            {/* [UPDATED] Added Data Cells for Th. and PnL */}
+                                            {/* [UPDATED] Data Cell for Th only */}
                                             <td style={{ ...cellStyle, fontFamily: 'monospace' }}>
                                                 {row.th !== undefined ? row.th : '-'}
-                                            </td>
-                                            <td style={{ ...cellStyle, fontWeight: 'bold', color: row.pnl >= 0 ? '#10b981' : '#ef4444' }}>
-                                                {row.pnl !== undefined ? (row.pnl > 0 ? `+${row.pnl}` : row.pnl) : '-'}
                                             </td>
                                             <td style={{ ...cellStyle, fontWeight: 'bold', fontSize: '16px' }}>
                                                 {row.sum > 0 ? '+' : ''}{row.sum}
                                             </td>
                                         </tr>
                                     )) : (
-                                        <tr><td colSpan="6" style={{ ...cellStyle, textAlign: 'center', color: '#999', padding: '20px' }}>No active signals</td></tr>
+                                        <tr><td colSpan="5" style={{ ...cellStyle, textAlign: 'center', color: '#999', padding: '20px' }}>No active signals</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -468,7 +462,7 @@ export default function Dashboard() {
                                 <th style={cellStyle}>TF</th>
                                 <th style={cellStyle}>Signal</th>
                                 <th style={cellStyle}>Price</th>
-                                {/* [UPDATED] Added Header for Th. */}
+                                {/* [UPDATED] Th. remains here */}
                                 <th style={cellStyle}>Th.</th>
                                 <th style={cellStyle}>PnL</th>
                                 <th style={cellStyle}>Outcome</th>
@@ -491,7 +485,7 @@ export default function Dashboard() {
                                         </span>
                                     </td>
                                     <td style={{...cellStyle, fontFamily:'monospace'}}>{row.price}</td>
-                                    {/* [UPDATED] Added Data Cell for Th. */}
+                                    {/* [UPDATED] Data Cell for Th. */}
                                     <td style={{...cellStyle, fontFamily:'monospace'}}>
                                         {row.th !== undefined ? row.th : '-'}
                                     </td>
