@@ -378,7 +378,8 @@ export default function Dashboard() {
                                 </tbody>
                             </table>
                         </div>
-                        <div style={{ marginBottom: '40px' }}>
+                        <div style={{ marginBottom: '40px' }}>We use a discrete probabilistic model to predict a next candle price move
+
                         </div>
                     </>
                 )}
