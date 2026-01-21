@@ -7,8 +7,17 @@ import api from './api';
 
 const formatDateTime = (dateInput) => {
     if (!dateInput) return '-';
-    const date = new Date(dateInput);
+    
+    let date;
+    // [FIX] If input is a string and lacks 'Z', append it to force UTC interpretation
+    if (typeof dateInput === 'string' && !dateInput.endsWith('Z')) {
+        date = new Date(dateInput + 'Z');
+    } else {
+        date = new Date(dateInput);
+    }
+
     if (isNaN(date.getTime())) return dateInput;
+
     // Format: YYYY-MM-DD HH:mm:ss (UTC)
     return date.toLocaleString('sv-SE', { 
         timeZone: 'UTC',
@@ -19,8 +28,17 @@ const formatDateTime = (dateInput) => {
 
 const formatTimeOnly = (dateInput) => {
     if (!dateInput) return '-';
-    const date = new Date(dateInput);
+
+    let date;
+    // [FIX] Apply same logic here for time-only display
+    if (typeof dateInput === 'string' && !dateInput.endsWith('Z')) {
+        date = new Date(dateInput + 'Z');
+    } else {
+        date = new Date(dateInput);
+    }
+
     if (isNaN(date.getTime())) return '';
+    
     // Force UTC for time only
     return date.toLocaleTimeString('sv-SE', { 
         timeZone: 'UTC',
