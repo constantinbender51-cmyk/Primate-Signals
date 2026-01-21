@@ -147,7 +147,7 @@ async function getLiveMatrix() {
                     <td style={{ padding: '12px 0' }}><span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>Array&lt;Int&gt;</span></td>
                     <td style={{ padding: '12px 0' }}>
                         A list of raw component signals contributing to the sum.<br/>
-                        <em>Example: <code>[0, 1, 0, 0, 0]</code></em>
+                        <em>Example: <code>[0, 1, 0, 0, 0]</code></em> Each value is a signal for a specific timeframe [15m 30m 1h 4h 1d]
                     </td>
                 </tr>
                 <tr>
