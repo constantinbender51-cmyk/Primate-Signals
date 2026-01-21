@@ -405,7 +405,7 @@ export default function Dashboard() {
                                 </tbody>
                             </table>
                             <div style={{marginTop: '10px', fontSize: '12px', color: '#666', fontStyle: 'italic'}}>
-                                We use a discrete probabilistic model to predict next candle price moves
+                                We use a discrete probabilistic model to predict next candles price moves
                             </div>
                         </div>
                         <div style={{ marginBottom: '40px' }}>
