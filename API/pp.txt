@@ -1,49 +1,39 @@
-# Privacy Policy
-
-**Effective Date:** January 14. 2026
-
-## 1. Introduction
-This Privacy Policy describes how Primate ("we," "us," or "our") collects, uses, and shares your personal data when you use our trading signal API service (the "Service"). We are committed to protecting your privacy in accordance with the General Data Protection Regulation (GDPR) and the Austrian Data Protection Act (DSG).
-
-## 2. Controller
-The Data Controller responsible for your personal data is:
-Primate 
-Moosham 13, 4800 Puchet
-Austria
-Email: constantinbender51@gmail.com
-
-## 3. Data We Collect
-We collect the minimum amount of data necessary to provide the Service:
-* **Account Data:** Email address, username, and encrypted password.
-* **Payment Data:** We do not store full credit card numbers. Payments are processed by third-party providers (e.g., Stripe, PayPal), and we only retain transaction IDs and subscription status.
-* **Usage Data:** API access logs, including IP addresses, request timestamps, and endpoint usage (to prevent abuse and monitor system stability).
-
-## 4. How We Use Your Data
-We use your data for the following legal bases:
-* **Contractual Performance:** To provide the API access you subscribed to and manage billing.
-* **Legitimate Interest:** To monitor API performance, prevent fraud, and ensure the security of our infrastructure.
-* **Legal Obligation:** To comply with Austrian tax and accounting laws.
-
-## 5. Data Sharing
-We do not sell your data. We only share data with:
-* **Payment Processors:** Strictly for processing subscription fees.
-* **Hosting/Infrastructure:** Providers who host our servers (e.g., AWS, DigitalOcean) under strict data processing agreements.
-* **Legal Authorities:** If required by Austrian law or a valid court order.
-
-## 6. International Transfers
-If our servers or service providers are located outside the European Economic Area (EEA), we ensure appropriate safeguards are in place (such as Standard Contractual Clauses) to protect your data.
-
-## 7. Your Rights (GDPR)
-Under the GDPR, you have the right to:
-* Request access to your personal data.
-* Request correction or deletion of your data ("Right to be Forgotten").
-* Object to processing or request restriction of processing.
-* Receive your data in a portable format.
-
+Privacy Policy
+Effective Date: January 14. 2026
+ * Introduction
+   This Privacy Policy describes how Primate ("we," "us," or "our") collects, uses, and shares your personal data when you use our trading signal API service (the "Service"). We are committed to protecting your privacy in accordance with the General Data Protection Regulation (GDPR) and the Austrian Data Protection Act (DSG).
+ * Controller
+   The Data Controller responsible for your personal data is:
+   Primate
+   Moosham 13, 4800 Puchet
+   Austria
+   Email: constantinbender51@gmail.com
+ * Data We Collect
+   We collect the minimum amount of data necessary to provide the Service:
+ * Account Data: Email address, username, and encrypted password.
+ * Payment Data: We do not store full credit card numbers. Payments are processed by third-party providers (e.g., Stripe, PayPal), and we only retain transaction IDs and subscription status.
+ * Usage Data: API access logs, including IP addresses, request timestamps, and endpoint usage (to prevent abuse and monitor system stability).
+ * How We Use Your Data
+   We use your data for the following legal bases:
+ * Contractual Performance: To provide the API access you subscribed to and manage billing.
+ * Legitimate Interest: To monitor API performance, prevent fraud, and ensure the security of our infrastructure.
+ * Legal Obligation: To comply with Austrian tax and accounting laws.
+ * Data Sharing
+   We do not sell your data. We only share data with:
+ * Payment Processors: Strictly for processing subscription fees.
+ * Hosting/Infrastructure: Providers who host our servers (e.g., AWS, DigitalOcean) under strict data processing agreements.
+ * Legal Authorities: If required by Austrian law or a valid court order.
+ * International Transfers
+   If our servers or service providers are located outside the European Economic Area (EEA), we ensure appropriate safeguards are in place (such as Standard Contractual Clauses) to protect your data.
+ * Your Rights (GDPR)
+   Under the GDPR, you have the right to:
+ * Request access to your personal data.
+ * Request correction or deletion of your data ("Right to be Forgotten").
+ * Object to processing or request restriction of processing.
+ * Receive your data in a portable format.
 To exercise these rights, contact us at [Your Support Email].
-
-## 8. Data Retention
-We retain account data for as long as your subscription is active. Billing records are retained for 7 years as required by Austrian tax law (BAO). API logs are retained for [e.g., 30 days] for security purposes.
-
-## 9. Changes to This Policy
-We may update this policy. We will notify you of significant changes via email or a notice on our website.
+ * Data Retention
+   We retain account data for as long as your subscription is active. Billing records are retained for 7 years as required by Austrian tax law (BAO). API logs are retained for [e.g., 30 days] for security purposes.
+ * Changes to This Policy
+   We may update this policy. We will notify you of significant changes via email or a notice on our website.
+Would you like me to fill in the bracketed placeholders (support email and retention period) or correct the city name in the address?
