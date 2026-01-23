@@ -96,31 +96,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 app.use(express.json()); 
 app.use(cors());
 
-// Strict Authentication (For Account/Billing)
-const authenticate = async (req, res, next) => {
-    const apiKey = req.headers['x-api-key'];
-    const authHeader = req.headers['authorization'];
-    if (apiKey) {
-        try {
-            const result = await pool.query('SELECT * FROM users WHERE api_key = $1 AND is_active = true', [apiKey]);
-            if (result.rows.length === 0) return res.status(403).json({ error: 'Invalid API Key' });
-            req.user = result.rows[0]; 
-            return next();
-        } catch (err) { return res.status(500).json({ error: 'Auth Error' }); }
-    }
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1];
-        try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            const result = await pool.query('SELECT * FROM users WHERE id = $1 AND is_active = true', [decoded.userId]);
-            if (result.rows.length === 0) return res.status(401).json({ error: 'User invalid' });
-            req.user = result.rows[0];
-            return next();
-        } catch (err) { return res.status(401).json({ error: 'Invalid Token' }); }
-    }
-    return res.status(401).json({ error: 'Authentication required' });
-};
-
 // Optional Authentication (For Public Data + Private Data Mix)
 const optionalAuthenticate = async (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
@@ -144,7 +119,18 @@ const optionalAuthenticate = async (req, res, next) => {
     next();
 };
 
-// --- NEW DATA ROUTES (Asset Specific) ---
+// Strict Authentication (For Account/Billing)
+const authenticate = async (req, res, next) => {
+    if (req.user) return next(); // Already found by optionalAuthenticate?
+    // If not, re-run strict check logic or just reuse logic above. 
+    // For simplicity, we'll assume optionalAuthenticate covers it or just re-verify:
+    return optionalAuthenticate(req, res, () => {
+        if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+        next();
+    });
+};
+
+// --- DATA ROUTES ---
 
 const SUPPORTED_ASSETS = {
     'BTC': 'https://try3btc.up.railway.app',
@@ -154,98 +140,61 @@ const SUPPORTED_ASSETS = {
 
 const SUPPORTED_ENDPOINTS = ['current', 'live', 'backtest', 'recent'];
 
-// --- BATCH ROUTE (ALL ASSETS) ---
-// This handles requests like /api/signals/all/current or /api/signals/all/recent
+// BATCH ROUTE (ALL ASSETS)
 app.get('/api/signals/all/:type', optionalAuthenticate, async (req, res) => {
     const type = req.params.type.toLowerCase();
 
-    // 1. Validation
-    if (!SUPPORTED_ENDPOINTS.includes(type)) {
-        return res.status(404).json({ error: 'Invalid endpoint type.' });
-    }
+    if (!SUPPORTED_ENDPOINTS.includes(type)) return res.status(404).json({ error: 'Invalid endpoint type.' });
 
-    // 2. Paywall Check only for "current" signal
     if (type === 'current') {
         const user = req.user;
         const isSubscribed = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
-        
-        if (!user) {
-             return res.status(401).json({ error: 'Authentication required for live signals.' });
-        }
-        if (!isSubscribed) {
-            return res.status(403).json({ error: 'Subscription required to view current signals.' });
-        }
+        if (!user) return res.status(401).json({ error: 'Authentication required for live signals.' });
+        if (!isSubscribed) return res.status(403).json({ error: 'Subscription required to view current signals.' });
     }
 
-    // 3. Parallel Fetching
     const assets = Object.keys(SUPPORTED_ASSETS);
     const results = {};
 
     try {
-        const promises = assets.map(async (asset) => {
-            const baseUrl = SUPPORTED_ASSETS[asset];
-            const targetUrl = `${baseUrl}/api/${type}`;
+        await Promise.all(assets.map(async (asset) => {
             try {
-                const response = await fetch(targetUrl);
+                const response = await fetch(`${SUPPORTED_ASSETS[asset]}/api/${type}`);
                 if (!response.ok) throw new Error(`Status ${response.status}`);
-                const data = await response.json();
-                results[asset] = data;
+                results[asset] = await response.json();
             } catch (err) {
                 results[asset] = { error: 'Unavailable', details: err.message };
             }
-        });
-
-        await Promise.all(promises);
+        }));
         res.json(results);
-
     } catch (err) {
-        console.error('Batch Proxy Error:', err);
         res.status(502).json({ error: 'Failed to fetch batch data.' });
     }
 });
 
-// --- SINGLE ASSET ROUTE ---
+// SINGLE ASSET ROUTE
 app.get('/api/signals/:asset/:type', optionalAuthenticate, async (req, res) => {
     const asset = req.params.asset.toUpperCase();
     const type = req.params.type.toLowerCase();
 
-    // 1. Validation
-    if (!SUPPORTED_ASSETS[asset]) {
-        return res.status(404).json({ error: 'Asset not supported. Only BTC, XRP, SOL available.' });
-    }
-    if (!SUPPORTED_ENDPOINTS.includes(type)) {
-        return res.status(404).json({ error: 'Invalid endpoint type.' });
-    }
+    if (!SUPPORTED_ASSETS[asset]) return res.status(404).json({ error: 'Asset not supported. Only BTC, XRP, SOL available.' });
+    if (!SUPPORTED_ENDPOINTS.includes(type)) return res.status(404).json({ error: 'Invalid endpoint type.' });
 
-    // 2. Paywall Check only for "current" signal
     if (type === 'current') {
         const user = req.user;
-        // User must be logged in AND subscribed
         const isSubscribed = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
-        
-        if (!user) {
-             return res.status(401).json({ error: 'Authentication required for live signals.' });
-        }
-        if (!isSubscribed) {
-            return res.status(403).json({ error: 'Subscription required to view current signals.' });
-        }
+        if (!user) return res.status(401).json({ error: 'Authentication required for live signals.' });
+        if (!isSubscribed) return res.status(403).json({ error: 'Subscription required to view current signals.' });
     }
 
-    // 3. Proxy Request
     try {
-        const baseUrl = SUPPORTED_ASSETS[asset];
-        const targetUrl = `${baseUrl}/api/${type}`;
-        
-        const response = await fetch(targetUrl);
-        if (!response.ok) {
-            throw new Error(`Upstream API error: ${response.status}`);
-        }
-        
+        const response = await fetch(`${SUPPORTED_ASSETS[asset]}/api/${type}`);
+        if (!response.ok) throw new Error(`Upstream API error: ${response.status}`);
         const data = await response.json();
         res.json(data);
     } catch (err) {
         console.error(`Proxy Error (${asset}/${type}):`, err);
-        res.status(502).json({ error: 'Failed to fetch signal data from prediction engine.' });
+        res.status(502).json({ error: 'Failed to fetch signal data.' });
     }
 });
 
@@ -320,10 +269,7 @@ app.post('/create-portal-session', authenticate, async (req, res) => {
             return_url: `${process.env.CLIENT_URL}/profile`,
         });
         res.json({ url: session.url });
-    } catch (err) {
-        console.error('Portal Error:', err);
-        res.status(500).json({ error: 'Failed to create portal session' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Failed to create portal session' }); }
 });
 
 // --- LEGAL ROUTES ---
@@ -340,11 +286,27 @@ app.get('/legal/impressum', async (req, res) => {
 app.get('/legal/privacy', async (req, res) => { /* ... */ });
 app.get('/legal/terms', async (req, res) => { /* ... */ });
 
-
+// --- STATIC FILES & SPA FALLBACK ---
+// 1. Serve static files (css, js, images) from client/dist
 app.use(express.static(path.join(__dirname, 'client/dist')));
+
+// 2. Catch-All Handler for SPA (Fixes the "Black Page" / 404 on reload)
 app.get('*', (req, res) => {
-    if (req.path.startsWith('/api')) return res.status(404).json({error: 'Not Found'});
-    res.sendFile(path.join(__dirname, 'client/dist', 'index.html'));
+    // A: If it looks like an API request that wasn't caught above, return 404 JSON
+    if (req.path.startsWith('/api')) {
+        return res.status(404).json({ error: 'Not Found' });
+    }
+
+    // B: For any other route (e.g., /asset/BTC), serve index.html
+    const indexPath = path.join(__dirname, 'client/dist', 'index.html');
+    
+    // Check if build exists to give a helpful error instead of crashing/blank page
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        console.error("Frontend build not found at:", indexPath);
+        res.status(500).send("Application not built. Run 'npm run build' in client directory.");
+    }
 });
 
 initDB().then(() => {
