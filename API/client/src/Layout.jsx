@@ -51,7 +51,8 @@ export default function Layout() {
     letterSpacing: '-0.025em',
     display: 'flex',
     // Changed from 'center' to 'baseline' to align the bottoms
-    alignItems: 'baseline'
+    alignItems: 'center',
+    lineHeight: '1'
 }}>
     <img 
       src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/Spear.png" 
