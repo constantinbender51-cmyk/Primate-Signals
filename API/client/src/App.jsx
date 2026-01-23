@@ -3,7 +3,8 @@ import Layout from './Layout';
 import Login from './Login';
 import Register from './Register';
 import Dashboard from './Dashboard';
-import Profile from './Profile'; // Import new Profile
+import Profile from './Profile';
+import AssetDetails from './AssetDetails'; // Import new Component
 import LegalTextPage from './LegalTextPage';
 import APIDocs from './APIDocs';
 
@@ -15,7 +16,8 @@ function App() {
            <Route path="/login" element={<Login />} />
            <Route path="/register" element={<Register />} />
            <Route path="/" element={<Dashboard />} />
-           <Route path="/profile" element={<Profile />} /> {/* New Route */}
+           <Route path="/asset/:symbol" element={<AssetDetails />} /> {/* New Route */}
+           <Route path="/profile" element={<Profile />} />
            {/* Legal Pages */}
            <Route path="/legal/:type" element={<LegalTextPage />} />
            {/* API Documentation */}
