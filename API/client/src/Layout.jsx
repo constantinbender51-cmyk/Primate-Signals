@@ -38,8 +38,8 @@ export default function Layout() {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-          marginBottom: '3rem',
-          paddingBottom: '1.5rem',
+          marginBottom: '0rem',
+          paddingBottom: '0rem',
           borderBottom: '1px solid #e5e7eb' 
       }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '2.5rem' }}>
