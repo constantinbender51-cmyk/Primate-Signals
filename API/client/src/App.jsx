@@ -4,40 +4,25 @@ import Login from './Login';
 import Register from './Register';
 import Dashboard from './Dashboard';
 import Profile from './Profile';
-import AssetDetails from './AssetDetails';
+import AssetDetails from './AssetDetails'; // Import new Component
 import LegalTextPage from './LegalTextPage';
 import APIDocs from './APIDocs';
-import LandingPage from './LandingPage'; 
 
 function App() {
   return (
     <BrowserRouter>
-      {/* ⚠️ DO NOT put <Layout> here. It is handled inside Routes below. */}
       <Routes>
-        
-        {/* The Layout component wraps all these routes */}
         <Route element={<Layout />}>
-           
-           {/* Landing Page (Home) */}
-           <Route path="/" element={<LandingPage />} />
-           
-           {/* Main App (Market) */}
-           <Route path="/dashboard" element={<Dashboard />} />
-           
-           {/* Asset Details (e.g., /asset/BTC or /asset/ALL) */}
-           <Route path="/asset/:symbol" element={<AssetDetails />} />
-           
-           {/* Authentication */}
            <Route path="/login" element={<Login />} />
            <Route path="/register" element={<Register />} />
+           <Route path="/" element={<Dashboard />} />
+           <Route path="/asset/:symbol" element={<AssetDetails />} /> {/* New Route */}
            <Route path="/profile" element={<Profile />} />
-           
-           {/* Documentation & Legal */}
-           <Route path="/api-docs" element={<APIDocs />} />
+           {/* Legal Pages */}
            <Route path="/legal/:type" element={<LegalTextPage />} />
-           
+           {/* API Documentation */}
+           <Route path="/api-docs" element={<APIDocs />} />
         </Route>
-
       </Routes>
     </BrowserRouter>
   );
