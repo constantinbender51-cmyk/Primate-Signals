@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 
 const ASSETS = ['BTC', 'XRP', 'SOL'];
 
+// --- Sub-Component: Card View (Visual) ---
 const AssetCard = ({ symbol }) => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -12,7 +13,6 @@ const AssetCard = ({ symbol }) => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                // Fetch recent stats to show on the dashboard card
                 const res = await api.get(`/api/signals/${symbol}/recent`);
                 setStats(res.data);
             } catch (err) {
@@ -35,7 +35,8 @@ const AssetCard = ({ symbol }) => {
                 cursor: 'pointer',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '12px'
+                gap: '12px',
+                height: '100%'
             }}
             onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-4px)';
@@ -83,9 +84,72 @@ const AssetCard = ({ symbol }) => {
     );
 };
 
+// --- Sub-Component: Table Row (Data) ---
+const AssetRow = ({ symbol }) => {
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        api.get(`/api/signals/${symbol}/recent`)
+            .then(res => setStats(res.data))
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, [symbol]);
+
+    if (loading) return (
+        <tr>
+            <td colSpan="6" style={{ padding: '16px', textAlign: 'center', color: '#9ca3af' }}>Loading {symbol}...</td>
+        </tr>
+    );
+
+    if (!stats) return null;
+
+    return (
+        <tr 
+            onClick={() => navigate(`/asset/${symbol}`)}
+            style={{ cursor: 'pointer', transition: 'background 0.1s' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+        >
+            <td style={{ fontWeight: '600', color: '#111827' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></div>
+                    {symbol}
+                </div>
+            </td>
+            <td><span style={{ background: '#f3f4f6', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '600' }}>1H</span></td>
+            <td>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ 
+                        width: '100%', maxWidth: '60px', height: '6px', background: '#e5e7eb', borderRadius: '3px', overflow: 'hidden' 
+                    }}>
+                        <div style={{ width: `${stats.accuracy_percent}%`, height: '100%', background: '#2563eb' }}></div>
+                    </div>
+                    <span style={{ fontSize: '13px', fontWeight: '600' }}>{stats.accuracy_percent}%</span>
+                </div>
+            </td>
+            <td>{stats.total_trades}</td>
+            <td style={{ fontWeight: 'bold', color: stats.cumulative_pnl >= 0 ? '#10b981' : '#ef4444' }}>
+                {stats.cumulative_pnl >= 0 ? '+' : ''}{parseFloat(stats.cumulative_pnl).toFixed(4)}
+            </td>
+            <td style={{ textAlign: 'right' }}>
+                <button 
+                    style={{ 
+                        background: '#fff', border: '1px solid #e5e7eb', color: '#374151', 
+                        padding: '4px 10px', fontSize: '12px', borderRadius: '4px' 
+                    }}
+                >
+                    View Analysis
+                </button>
+            </td>
+        </tr>
+    );
+};
+
+// --- Main Dashboard Component ---
 export default function Dashboard() {
     const navigate = useNavigate();
-    // Simple UTC clock
     const [time, setTime] = useState(new Date());
 
     useEffect(() => {
@@ -96,27 +160,63 @@ export default function Dashboard() {
     const formatUTC = (d) => d.toLocaleString('sv-SE', { timeZone: 'UTC' }).replace(' ', ' T ') + 'Z';
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '80px', animation: 'fadeIn 0.5s ease-out' }}>
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
                 <div>
-                    <h2 style={{ fontSize: '1.8rem', fontWeight: '800', margin: '0 0 8px 0' }}>Market Overview</h2>
-                    <p style={{ margin: 0, color: '#6b7280' }}>Select an asset to view detailed signals and backtests.</p>
+                    <h2 style={{ fontSize: '1.8rem', fontWeight: '800', margin: '0 0 8px 0', color: '#111827' }}>Market Overview</h2>
+                    <p style={{ margin: 0, color: '#6b7280' }}>Real-time signal performance tracking.</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '600' }}>UTC TIME</div>
-                    <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: '500' }}>{formatUTC(time)}</div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '600', marginBottom: '4px' }}>UTC SYSTEM TIME</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: '500', color: '#374151' }}>{formatUTC(time)}</div>
                 </div>
             </header>
 
+            {/* Section 1: Quick Cards */}
             <div style={{ 
                 display: 'grid', 
                 gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-                gap: '24px' 
+                gap: '24px',
+                marginBottom: '48px'
             }}>
                 {ASSETS.map(symbol => (
                     <AssetCard key={symbol} symbol={symbol} />
                 ))}
             </div>
+
+            {/* Section 2: Detailed Table */}
+            <section>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700' }}>Performance Matrix</h3>
+                    <span style={{ fontSize: '13px', color: '#6b7280' }}>Updates automatically</span>
+                </div>
+
+                <div style={{ 
+                    background: '#fff', 
+                    borderRadius: '12px', 
+                    border: '1px solid #e5e7eb', 
+                    overflow: 'hidden', 
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)' 
+                }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', margin: 0, border: 'none' }}>
+                        <thead>
+                            <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                                <th style={{ padding: '16px', textAlign: 'left', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Asset</th>
+                                <th style={{ padding: '16px', textAlign: 'left', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Interval</th>
+                                <th style={{ padding: '16px', textAlign: 'left', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Accuracy</th>
+                                <th style={{ padding: '16px', textAlign: 'left', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Total Trades</th>
+                                <th style={{ padding: '16px', textAlign: 'left', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Net PnL</th>
+                                <th style={{ padding: '16px', textAlign: 'right', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {ASSETS.map(symbol => (
+                                <AssetRow key={symbol} symbol={symbol} />
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         </div>
     );
 }
