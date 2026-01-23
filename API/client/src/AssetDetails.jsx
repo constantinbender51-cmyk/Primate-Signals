@@ -12,7 +12,6 @@ const StatBox = ({ label, value, color }) => (
 );
 
 const SignalBadge = ({ dir }) => {
-    // 1 = Long, -1 = Short, 0 = Flat
     if (dir === 1) return <span style={{ background: '#ecfdf5', color: '#059669', padding: '6px 12px', borderRadius: '20px', fontWeight: '700' }}>LONG (BUY)</span>;
     if (dir === -1) return <span style={{ background: '#fef2f2', color: '#dc2626', padding: '6px 12px', borderRadius: '20px', fontWeight: '700' }}>SHORT (SELL)</span>;
     return <span style={{ background: '#f3f4f6', color: '#4b5563', padding: '6px 12px', borderRadius: '20px', fontWeight: '700' }}>FLAT (WAIT)</span>;
@@ -25,9 +24,8 @@ const EquityChart = ({ data }) => {
     const width = 800;
     const padding = 30;
 
-    // Parse data: { timestamp: "YYYY-MM-DD HH:mm:ss", cum_pnl: float }
     const points = data.map(d => ({
-        time: new Date(d.timestamp + (d.timestamp.endsWith('Z') ? '' : 'Z')), // Force UTC
+        time: new Date(d.timestamp + (d.timestamp.endsWith('Z') ? '' : 'Z')), 
         val: d.cum_pnl
     })).sort((a,b) => a.time - b.time);
 
@@ -59,17 +57,14 @@ export default function AssetDetails() {
     const { symbol } = useParams();
     const navigate = useNavigate();
     
-    // Data States
     const [currentSignal, setCurrentSignal] = useState(null);
     const [liveHistory, setLiveHistory] = useState([]);
     const [backtest, setBacktest] = useState(null);
     const [recent, setRecent] = useState(null);
     
-    // Pagination
     const [page, setPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
     
-    // UI States
     const [loading, setLoading] = useState(true);
     const [locked, setLocked] = useState(false);
 
@@ -77,8 +72,7 @@ export default function AssetDetails() {
         const fetchAll = async () => {
             setLoading(true);
             try {
-                // 1. Fetch Stats & Chart (Public/Auth)
-                // Now works for guests thanks to optional auth on server
+                // Fetch Public Data (Guests allowed)
                 const [btRes, recRes, liveRes] = await Promise.all([
                     api.get(`/api/signals/${symbol}/backtest`),
                     api.get(`/api/signals/${symbol}/recent`),
@@ -88,13 +82,12 @@ export default function AssetDetails() {
                 setBacktest(btRes.data);
                 setRecent(recRes.data);
                 
-                // Sort live history by time desc
                 const history = liveRes.data.results || liveRes.data;
                 if(Array.isArray(history)) {
                     setLiveHistory(history.sort((a,b) => new Date(b.time) - new Date(a.time)));
                 }
 
-                // 2. Try Fetch Current Signal (Paywalled)
+                // Try Fetch Current Signal (Private)
                 try {
                     const curRes = await api.get(`/api/signals/${symbol}/current`);
                     setCurrentSignal(curRes.data);
@@ -107,7 +100,7 @@ export default function AssetDetails() {
 
             } catch (err) {
                 console.error(err);
-                toast.error("Failed to load asset data");
+                toast.error("Failed to load data");
             } finally {
                 setLoading(false);
             }
@@ -123,48 +116,26 @@ export default function AssetDetails() {
         } catch (err) { toast.error("Checkout unavailable"); }
     };
 
-    if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading analysis for {symbol}...</div>;
+    if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
 
-    // Pagination Logic
     const totalPages = Math.ceil(liveHistory.length / ITEMS_PER_PAGE);
     const paginatedHistory = liveHistory.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     return (
         <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '60px' }}>
-            {/* Header */}
             <div style={{ marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <button onClick={() => navigate('/')} style={{ background: 'none', border: '1px solid #ddd', color: '#666' }}>&larr; Back</button>
-                <h1 style={{ margin: 0 }}>{symbol} Analysis (1H)</h1>
+                <h1 style={{ margin: 0 }}>{symbol === 'ALL' ? 'Portfolio Overview' : `${symbol} Analysis`}</h1>
             </div>
 
             {/* Current Signal Section */}
             <section style={{ marginBottom: '40px' }}>
-                <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Current Prediction</h3>
+                <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Current Status</h3>
                 
                 {locked ? (
-                    <div style={{ 
-                        background: '#f3f4f6', 
-                        border: '1px dashed #9ca3af', 
-                        borderRadius: '12px', 
-                        padding: '40px', 
-                        textAlign: 'center',
-                        position: 'relative',
-                        overflow: 'hidden'
-                    }}>
-                        <div style={{ filter: 'blur(4px)', opacity: 0.5, userSelect: 'none' }}>
-                            <h2>LONG ENTRY @ 99,999</h2>
-                            <p>Prediction confidence high.</p>
-                        </div>
-                        <div style={{ 
-                            position: 'absolute', top: '50%', left: '50%', 
-                            transform: 'translate(-50%, -50%)', 
-                            background: '#fff', padding: '20px', 
-                            borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                            textAlign: 'center', width: '80%', maxWidth: '300px'
-                        }}>
-                            <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>Premium Signal</div>
-                            <button onClick={handleSubscribe} style={{ width: '100%' }}>Unlock Now</button>
-                        </div>
+                    <div style={{ background: '#f3f4f6', border: '1px dashed #9ca3af', borderRadius: '12px', padding: '40px', textAlign: 'center' }}>
+                        <div style={{ filter: 'blur(4px)', opacity: 0.5 }}><h2>PREMIUM DATA LOCKED</h2></div>
+                        <button onClick={handleSubscribe} style={{ marginTop: '-20px', position: 'relative', zIndex: 10 }}>Unlock Now</button>
                     </div>
                 ) : (
                     <div style={{ 
@@ -172,15 +143,17 @@ export default function AssetDetails() {
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px'
                     }}>
                         <div>
-                            <div style={{ fontSize: '12px', color: '#6b7280' }}>TIME (UTC)</div>
+                            <div style={{ fontSize: '12px', color: '#6b7280' }}>LAST UPDATE</div>
                             <div style={{ fontSize: '16px', fontWeight: '500' }}>{currentSignal?.time}</div>
                         </div>
                         <div>
-                            <div style={{ fontSize: '12px', color: '#6b7280' }}>ENTRY PRICE</div>
-                            <div style={{ fontSize: '24px', fontWeight: 'bold' }}>${currentSignal?.entry_price}</div>
+                            <div style={{ fontSize: '12px', color: '#6b7280' }}>PRICE / STATUS</div>
+                            <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+                                {isNaN(currentSignal?.entry_price) ? currentSignal?.entry_price : `$${currentSignal?.entry_price}`}
+                            </div>
                         </div>
                         <div>
-                            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom:'5px' }}>DIRECTION</div>
+                            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom:'5px' }}>SENTIMENT</div>
                             <SignalBadge dir={currentSignal?.pred_dir} />
                         </div>
                         <div style={{ flexBasis: '100%', borderTop: '1px solid #f3f4f6', paddingTop: '15px', color: '#4b5563' }}>
@@ -193,22 +166,18 @@ export default function AssetDetails() {
             {/* Stats & Chart */}
             <section style={{ marginBottom: '40px' }}>
                 <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Performance</h3>
-                
-                {/* Stats Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px' }}>
                     <StatBox label="Total Trades" value={backtest?.total_trades} />
                     <StatBox label="Accuracy" value={`${backtest?.accuracy_percent}%`} color="#2563eb" />
                     <StatBox label="Cumulative PnL" value={backtest?.cumulative_pnl?.toFixed(4)} color={backtest?.cumulative_pnl >= 0 ? '#10b981' : '#ef4444'} />
-                    <StatBox label="Winning Trades" value={backtest?.correct_trades} color="#10b981" />
+                    <StatBox label="Winning Trades" value={backtest?.correct_trades || '-'} color="#10b981" />
                 </div>
-
-                {/* Chart */}
                 {backtest?.equity_curve && <EquityChart data={backtest.equity_curve} />}
             </section>
 
-            {/* Recent History Table */}
+            {/* History Table */}
             <section>
-                <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Recent History</h3>
+                <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Global History</h3>
                 <div style={{ overflowX: 'auto', background: '#fff', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                         <thead style={{ background: '#f9fafb', color: '#6b7280', textTransform: 'uppercase', fontSize: '12px' }}>
@@ -217,7 +186,6 @@ export default function AssetDetails() {
                                 <th style={{ padding: '12px', textAlign: 'left' }}>Dir</th>
                                 <th style={{ padding: '12px', textAlign: 'left' }}>Entry</th>
                                 <th style={{ padding: '12px', textAlign: 'left' }}>Exit</th>
-                                <th style={{ padding: '12px', textAlign: 'left' }}>Outcome</th>
                                 <th style={{ padding: '12px', textAlign: 'left' }}>PnL</th>
                             </tr>
                         </thead>
@@ -226,47 +194,22 @@ export default function AssetDetails() {
                                 <tr key={i} style={{ borderTop: '1px solid #f3f4f6' }}>
                                     <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>{row.time}</td>
                                     <td style={{ padding: '12px' }}>
-                                        {row.pred_dir === 1 ? <span style={{color: '#10b981', fontWeight: 'bold'}}>LONG</span> : 
-                                         row.pred_dir === -1 ? <span style={{color: '#ef4444', fontWeight: 'bold'}}>SHORT</span> : 
-                                         <span style={{color: '#9ca3af'}}>FLAT</span>}
+                                        {row.pred_dir === 1 ? <span style={{color: '#10b981'}}>LONG</span> : 
+                                         row.pred_dir === -1 ? <span style={{color: '#ef4444'}}>SHORT</span> : 'FLAT'}
                                     </td>
-                                    <td style={{ padding: '12px', fontFamily: 'monospace' }}>{row.entry_price}</td>
-                                    <td style={{ padding: '12px', fontFamily: 'monospace' }}>{row.exit_price || '-'}</td>
-                                    <td style={{ padding: '12px' }}>
-                                        {row.outcome === true || row.outcome === 'WIN' ? 
-                                            <span style={{ background: '#ecfdf5', color: '#065f46', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>WIN</span> :
-                                         row.outcome === false || row.outcome === 'LOSS' ? 
-                                            <span style={{ background: '#fef2f2', color: '#991b1b', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>LOSS</span> :
-                                            <span style={{ background: '#f3f4f6', color: '#374151', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>{row.outcome}</span>
-                                        }
-                                    </td>
-                                    <td style={{ padding: '12px', fontWeight: 'bold', color: row.pnl > 0 ? '#10b981' : (row.pnl < 0 ? '#ef4444' : '#374151') }}>
-                                        {row.pnl ? row.pnl.toFixed(5) : '0.00000'}
+                                    <td style={{ padding: '12px' }}>{row.entry_price}</td>
+                                    <td style={{ padding: '12px' }}>{row.exit_price || '-'}</td>
+                                    <td style={{ padding: '12px', fontWeight: 'bold', color: row.pnl > 0 ? '#10b981' : '#ef4444' }}>
+                                        {row.pnl ? row.pnl.toFixed(5) : '0.00'}
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
-                {/* Pagination Controls */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
-                    <span style={{ fontSize: '13px', color: '#6b7280' }}>
-                        Page {page} of {totalPages || 1}
-                    </span>
-                    <button 
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                        style={{ background: '#fff', border: '1px solid #e5e7eb', color: '#374151', padding: '6px 12px' }}
-                    >
-                        Previous
-                    </button>
-                    <button 
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages || totalPages === 0}
-                        style={{ background: '#fff', border: '1px solid #e5e7eb', color: '#374151', padding: '6px 12px' }}
-                    >
-                        Next
-                    </button>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
+                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ background: '#fff', border: '1px solid #ddd', color: '#333' }}>Previous</button>
+                    <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ background: '#fff', border: '1px solid #ddd', color: '#333' }}>Next</button>
                 </div>
             </section>
         </div>
