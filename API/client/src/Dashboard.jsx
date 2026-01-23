@@ -1,22 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from './api';
+import toast from 'react-hot-toast';
 
-// Included 'ALL' to link to the aggregated portfolio view
-const ASSETS = ['BTC', 'XRP', 'SOL', 'ALL'];
+const ASSETS = ['BTC', 'XRP', 'SOL'];
 
 // --- Sub-Component: Card View (Visual) ---
 const AssetCard = ({ symbol }) => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const isPortfolio = symbol === 'ALL';
-    const displayName = isPortfolio ? "Global Portfolio" : `${symbol} / USD`;
-
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                // Determine correct endpoint. If symbol is ALL, the backend handles aggregation.
                 const res = await api.get(`/api/signals/${symbol}/recent`);
                 setStats(res.data);
             } catch (err) {
@@ -32,7 +28,7 @@ const AssetCard = ({ symbol }) => {
         <Link to={`/asset/${symbol}`} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{
                 background: '#fff',
-                border: isPortfolio ? '1px solid #b45309' : '1px solid #e5e7eb', // Highlight portfolio card
+                border: '1px solid #e5e7eb',
                 borderRadius: '12px',
                 padding: '24px',
                 transition: 'transform 0.2s, box-shadow 0.2s',
@@ -40,9 +36,7 @@ const AssetCard = ({ symbol }) => {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '12px',
-                height: '100%',
-                position: 'relative',
-                overflow: 'hidden'
+                height: '100%'
             }}
             onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-4px)';
@@ -53,19 +47,13 @@ const AssetCard = ({ symbol }) => {
                 e.currentTarget.style.boxShadow = 'none';
             }}
             >
-                {/* Special background accent for Portfolio card */}
-                {isPortfolio && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: '#d97706' }}></div>}
-
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.5rem', color: isPortfolio ? '#b45309' : '#111827' }}>{displayName}</h3>
+                    <h3 style={{ margin: 0, fontSize: '1.5rem' }}>{symbol} / USD</h3>
                     <span style={{ 
-                        background: isPortfolio ? '#fffbeb' : '#eff6ff', 
-                        color: isPortfolio ? '#b45309' : '#2563eb', 
+                        background: '#eff6ff', color: '#2563eb', 
                         padding: '4px 12px', borderRadius: '20px', 
                         fontSize: '12px', fontWeight: '600' 
-                    }}>
-                        {isPortfolio ? 'AGGREGATED' : '1H Signal'}
-                    </span>
+                    }}>1H Signal</span>
                 </div>
                 
                 <div style={{ height: '1px', background: '#f3f4f6', margin: '8px 0' }}></div>
@@ -102,8 +90,6 @@ const AssetRow = ({ symbol }) => {
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
-    const isPortfolio = symbol === 'ALL';
-
     useEffect(() => {
         api.get(`/api/signals/${symbol}/recent`)
             .then(res => setStats(res.data))
@@ -122,34 +108,23 @@ const AssetRow = ({ symbol }) => {
     return (
         <tr 
             onClick={() => navigate(`/asset/${symbol}`)}
-            style={{ cursor: 'pointer', transition: 'background 0.1s', background: isPortfolio ? '#fffbeb' : 'transparent' }}
-            onMouseEnter={(e) => e.currentTarget.style.background = isPortfolio ? '#fef3c7' : '#f8fafc'}
-            onMouseLeave={(e) => e.currentTarget.style.background = isPortfolio ? '#fffbeb' : 'transparent'}
+            style={{ cursor: 'pointer', transition: 'background 0.1s' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
             <td style={{ fontWeight: '600', color: '#111827' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ 
-                        width: '8px', height: '8px', borderRadius: '50%', 
-                        background: isPortfolio ? '#d97706' : '#10b981' 
-                    }}></div>
-                    {isPortfolio ? 'TOTAL PORTFOLIO' : symbol}
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></div>
+                    {symbol}
                 </div>
             </td>
-            <td>
-                <span style={{ 
-                    background: isPortfolio ? '#fff7ed' : '#f3f4f6', 
-                    color: isPortfolio ? '#9a3412' : '#374151',
-                    padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '600' 
-                }}>
-                    {isPortfolio ? 'MIX' : '1H'}
-                </span>
-            </td>
+            <td><span style={{ background: '#f3f4f6', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '600' }}>1H</span></td>
             <td>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <div style={{ 
                         width: '100%', maxWidth: '60px', height: '6px', background: '#e5e7eb', borderRadius: '3px', overflow: 'hidden' 
                     }}>
-                        <div style={{ width: `${stats.accuracy_percent}%`, height: '100%', background: isPortfolio ? '#d97706' : '#2563eb' }}></div>
+                        <div style={{ width: `${stats.accuracy_percent}%`, height: '100%', background: '#2563eb' }}></div>
                     </div>
                     <span style={{ fontSize: '13px', fontWeight: '600' }}>{stats.accuracy_percent}%</span>
                 </div>
@@ -165,7 +140,7 @@ const AssetRow = ({ symbol }) => {
                         padding: '4px 10px', fontSize: '12px', borderRadius: '4px' 
                     }}
                 >
-                    View
+                    View Analysis
                 </button>
             </td>
         </tr>
@@ -174,6 +149,7 @@ const AssetRow = ({ symbol }) => {
 
 // --- Main Dashboard Component ---
 export default function Dashboard() {
+    const navigate = useNavigate();
     const [time, setTime] = useState(new Date());
 
     useEffect(() => {
