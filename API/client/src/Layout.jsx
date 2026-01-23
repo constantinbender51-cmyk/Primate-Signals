@@ -26,10 +26,6 @@ export default function Layout() {
     } catch (err) { toast.error("Error starting checkout"); }
   };
 
-  const goToProfile = () => {
-    navigate('/profile');
-  };
-
   return (
     <>
       <Toaster position="top-center" />
@@ -43,33 +39,40 @@ export default function Layout() {
           borderBottom: '1px solid #e5e7eb' 
       }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '2.5rem' }}>
-                  <Link to="/" style={{ 
-        textDecoration: 'none', 
-        color: '#111827', 
-        fontSize: '1.5rem', 
-        fontWeight: '800', 
-        letterSpacing: '-0.025em',
-        display: 'flex',
-        alignItems: 'center'
-    }}>
-        <img 
-          src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/vg2.png" 
-          alt="voodooghost" 
-          style={{ height: '48px', margin: '0 6px' }} 
-        />Primate 
-        {/* Updated Image Source */}
-        
-        <span style={{ fontWeight: '300' }}> Signals</span>
-    </Link>
+              <Link to="/" style={{ 
+                  textDecoration: 'none', 
+                  color: '#111827', 
+                  fontSize: '1.5rem', 
+                  fontWeight: '800', 
+                  letterSpacing: '-0.025em',
+                  display: 'flex',
+                  alignItems: 'center'
+              }}>
+                  <img 
+                    src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/vg2.png" 
+                    alt="voodooghost" 
+                    style={{ height: '48px', margin: '0 6px' }} 
+                  />
+                  Primate <span style={{ fontWeight: '300' }}>Signals</span>
+              </Link>
+              
               <nav style={{ display: 'flex', gap: '1.5rem', fontSize: '14px', fontWeight: '500' }}>
-                  {/* Removed duplicate Signals link */}
+                  {/* NEW LINK: Market Dashboard */}
+                  <Link 
+                      to="/dashboard"
+                      style={{
+                          textDecoration: 'none',
+                          color: '#374151'
+                      }}
+                  >
+                      Market
+                  </Link>
+
                   <Link 
                       to="/api-docs"
                       style={{
                           textDecoration: 'none',
-                          color: isActive ? '#374151' : '#9ca3af',
-                          opacity: isActive ? 1 : 0.5,
-                          pointerEvents: isActive ? 'auto' : 'none'
+                          color: '#374151'
                       }}
                   >
                       API
@@ -81,8 +84,7 @@ export default function Layout() {
               {isLoggedIn ? (
                   <>
                     <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#6b7280', padding: 0, fontWeight: '400' }}>Logout</button>
-                    {/* Changed Manage to Profile */}
-                    <button onClick={goToProfile} style={{ background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db' }}>Profile</button>
+                    <button onClick={() => navigate('/profile')} style={{ background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db' }}>Profile</button>
                   </>
               ) : (
                   <>
@@ -99,7 +101,7 @@ export default function Layout() {
 
       <footer style={{ marginTop: '6rem', padding: '2rem 0', borderTop: '1px solid #e5e7eb', fontSize: '13px', color: '#6b7280' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <p>&copy; {new Date().getFullYear()} Primate.</p>
+              <p>&copy; {new Date().getFullYear()} Primate Signals.</p>
               <div style={{ display: 'flex', gap: '1rem' }}>
                   <Link to="/legal/impressum" style={{ color: 'inherit', textDecoration: 'none' }}>Impressum</Link>
                   <Link to="/legal/privacy-policy" style={{ color: 'inherit', textDecoration: 'none' }}>Privacy</Link>
