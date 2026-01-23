@@ -124,7 +124,7 @@ export default function AssetDetails() {
     return (
         <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '60px' }}>
             <div style={{ marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <button onClick={() => navigate('/')} style={{ background: 'none', border: '1px solid #ddd', color: '#666' }}>&larr; Back</button>
+                <button onClick={() => navigate('/dashboard')} style={{ background: 'none', border: '1px solid #ddd', color: '#666' }}>&larr; Back</button>
                 <h1 style={{ margin: 0 }}>{symbol === 'ALL' ? 'Portfolio Overview' : `${symbol} Analysis`}</h1>
             </div>
 
