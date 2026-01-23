@@ -22,13 +22,13 @@ export default function APIDocs() {
     };
 
     const codeExample = `// Configuration
-const API_ENDPOINT = "https://api.primatesignals.com/live_matrix"; 
+const API_ENDPOINT = "https://your-domain.com/api/signals/BTC/current"; 
 const API_KEY = "${testKey || 'YOUR_API_KEY_HERE'}";
 
 /**
- * Fetches the Live Matrix data from the Primate Signals API.
+ * Fetches the Current Signal for BTC from the Primate Signals API.
  */
-async function getLiveMatrix() {
+async function getLiveSignal() {
   try {
     const response = await fetch(API_ENDPOINT, {
       method: 'GET',
@@ -43,7 +43,7 @@ async function getLiveMatrix() {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error("Failed to fetch live matrix:", error.message);
+    console.error("Failed to fetch live signal:", error.message);
   }
 }`;
 
@@ -53,8 +53,13 @@ async function getLiveMatrix() {
         setConsoleOutput(null);
         setStatus(null);
 
+        // We use a real endpoint now.
+        // If key is present -> try 'current' (private). 
+        // If no key -> try 'recent' (public) as a fallback demo.
+        const endpoint = testKey ? 'current' : 'recent';
+        
         try {
-            const res = await fetch(`${BASE_URL}/live_matrix`, {
+            const res = await fetch(`${BASE_URL}/api/signals/BTC/${endpoint}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -120,8 +125,7 @@ async function getLiveMatrix() {
             <section style={{ marginBottom: '4rem' }}>
     <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1.5rem' }}>Response Format</h4>
     <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-        The API returns a JSON object (dictionary) where each key is a trading pair symbol (e.g., <code>BTCUSDT</code>). 
-        The value associated with each key is an object containing the real-time signal data.
+        The API returns a JSON object containing the latest signal details.
     </p>
 
     <h5 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '1rem', color: '#334155' }}>Signal Object Structure</h5>
@@ -136,26 +140,24 @@ async function getLiveMatrix() {
             </thead>
             <tbody style={{ color: '#334155' }}>
                 <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '12px 0' }}><code>sum</code></td>
-                    <td style={{ padding: '12px 0' }}><span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>Integer</span></td>
+                    <td style={{ padding: '12px 0' }}><code>time</code></td>
+                    <td style={{ padding: '12px 0' }}><span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>String</span></td>
                     <td style={{ padding: '12px 0' }}>
-                        The sum of component signals.<br/>
+                        The UTC timestamp of the signal.<br/>
                     </td>
                 </tr>
                 <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '12px 0' }}><code>comp</code></td>
-                    <td style={{ padding: '12px 0' }}><span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>Array&lt;Int&gt;</span></td>
+                    <td style={{ padding: '12px 0' }}><code>entry_price</code></td>
+                    <td style={{ padding: '12px 0' }}><span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>Float</span></td>
                     <td style={{ padding: '12px 0' }}>
-                        A list of raw component signals contributing to the sum.<br/>
-                        <em>Example: <code>[0, 1, 0, 0, 0]</code></em> Each value is a signal for a specific timeframe [15m 30m 1h 4h 1d]
+                       Price at which the signal was generated.
                     </td>
                 </tr>
                 <tr>
-                    <td style={{ padding: '12px 0' }}><code>upd</code></td>
-                    <td style={{ padding: '12px 0' }}><span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>String</span></td>
+                    <td style={{ padding: '12px 0' }}><code>pred_dir</code></td>
+                    <td style={{ padding: '12px 0' }}><span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>Integer</span></td>
                     <td style={{ padding: '12px 0' }}>
-                        The UTC timestamp of the last calculation.<br/>
-                        <em>Format: YYYY-MM-DD HH:MM:SS</em>
+                        Direction of the trade. 1 (Long), -1 (Short), 0 (Flat).
                     </td>
                 </tr>
             </tbody>
