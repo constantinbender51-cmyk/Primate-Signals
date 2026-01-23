@@ -96,6 +96,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 app.use(express.json()); 
 app.use(cors());
 
+// Strict Authentication (For Account/Billing)
 const authenticate = async (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
     const authHeader = req.headers['authorization'];
@@ -120,6 +121,29 @@ const authenticate = async (req, res, next) => {
     return res.status(401).json({ error: 'Authentication required' });
 };
 
+// Optional Authentication (For Public Data + Private Data Mix)
+const optionalAuthenticate = async (req, res, next) => {
+    const apiKey = req.headers['x-api-key'];
+    const authHeader = req.headers['authorization'];
+    
+    req.user = null; // Default to guest
+
+    try {
+        if (apiKey) {
+            const result = await pool.query('SELECT * FROM users WHERE api_key = $1 AND is_active = true', [apiKey]);
+            if (result.rows.length > 0) req.user = result.rows[0];
+        } else if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const result = await pool.query('SELECT * FROM users WHERE id = $1 AND is_active = true', [decoded.userId]);
+            if (result.rows.length > 0) req.user = result.rows[0];
+        }
+    } catch (err) {
+        // Soft fail: Just proceed as guest if token is weird
+    }
+    next();
+};
+
 // --- NEW DATA ROUTES (Asset Specific) ---
 
 const SUPPORTED_ASSETS = {
@@ -130,7 +154,8 @@ const SUPPORTED_ASSETS = {
 
 const SUPPORTED_ENDPOINTS = ['current', 'live', 'backtest', 'recent'];
 
-app.get('/api/signals/:asset/:type', authenticate, async (req, res) => {
+// Updated Route: Uses optionalAuthenticate so guests can see 'recent'/'backtest'
+app.get('/api/signals/:asset/:type', optionalAuthenticate, async (req, res) => {
     const asset = req.params.asset.toUpperCase();
     const type = req.params.type.toLowerCase();
 
@@ -142,11 +167,15 @@ app.get('/api/signals/:asset/:type', authenticate, async (req, res) => {
         return res.status(404).json({ error: 'Invalid endpoint type.' });
     }
 
-    // 2. Paywall Check for "current" signal
+    // 2. Paywall Check only for "current" signal
     if (type === 'current') {
         const user = req.user;
+        // User must be logged in AND subscribed
         const isSubscribed = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
         
+        if (!user) {
+             return res.status(401).json({ error: 'Authentication required for live signals.' });
+        }
         if (!isSubscribed) {
             return res.status(403).json({ error: 'Subscription required to view current signals.' });
         }
@@ -258,7 +287,6 @@ app.get('/legal/impressum', async (req, res) => {
         res.send(await response.text());
     } catch (err) { res.status(500).send('Could not fetch Impressum'); }
 });
-// (Privacy and Terms endpoints similar to above, kept short for brevity in this snippet but assumed present)
 app.get('/legal/privacy', async (req, res) => { /* ... */ });
 app.get('/legal/terms', async (req, res) => { /* ... */ });
 
