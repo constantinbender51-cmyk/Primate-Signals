@@ -154,7 +154,57 @@ const SUPPORTED_ASSETS = {
 
 const SUPPORTED_ENDPOINTS = ['current', 'live', 'backtest', 'recent'];
 
-// Updated Route: Uses optionalAuthenticate so guests can see 'recent'/'backtest'
+// --- BATCH ROUTE (ALL ASSETS) ---
+// This handles requests like /api/signals/all/current or /api/signals/all/recent
+app.get('/api/signals/all/:type', optionalAuthenticate, async (req, res) => {
+    const type = req.params.type.toLowerCase();
+
+    // 1. Validation
+    if (!SUPPORTED_ENDPOINTS.includes(type)) {
+        return res.status(404).json({ error: 'Invalid endpoint type.' });
+    }
+
+    // 2. Paywall Check only for "current" signal
+    if (type === 'current') {
+        const user = req.user;
+        const isSubscribed = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
+        
+        if (!user) {
+             return res.status(401).json({ error: 'Authentication required for live signals.' });
+        }
+        if (!isSubscribed) {
+            return res.status(403).json({ error: 'Subscription required to view current signals.' });
+        }
+    }
+
+    // 3. Parallel Fetching
+    const assets = Object.keys(SUPPORTED_ASSETS);
+    const results = {};
+
+    try {
+        const promises = assets.map(async (asset) => {
+            const baseUrl = SUPPORTED_ASSETS[asset];
+            const targetUrl = `${baseUrl}/api/${type}`;
+            try {
+                const response = await fetch(targetUrl);
+                if (!response.ok) throw new Error(`Status ${response.status}`);
+                const data = await response.json();
+                results[asset] = data;
+            } catch (err) {
+                results[asset] = { error: 'Unavailable', details: err.message };
+            }
+        });
+
+        await Promise.all(promises);
+        res.json(results);
+
+    } catch (err) {
+        console.error('Batch Proxy Error:', err);
+        res.status(502).json({ error: 'Failed to fetch batch data.' });
+    }
+});
+
+// --- SINGLE ASSET ROUTE ---
 app.get('/api/signals/:asset/:type', optionalAuthenticate, async (req, res) => {
     const asset = req.params.asset.toUpperCase();
     const type = req.params.type.toLowerCase();
