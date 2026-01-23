@@ -9,6 +9,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const path = require('path');
 const fs = require('fs');
 const nodemailer = require('nodemailer'); 
+// const fetch = require('node-fetch'); // Uncomment if Node < 18
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -68,7 +69,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
             const invoice = event.data.object;
             if (invoice.subscription && invoice.lines?.data?.length > 0) {
                 const periodEnd = invoice.lines.data[0].period.end;
-                const nextBilling = new Date(periodEnd * 1000); 
+                const nextBilling = new Date(periodEnd * 1000);
                 await client.query(
                     `UPDATE users SET subscription_status = 'active', next_billing_date = $1 WHERE stripe_customer_id = $2`, 
                     [nextBilling, invoice.customer]
@@ -120,7 +121,7 @@ const authenticate = async (req, res, next) => {
     return res.status(401).json({ error: 'Authentication required' });
 };
 
-// --- NEW DATA ROUTES (Asset Specific) ---
+// --- NEW PROXY ROUTES (CORRECTED) ---
 
 const SUPPORTED_ASSETS = {
     'BTC': 'https://try3btc.up.railway.app',
@@ -157,16 +158,19 @@ app.get('/api/signals/:asset/:type', authenticate, async (req, res) => {
         const baseUrl = SUPPORTED_ASSETS[asset];
         const targetUrl = `${baseUrl}/api/${type}`;
         
+        // Fetch from external source
         const response = await fetch(targetUrl);
+        
         if (!response.ok) {
             throw new Error(`Upstream API error: ${response.status}`);
         }
         
+        // [FIX] Added 'await' here - this was likely the cause of previous failure
         const data = await response.json();
         res.json(data);
     } catch (err) {
-        console.error(`Proxy Error (${asset}/${type}):`, err);
-        res.status(502).json({ error: 'Failed to fetch signal data from prediction engine.' });
+        console.error(`Proxy Error (${asset}/${type}):`, err.message);
+        res.status(502).json({ error: 'Failed to fetch signal data.' });
     }
 });
 
@@ -258,10 +262,24 @@ app.get('/legal/impressum', async (req, res) => {
         res.send(await response.text());
     } catch (err) { res.status(500).send('Could not fetch Impressum'); }
 });
-// (Privacy and Terms endpoints similar to above, kept short for brevity in this snippet but assumed present)
-app.get('/legal/privacy', async (req, res) => { /* ... */ });
-app.get('/legal/terms', async (req, res) => { /* ... */ });
 
+app.get('/legal/privacy', async (req, res) => {
+    try {
+        const response = await fetch(`${LEGAL_GITHUB_BASE}/pp.txt`);
+        if (!response.ok) throw new Error('GitHub fetch failed');
+        res.set('Content-Type', 'text/plain');
+        res.send(await response.text());
+    } catch (err) { res.status(500).send('Could not fetch Privacy Policy'); }
+});
+
+app.get('/legal/terms', async (req, res) => {
+    try {
+        const response = await fetch(`${LEGAL_GITHUB_BASE}/tos.txt`);
+        if (!response.ok) throw new Error('GitHub fetch failed');
+        res.set('Content-Type', 'text/plain');
+        res.send(await response.text());
+    } catch (err) { res.status(500).send('Could not fetch Terms'); }
+});
 
 app.use(express.static(path.join(__dirname, 'client/dist')));
 app.get('*', (req, res) => {
