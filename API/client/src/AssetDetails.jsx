@@ -65,6 +65,10 @@ export default function AssetDetails() {
     const [backtest, setBacktest] = useState(null);
     const [recent, setRecent] = useState(null);
     
+    // Pagination
+    const [page, setPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
+    
     // UI States
     const [loading, setLoading] = useState(true);
     const [locked, setLocked] = useState(false);
@@ -74,6 +78,7 @@ export default function AssetDetails() {
             setLoading(true);
             try {
                 // 1. Fetch Stats & Chart (Public/Auth)
+                // Now works for guests thanks to optional auth on server
                 const [btRes, recRes, liveRes] = await Promise.all([
                     api.get(`/api/signals/${symbol}/backtest`),
                     api.get(`/api/signals/${symbol}/recent`),
@@ -95,7 +100,7 @@ export default function AssetDetails() {
                     setCurrentSignal(curRes.data);
                     setLocked(false);
                 } catch (err) {
-                    if (err.response?.status === 403) {
+                    if (err.response?.status === 403 || err.response?.status === 401) {
                         setLocked(true);
                     }
                 }
@@ -119,6 +124,10 @@ export default function AssetDetails() {
     };
 
     if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading analysis for {symbol}...</div>;
+
+    // Pagination Logic
+    const totalPages = Math.ceil(liveHistory.length / ITEMS_PER_PAGE);
+    const paginatedHistory = liveHistory.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     return (
         <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '60px' }}>
@@ -213,7 +222,7 @@ export default function AssetDetails() {
                             </tr>
                         </thead>
                         <tbody>
-                            {liveHistory.map((row, i) => (
+                            {paginatedHistory.map((row, i) => (
                                 <tr key={i} style={{ borderTop: '1px solid #f3f4f6' }}>
                                     <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>{row.time}</td>
                                     <td style={{ padding: '12px' }}>
@@ -238,6 +247,26 @@ export default function AssetDetails() {
                             ))}
                         </tbody>
                     </table>
+                </div>
+                {/* Pagination Controls */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
+                    <span style={{ fontSize: '13px', color: '#6b7280' }}>
+                        Page {page} of {totalPages || 1}
+                    </span>
+                    <button 
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        style={{ background: '#fff', border: '1px solid #e5e7eb', color: '#374151', padding: '6px 12px' }}
+                    >
+                        Previous
+                    </button>
+                    <button 
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages || totalPages === 0}
+                        style={{ background: '#fff', border: '1px solid #e5e7eb', color: '#374151', padding: '6px 12px' }}
+                    >
+                        Next
+                    </button>
                 </div>
             </section>
         </div>
