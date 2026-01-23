@@ -44,23 +44,28 @@ export default function Layout() {
       }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '2.5rem' }}>
                   <Link to="/" style={{ 
-        textDecoration: 'none', 
-        color: '#111827', 
-        fontSize: '1.5rem', 
-        fontWeight: '800', 
-        letterSpacing: '-0.025em',
-        display: 'flex',
-        alignItems: 'center'
-    }}>
-        Primate 
-        {/* Updated Image Source */}
-        
-        <span style={{ fontWeight: '300' }}> Signals<img 
-          src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/Spear.png" 
-          alt="voodooghost" 
-          style={{ height: '48px', margin: '0 -12px' }} 
-        /></span>
-    </Link>
+    textDecoration: 'none', 
+    color: '#111827', 
+    fontSize: '1.5rem', 
+    fontWeight: '800', 
+    letterSpacing: '-0.025em',
+    display: 'flex',
+    alignItems: 'center'
+}}>
+    Primate 
+    <span style={{ fontWeight: '300' }}> Signals</span>
+    
+    <img 
+      src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/Spear.png" 
+      alt="voodooghost" 
+      style={{ 
+          height: '48px', 
+          // Updated margin: Adds 8px to the top, keeps -12px on sides
+          margin: '8px -12px 0 -12px' 
+      }} 
+    />
+</Link>
+
               <nav style={{ display: 'flex', gap: '1.5rem', fontSize: '14px', fontWeight: '500' }}>
                   {/* Removed duplicate Signals link */}
                   <Link 
