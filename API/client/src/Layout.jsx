@@ -54,13 +54,14 @@ export default function Layout() {
     alignItems: 'center',
     lineHeight: '1'
 }}>
-    <img 
+    Primate_
+    <span style={{ fontWeight: '300' }}> Signals</span>
+<img 
       src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/Spear.png" 
       alt="voodooghost" 
       // Removed top margin hacks, kept horizontal negative margin
       style={{ height: '48px', margin: '0 -24px' }} 
-    />Primate 
-    <span style={{ fontWeight: '300' }}> Signals</span>
+    />
     
     
 </Link>
