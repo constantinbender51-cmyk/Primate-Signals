@@ -8,7 +8,7 @@ export default function APIDocs() {
     const initialKey = user.api_key || "";
 
     const [testKey, setTestKey] = useState(""); 
-    const [selectedAsset, setSelectedAsset] = useState("BTC"); // Default selection
+    const [selectedAsset, setSelectedAsset] = useState("BTC"); // Default
     const [consoleOutput, setConsoleOutput] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState(null);
@@ -27,12 +27,11 @@ const BASE_URL = "https://your-domain.com/api/signals";
 const API_KEY = "${testKey || 'YOUR_API_KEY_HERE'}";
 
 /**
- * Fetch signal for a specific asset OR the entire portfolio.
- * @param {string} asset - 'BTC', 'XRP', 'SOL', or 'ALL'
+ * Fetch data for a single asset or all assets.
+ * @param {string} asset - 'BTC', 'XRP', 'SOL' or 'all'
  */
-async function getSignals(asset = 'ALL') {
+async function getSignals(asset = 'all') {
   try {
-    // requesting 'ALL' returns aggregated portfolio stats
     const response = await fetch(\`\${BASE_URL}/\${asset}/current\`, {
       method: 'GET',
       headers: {
@@ -129,16 +128,22 @@ async function getSignals(asset = 'ALL') {
             <section style={{ marginBottom: '4rem' }}>
                 <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1.5rem' }}>Response Format</h4>
                 <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-                    You can fetch data for individual assets (e.g., <code>BTC</code>) or use the special <code>ALL</code> keyword to get aggregated portfolio stats.
+                    The API supports fetching single assets (e.g., <code>/BTC/current</code>) or all assets at once (e.g., <code>/all/current</code>).
                 </p>
 
-                <h5 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '1rem', color: '#334155' }}>Aggregated Response Example (ALL)</h5>
+                <h5 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '1rem', color: '#334155' }}>Batch Response Example (JSON)</h5>
                 <pre style={{ marginBottom: '2rem' }}>
 {`{
-  "cumulative_pnl": 12450.50,   // Sum of all asset PnLs
-  "total_trades": 342,          // Total trades across all assets
-  "accuracy_percent": 68.5,     // Average accuracy
-  "equity_curve": [ ... ]       // Combined portfolio equity curve
+  "BTC": {
+    "time": "2023-10-27 10:00:00",
+    "entry_price": 34500.00,
+    "pred_dir": 1
+  },
+  "XRP": {
+    "time": "2023-10-27 10:00:00",
+    "entry_price": 0.55,
+    "pred_dir": 0
+  }
 }`}
                 </pre>
             </section>
@@ -184,7 +189,7 @@ async function getSignals(asset = 'ALL') {
                                     <option value="BTC">BTC</option>
                                     <option value="XRP">XRP</option>
                                     <option value="SOL">SOL</option>
-                                    <option value="ALL">ALL (Portfolio)</option>
+                                    <option value="all">ALL (Batch)</option>
                                 </select>
                             </div>
                             <button type="submit" disabled={isLoading} style={{ height: '42px', whiteSpace: 'nowrap' }}>
