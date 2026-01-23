@@ -8,6 +8,7 @@ export default function APIDocs() {
     const initialKey = user.api_key || "";
 
     const [testKey, setTestKey] = useState(""); 
+    const [selectedAsset, setSelectedAsset] = useState("BTC"); // Default
     const [consoleOutput, setConsoleOutput] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState(null);
@@ -22,15 +23,16 @@ export default function APIDocs() {
     };
 
     const codeExample = `// Configuration
-const API_ENDPOINT = "https://your-domain.com/api/signals/BTC/current"; 
+const BASE_URL = "https://your-domain.com/api/signals"; 
 const API_KEY = "${testKey || 'YOUR_API_KEY_HERE'}";
 
 /**
- * Fetches the Current Signal for BTC from the Primate Signals API.
+ * Fetch data for a single asset or all assets.
+ * @param {string} asset - 'BTC', 'XRP', 'SOL' or 'all'
  */
-async function getLiveSignal() {
+async function getSignals(asset = 'all') {
   try {
-    const response = await fetch(API_ENDPOINT, {
+    const response = await fetch(\`\${BASE_URL}/\${asset}/current\`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -41,9 +43,10 @@ async function getLiveSignal() {
     if (!response.ok) throw new Error("API Request failed: " + response.status);
 
     const data = await response.json();
+    console.log(data);
     return data;
   } catch (error) {
-    console.error("Failed to fetch live signal:", error.message);
+    console.error("Failed to fetch signals:", error.message);
   }
 }`;
 
@@ -53,13 +56,13 @@ async function getLiveSignal() {
         setConsoleOutput(null);
         setStatus(null);
 
-        // We use a real endpoint now.
         // If key is present -> try 'current' (private). 
         // If no key -> try 'recent' (public) as a fallback demo.
         const endpoint = testKey ? 'current' : 'recent';
         
         try {
-            const res = await fetch(`${BASE_URL}/api/signals/BTC/${endpoint}`, {
+            // New route structure: /api/signals/{asset}/{type}
+            const res = await fetch(`${BASE_URL}/api/signals/${selectedAsset}/${endpoint}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -123,48 +126,27 @@ async function getLiveSignal() {
             </section>
 
             <section style={{ marginBottom: '4rem' }}>
-    <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1.5rem' }}>Response Format</h4>
-    <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-        The API returns a JSON object containing the latest signal details.
-    </p>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1.5rem' }}>Response Format</h4>
+                <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+                    The API supports fetching single assets (e.g., <code>/BTC/current</code>) or all assets at once (e.g., <code>/all/current</code>).
+                </p>
 
-    <h5 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '1rem', color: '#334155' }}>Signal Object Structure</h5>
-    <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' }}>
-            <thead>
-                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <th style={{ padding: '12px 0', color: '#64748b' }}>Field</th>
-                    <th style={{ padding: '12px 0', color: '#64748b' }}>Type</th>
-                    <th style={{ padding: '12px 0', color: '#64748b' }}>Description</th>
-                </tr>
-            </thead>
-            <tbody style={{ color: '#334155' }}>
-                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '12px 0' }}><code>time</code></td>
-                    <td style={{ padding: '12px 0' }}><span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>String</span></td>
-                    <td style={{ padding: '12px 0' }}>
-                        The UTC timestamp of the signal.<br/>
-                    </td>
-                </tr>
-                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '12px 0' }}><code>entry_price</code></td>
-                    <td style={{ padding: '12px 0' }}><span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>Float</span></td>
-                    <td style={{ padding: '12px 0' }}>
-                       Price at which the signal was generated.
-                    </td>
-                </tr>
-                <tr>
-                    <td style={{ padding: '12px 0' }}><code>pred_dir</code></td>
-                    <td style={{ padding: '12px 0' }}><span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>Integer</span></td>
-                    <td style={{ padding: '12px 0' }}>
-                        Direction of the trade. 1 (Long), -1 (Short), 0 (Flat).
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</section>
-
+                <h5 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '1rem', color: '#334155' }}>Batch Response Example (JSON)</h5>
+                <pre style={{ marginBottom: '2rem' }}>
+{`{
+  "BTC": {
+    "time": "2023-10-27 10:00:00",
+    "entry_price": 34500.00,
+    "pred_dir": 1
+  },
+  "XRP": {
+    "time": "2023-10-27 10:00:00",
+    "entry_price": 0.55,
+    "pred_dir": 0
+  }
+}`}
+                </pre>
+            </section>
 
             <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '4rem 0' }} />
 
@@ -180,8 +162,8 @@ async function getLiveSignal() {
                     boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
                 }}>
                     <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb' }}>
-                        <form onSubmit={handleSimulate} style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
-                            <div style={{ flexGrow: 1 }}>
+                        <form onSubmit={handleSimulate} style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                            <div style={{ flexGrow: 1, minWidth: '200px' }}>
                                 <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>
                                     X-API-KEY
                                 </label>
@@ -189,9 +171,26 @@ async function getLiveSignal() {
                                     type="text" 
                                     value={testKey} 
                                     onChange={(e) => setTestKey(e.target.value)}
-                                    placeholder="Paste your API key here"
+                                    placeholder="Paste your API key here (Leave empty for public data)"
                                     style={{ margin: 0 }}
                                 />
+                            </div>
+                            <div style={{ minWidth: '120px' }}>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>
+                                    Target Asset
+                                </label>
+                                <select 
+                                    value={selectedAsset}
+                                    onChange={(e) => setSelectedAsset(e.target.value)}
+                                    style={{ 
+                                        width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '14px', background: '#fff'
+                                    }}
+                                >
+                                    <option value="BTC">BTC</option>
+                                    <option value="XRP">XRP</option>
+                                    <option value="SOL">SOL</option>
+                                    <option value="all">ALL (Batch)</option>
+                                </select>
                             </div>
                             <button type="submit" disabled={isLoading} style={{ height: '42px', whiteSpace: 'nowrap' }}>
                                 {isLoading ? 'Sending...' : 'Test Request'}
