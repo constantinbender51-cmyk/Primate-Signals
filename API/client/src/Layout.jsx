@@ -60,7 +60,7 @@ export default function Layout() {
       src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/Spear.png" 
       alt="voodooghost" 
       // Removed top margin hacks, kept horizontal negative margin
-      style={{ height: '48px', margin: '0 -12px' }} 
+      style={{ height: '24px', margin: '0 -24px' }} 
     />
 </Link>
 
