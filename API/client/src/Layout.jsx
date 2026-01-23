@@ -38,35 +38,29 @@ export default function Layout() {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-          marginBottom: '0rem',
-          paddingBottom: '0rem',
+          marginBottom: '3rem',
+          paddingBottom: '1.5rem',
           borderBottom: '1px solid #e5e7eb' 
       }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '2.5rem' }}>
                   <Link to="/" style={{ 
-    textDecoration: 'none', 
-    color: '#111827', 
-    fontSize: '1.5rem', 
-    fontWeight: '800', 
-    letterSpacing: '-0.025em',
-    display: 'flex',
-    // Changed from 'center' to 'baseline' to align the bottoms
-    alignItems: 'center',
-    lineHeight: '1'
-}}>
-    Primate_
-    <span style={{ fontWeight: '300' }}> Signals</span>
-<img 
-      src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/Spear.png" 
-      alt="voodooghost" 
-      // Removed top margin hacks, kept horizontal negative margin
-      style={{ height: '48px', margin: '0 -24px' }} 
-    />
-    
-    
-</Link>
-
-
+        textDecoration: 'none', 
+        color: '#111827', 
+        fontSize: '1.5rem', 
+        fontWeight: '800', 
+        letterSpacing: '-0.025em',
+        display: 'flex',
+        alignItems: 'center'
+    }}>
+        <img 
+          src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/vg2.png" 
+          alt="voodooghost" 
+          style={{ height: '48px', margin: '0 6px' }} 
+        />Primate 
+        {/* Updated Image Source */}
+        
+        <span style={{ fontWeight: '300' }}> Signals</span>
+    </Link>
               <nav style={{ display: 'flex', gap: '1.5rem', fontSize: '14px', fontWeight: '500' }}>
                   {/* Removed duplicate Signals link */}
                   <Link 
