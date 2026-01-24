@@ -97,10 +97,10 @@ export default function LandingPage() {
                         border: '4px solid #fff'
                     }}>
                         <img 
-                            src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/img/spearholding.png" 
-                            alt="Primate Hunter" 
+                            src="https://i.postimg.cc/qRbFkRRN/IMG-20260124-192141.png" 
+                            alt="chart" 
                             style={{ width: '100%', height: 'auto', display: 'block', background: '#fef3c7' }} 
-                        />
+                        />Here's a chart. Do you know what it means? It's a good sign.
                         <div style={{
                             position: 'absolute',
                             bottom: '20px',
@@ -143,13 +143,8 @@ export default function LandingPage() {
                                     <h4 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: '700' }}>{item.title}</h4>
                                     <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>{item.desc}</p>
                                 </div>
-                            </div>
-<img 
-                            src="https://i.postimg.cc/qRbFkRRN/IMG-20260124-192141.png" 
-                            alt="Primate Hunter" 
-                            style={{ width: '100%', height: 'auto', display: 'block', background: '#fef3c7' }} 
-                        />Here's a chart. do you know what it means? it's a good sign.
-                        ))}
+                            </div> 
+                              ))}
                     </div>
                 </div>
             </section>
