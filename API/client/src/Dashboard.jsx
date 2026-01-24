@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // Link removed, using navigate for card click
+import { Link, useNavigate } from 'react-router-dom';
 import api from './api';
 import LandingPage from './LandingPage';
 
@@ -69,17 +69,17 @@ const EquityChart = ({ data }) => {
 
 // --- Sub-Component: Asset Card (Row Style) ---
 const AssetCard = ({ symbol, metrics, isActive }) => {
-    const navigate = useNavigate();
     // Default values if metrics are loading or unavailable
     const pnl = metrics?.pnl || 0;
     const isPos = pnl >= 0;
     const acc = metrics?.accuracy || 0;
     const trades = metrics?.trades || 0;
+    const expRet = metrics?.exp_return || 0;
     const signal = metrics?.signal || 0; // 1 = Long, -1 = Short
 
     return (
-        <div 
-            onClick={() => navigate(`/asset/${symbol}`)}
+        <Link 
+            to={`/asset/${symbol}`}
             style={{
                 textDecoration: 'none',
                 color: 'inherit',
@@ -105,7 +105,7 @@ const AssetCard = ({ symbol, metrics, isActive }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1 }}>
                 <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600', width: '60px' }}>{symbol}</h3>
                 
-                {/* Metrics Row: Accuracy -> PnL -> Trades -> Signal */}
+                {/* Metrics Row */}
                 {metrics ? (
                     <div style={{ display: 'flex', gap: '20px', alignItems: 'center', fontSize: '13px' }}>
                         
@@ -120,43 +120,35 @@ const AssetCard = ({ symbol, metrics, isActive }) => {
                             {isPos ? '+' : ''}{pnl.toFixed(2)}%
                         </div>
 
-                        {/* 3. Trades */}
+                        {/* 3. Expected Return */}
+                        <div style={{ color: '#4b5563' }}>
+                            <span style={{ color: '#9ca3af', marginRight: '4px' }}>Exp. Ret:</span>
+                            {expRet > 0 ? '+' : ''}{expRet.toFixed(2)}%
+                        </div>
+
+                        {/* 4. Trades */}
                         <div style={{ color: '#4b5563' }}>
                             <span style={{ color: '#9ca3af', marginRight: '4px' }}>Trades:</span>
                             {trades}
                         </div>
 
-                        {/* 4. Signal (or Try Free) */}
-                        {isActive ? (
-                            <div style={{ color: '#4b5563' }}>
-                                <span style={{ color: '#9ca3af', marginRight: '4px' }}>Signal:</span>
-                                {signal === 1 ? 'LONG' : signal === -1 ? 'SHORT' : 'FLAT'}
-                            </div>
-                        ) : (
-                            <button 
-                                style={{
-                                    padding: '4px 12px',
-                                    borderRadius: '20px',
-                                    border: 'none',
-                                    background: '#2563eb',
-                                    color: '#fff',
-                                    fontSize: '11px',
-                                    fontWeight: '600',
-                                    cursor: 'pointer',
-                                    // Pointer events none ensures the click passes through to the parent div handler
-                                    pointerEvents: 'none' 
-                                }}
-                            >
-                                Try for Free
-                            </button>
-                        )}
+                        {/* 5. Signal or Restricted */}
+                        <div style={{ color: '#4b5563' }}>
+                            <span style={{ color: '#9ca3af', marginRight: '4px' }}>Signal:</span>
+                            {isActive ? (
+                                <span>{signal === 1 ? 'LONG' : signal === -1 ? 'SHORT' : 'FLAT'}</span>
+                            ) : (
+                                <span style={{ color: '#dc2626', fontWeight: '600', fontSize: '12px' }}>RESTRICTED</span>
+                            )}
+                        </div>
+
                     </div>
                 ) : (
                     <span style={{ fontSize: '12px', color: '#9ca3af' }}>Loading stats...</span>
                 )}
             </div>
             {/* Arrow removed */}
-        </div>
+        </Link>
     );
 };
 
@@ -199,20 +191,24 @@ export default function Dashboard() {
                         const wins = validTrades.filter(t => (parseFloat(t.pnl) || 0) > 0).length;
                         const validCount = validTrades.length;
                         
-                        // Total PnL: Sum raw pnl (from all trades including flat ones)
+                        // Total PnL: Sum raw pnl 
                         const rawCumPnl = sorted.reduce((acc, t) => acc + (parseFloat(t.pnl) || 0), 0);
                         const pnlPercent = rawCumPnl * 100;
+
+                        // Expected Return Per Trade
+                        const avgReturn = validCount > 0 ? (pnlPercent / validCount) : 0;
 
                         const lastTrade = sorted[sorted.length - 1];
 
                         newStats[symbol] = {
                             pnl: pnlPercent,
-                            trades: validCount, // Display only valid trades
+                            trades: validCount,
                             accuracy: validCount > 0 ? ((wins / validCount) * 100).toFixed(1) : 0,
+                            exp_return: avgReturn,
                             signal: lastTrade?.pred_dir || 0
                         };
                     } else {
-                        newStats[symbol] = { pnl: 0, trades: 0, accuracy: 0, signal: 0 };
+                        newStats[symbol] = { pnl: 0, trades: 0, accuracy: 0, exp_return: 0, signal: 0 };
                     }
 
                     allTrades = [...allTrades, ...trades];
