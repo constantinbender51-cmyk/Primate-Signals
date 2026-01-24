@@ -54,7 +54,7 @@ export default function LandingPage() {
                     marginBottom: '40px',
                     lineHeight: '1.6'
                 }}>
-                    Stop guessing. Start striking. Our advanced models analyze BTC, XRP, and SOL in real-time to deliver high-accuracy entry and exit signals.
+                    Stop guessing. Start striking. Our predictive models analyze major crypto assets in real-time to deliver high-accuracy trading signals.
                 </p>
 
                 <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -122,12 +122,12 @@ export default function LandingPage() {
                         <span style={{ color: '#dc2626' }}>Be the Hunter.</span>
                     </h2>
                     <p style={{ fontSize: '1.1rem', color: '#6b7280', marginBottom: '32px', lineHeight: '1.7' }}>
-                        The market is a jungle. Most traders get eaten by volatility. We equip you with the spear—institutional-grade data processing that identifies opportunities before the crowd moves.
+                        The market is a wild beast. Most traders get eaten by volatility. We equip you with a spear that tracks down inefficiencies automatically. All you have to do is strike. 
                     </p>
                     
                     <div style={{ display: 'grid', gap: '24px' }}>
                         {[
-                            { title: 'Real-Time Precision', desc: 'Signals generated every 15 minutes based on live order book data.' },
+                            { title: 'Real-Time Precision', desc: 'Signals generated every 60 minutes based on recent market data.' },
                             { title: 'Transparent Performance', desc: 'Full historical logs. We don\'t hide our losses, because our wins speak louder.' },
                             { title: 'API Access', desc: 'Connect your own bots directly to our prediction engine.' }
                         ].map((item, i) => (
