@@ -33,6 +33,7 @@ const EquityChart = ({ data }) => {
 
     const pathD = points.map((p, i) => `${i===0?'M':'L'} ${getX(p.time)} ${getY(p.val)}`).join(' ');
 
+    // Calculate Grid Lines (Midnight of each day)
     const dayLines = [];
     let currentDay = new Date(minTime);
     currentDay.setHours(0, 0, 0, 0); 
@@ -45,6 +46,7 @@ const EquityChart = ({ data }) => {
         currentDay.setDate(currentDay.getDate() + 1);
     }
 
+    // Final PnL
     const totalPnL = points[points.length - 1].val;
     const isPositive = totalPnL >= 0;
 
@@ -53,13 +55,19 @@ const EquityChart = ({ data }) => {
             <h4 style={{ margin: '0 0 15px 0', color: '#374151', fontSize: '14px', textTransform: 'uppercase' }}>Combined Portfolio Performance (Live)</h4>
             
             <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+                {/* Zero Line */}
                 <line x1={padding} y1={zeroY} x2={width-padding} y2={zeroY} stroke="#9ca3af" strokeWidth="1" strokeDasharray="4" opacity="0.5" />
+                
+                {/* Day Grid Lines */}
                 {dayLines.map((x, i) => (
                    <line key={i} x1={x} y1={padding} x2={x} y2={height - padding} stroke="#e5e7eb" strokeWidth="1" />
                 ))}
+
+                {/* Main Curve */}
                 <path d={pathD} fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             
+            {/* PnL Under Chart: Left Aligned & Smaller */}
             <div style={{ textAlign: 'left', marginTop: '12px', fontSize: '14px', fontWeight: 'bold', color: isPositive ? '#10b981' : '#ef4444' }}>
                 Total PnL: {isPositive ? '+' : ''}{totalPnL.toFixed(2)}%
             </div>
@@ -69,17 +77,24 @@ const EquityChart = ({ data }) => {
 
 // --- Sub-Component: Asset Card (Row Style) ---
 const AssetCard = ({ symbol, metrics, isActive }) => {
+    const navigate = useNavigate();
     // Default values if metrics are loading or unavailable
     const pnl = metrics?.pnl || 0;
     const isPos = pnl >= 0;
     const acc = metrics?.accuracy || 0;
     const trades = metrics?.trades || 0;
-    const expRet = metrics?.exp_return || 0;
     const signal = metrics?.signal || 0; // 1 = Long, -1 = Short
+
+    const handleTryFree = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Redirect to asset page which has the lock screen + subscribe button
+        navigate(`/asset/${symbol}`);
+    };
 
     return (
         <Link 
-            to={`/asset/${symbol}`}
+            to={`/asset/${symbol}`} 
             style={{
                 textDecoration: 'none',
                 color: 'inherit',
@@ -105,7 +120,7 @@ const AssetCard = ({ symbol, metrics, isActive }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1 }}>
                 <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600', width: '60px' }}>{symbol}</h3>
                 
-                {/* Metrics Row */}
+                {/* Metrics Row: Accuracy -> PnL -> Trades -> Signal */}
                 {metrics ? (
                     <div style={{ display: 'flex', gap: '20px', alignItems: 'center', fontSize: '13px' }}>
                         
@@ -120,34 +135,47 @@ const AssetCard = ({ symbol, metrics, isActive }) => {
                             {isPos ? '+' : ''}{pnl.toFixed(2)}%
                         </div>
 
-                        {/* 3. Expected Return */}
-                        <div style={{ color: '#4b5563' }}>
-                            <span style={{ color: '#9ca3af', marginRight: '4px' }}>Exp. Ret:</span>
-                            {expRet > 0 ? '+' : ''}{expRet.toFixed(2)}%
-                        </div>
-
-                        {/* 4. Trades */}
+                        {/* 3. Trades */}
                         <div style={{ color: '#4b5563' }}>
                             <span style={{ color: '#9ca3af', marginRight: '4px' }}>Trades:</span>
                             {trades}
                         </div>
 
-                        {/* 5. Signal or Restricted */}
-                        <div style={{ color: '#4b5563' }}>
-                            <span style={{ color: '#9ca3af', marginRight: '4px' }}>Signal:</span>
-                            {isActive ? (
-                                <span>{signal === 1 ? 'LONG' : signal === -1 ? 'SHORT' : 'FLAT'}</span>
-                            ) : (
-                                <span style={{ color: '#dc2626', fontWeight: '600', fontSize: '12px' }}>RESTRICTED</span>
-                            )}
-                        </div>
-
+                        {/* 4. Signal (or Try Free) */}
+                        {isActive ? (
+                            <span style={{ 
+                                padding: '2px 8px', borderRadius: '4px', fontWeight: '700', fontSize: '11px',
+                                background: signal === 1 ? '#d1fae5' : signal === -1 ? '#fee2e2' : '#f3f4f6',
+                                color: signal === 1 ? '#047857' : signal === -1 ? '#b91c1c' : '#6b7280'
+                            }}>
+                                {signal === 1 ? 'LONG' : signal === -1 ? 'SHORT' : 'FLAT'}
+                            </span>
+                        ) : (
+                            <button 
+                                onClick={handleTryFree}
+                                style={{
+                                    padding: '4px 12px',
+                                    borderRadius: '20px',
+                                    border: 'none',
+                                    background: '#2563eb',
+                                    color: '#fff',
+                                    fontSize: '11px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Try for Free
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <span style={{ fontSize: '12px', color: '#9ca3af' }}>Loading stats...</span>
                 )}
             </div>
-            {/* Arrow removed */}
+
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span style={{ color: '#9ca3af', fontSize: '1.2rem' }}>&rsaquo;</span>
+            </div>
         </Link>
     );
 };
@@ -186,29 +214,25 @@ export default function Dashboard() {
                     if (trades.length > 0) {
                         const sorted = [...trades].sort((a, b) => new Date(a.time) - new Date(b.time));
                         
-                        // Valid Trades: Filter out flat predictions (0) and flat outcomes (0 pnl)
+                        // Accuracy: Filter out flat predictions (0) and flat outcomes (0 pnl)
                         const validTrades = sorted.filter(t => t.pred_dir !== 0 && parseFloat(t.pnl) !== 0);
                         const wins = validTrades.filter(t => (parseFloat(t.pnl) || 0) > 0).length;
                         const validCount = validTrades.length;
                         
-                        // Total PnL: Sum raw pnl 
+                        // Total PnL: Sum raw pnl then multiply by 100 for percentage
                         const rawCumPnl = sorted.reduce((acc, t) => acc + (parseFloat(t.pnl) || 0), 0);
                         const pnlPercent = rawCumPnl * 100;
-
-                        // Expected Return Per Trade
-                        const avgReturn = validCount > 0 ? (pnlPercent / validCount) : 0;
 
                         const lastTrade = sorted[sorted.length - 1];
 
                         newStats[symbol] = {
                             pnl: pnlPercent,
-                            trades: validCount,
+                            trades: sorted.length, // Display total trades (including flats) or valid only? Usually total history.
                             accuracy: validCount > 0 ? ((wins / validCount) * 100).toFixed(1) : 0,
-                            exp_return: avgReturn,
                             signal: lastTrade?.pred_dir || 0
                         };
                     } else {
-                        newStats[symbol] = { pnl: 0, trades: 0, accuracy: 0, exp_return: 0, signal: 0 };
+                        newStats[symbol] = { pnl: 0, trades: 0, accuracy: 0, signal: 0 };
                     }
 
                     allTrades = [...allTrades, ...trades];
