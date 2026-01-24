@@ -75,7 +75,7 @@ const EquityChart = ({ data }) => {
     );
 };
 
-// --- Sub-Component: Asset Card (Fitted Style) ---
+// --- Sub-Component: Asset Card (Row Style) ---
 const AssetCard = ({ symbol }) => {
     return (
         <Link 
@@ -86,9 +86,10 @@ const AssetCard = ({ symbol }) => {
                 background: '#fff',
                 border: '1px solid #e5e7eb',
                 borderRadius: '8px',
-                padding: '10px', // Exact padding requested
-                width: 'fit-content', // Prevents full width span
-                display: 'block', 
+                padding: '16px 20px', // Standard list padding
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between', // Align content across the row
                 cursor: 'pointer',
                 transition: 'border-color 0.2s, background-color 0.2s'
             }}
@@ -102,6 +103,7 @@ const AssetCard = ({ symbol }) => {
             }}
         >
             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600' }}>{symbol}</h3>
+            <span style={{ color: '#9ca3af', fontSize: '1.2rem' }}>&rsaquo;</span>
         </Link>
     );
 };
@@ -115,6 +117,7 @@ export default function Dashboard() {
     
     const [combinedData, setCombinedData] = useState([]);
 
+    // Fetch and aggregate data for the combined plot
     useEffect(() => {
         if (!token) return;
 
@@ -168,11 +171,10 @@ export default function Dashboard() {
                 </p>
             </header>
 
-            {/* Asset List - Stacked Vertically but fitted width */}
+            {/* Asset List - Stacked Vertically */}
             <div style={{ 
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'flex-start', // Ensures items don't stretch
                 gap: '12px',
             }}>
                 {ASSETS.map(symbol => (
@@ -183,7 +185,7 @@ export default function Dashboard() {
                 ))}
             </div>
 
-            {/* Combined Performance Chart */}
+            {/* Combined Performance Chart - Below List */}
             <EquityChart data={combinedData} />
         </div>
     );
