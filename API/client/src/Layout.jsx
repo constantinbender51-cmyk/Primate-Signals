@@ -53,7 +53,7 @@ export default function Layout() {
         alignItems: 'center'
     }}>
         <img 
-          src="https://i.postimg.cc/fb6pYY8L/IMG-20260124-155345.png" 
+          src="https://i.postimg.cc/yxFD7hbT/IMG-20260124-160140.png" 
           alt="voodooghost" 
           style={{ height: '24px', margin: '0 -12px' }} 
         />Primate 
