@@ -135,7 +135,8 @@ const authenticate = async (req, res, next) => {
 const SUPPORTED_ASSETS = {
     'BTC': 'https://try3btc.up.railway.app',
     'XRP': 'https://try3xrp.up.railway.app',
-    'SOL': 'https://try3sol.up.railway.app'
+    'SOL': 'https://try3sol.up.railway.app',
+    'DOGE': 'https://try3doge.up.railway.app'
 };
 
 const SUPPORTED_ENDPOINTS = ['current', 'live', 'backtest', 'recent'];
@@ -177,7 +178,7 @@ app.get('/api/signals/:asset/:type', optionalAuthenticate, async (req, res) => {
     const asset = req.params.asset.toUpperCase();
     const type = req.params.type.toLowerCase();
 
-    if (!SUPPORTED_ASSETS[asset]) return res.status(404).json({ error: 'Asset not supported. Only BTC, XRP, SOL available.' });
+    if (!SUPPORTED_ASSETS[asset]) return res.status(404).json({ error: 'Asset not supported. Only BTC, XRP, SOL, DOGE available.' });
     if (!SUPPORTED_ENDPOINTS.includes(type)) return res.status(404).json({ error: 'Invalid endpoint type.' });
 
     if (type === 'current') {
