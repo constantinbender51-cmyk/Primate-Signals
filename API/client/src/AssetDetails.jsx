@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from './api';
 import toast from 'react-hot-toast';
@@ -135,8 +135,7 @@ export default function AssetDetails() {
     const [backtest, setBacktest] = useState(null);
     const [recent, setRecent] = useState(null);
     const [liveHistory, setLiveHistory] = useState([]);
-    const [liveStats, setLiveStats] = useState(null);
-    // Derived stats for live
+    // Removed separate liveStats state; we will derive it from activeLiveTrades
     const [currentSignal, setCurrentSignal] = useState(null);
     
     // Fee Calculation State
@@ -170,23 +169,8 @@ export default function AssetDetails() {
                 liveRes.data : (liveRes.data.results || []);
                 setLiveHistory(lHist.sort((a,b) => new Date(b.time) - new Date(a.time)));
                 
-                // Derive stats for Live
-                if(lHist.length > 0) {
-                     const total = lHist.length;
-                     const wins = lHist.filter(t => t.pnl > 0).length;
-                     
-                     // Sum RAW pnl then multiply by 100
-                     const rawCumPnl = lHist.reduce((acc, t) => acc + (parseFloat(t.pnl)||0), 0);
-                     const cumPnl = rawCumPnl * 100;
-
-                     setLiveStats({
-                         cumulative_pnl: cumPnl,
-                         total_trades: total,
-                         correct_trades: wins,
-                         accuracy_percent: ((wins/total)*100).toFixed(1)
-                     });
-                }
-
+                // Note: liveStats are now derived in the render body below
+                
                 // Private Data
                 try {
                     const curRes = await api.get(`/api/signals/${symbol}/current`);
@@ -223,15 +207,31 @@ export default function AssetDetails() {
         return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
     };
 
-    // Filter out flat predictions (0 or null)
-    const activeLiveTrades = liveHistory.filter(t => t.pred_dir === 1 || t.pred_dir === -1);
+    // 1. Filter out flat predictions (0 or null)
+    const activeLiveTrades = useMemo(() => {
+        return liveHistory.filter(t => t.pred_dir === 1 || t.pred_dir === -1);
+    }, [liveHistory]);
+
+    // 2. Derive Live Stats from active trades (Excluding flats from count)
+    const liveStats = useMemo(() => {
+        if (activeLiveTrades.length === 0) return null;
+        
+        const total = activeLiveTrades.length;
+        const wins = activeLiveTrades.filter(t => t.pnl > 0).length;
+        const rawCumPnl = activeLiveTrades.reduce((acc, t) => acc + (parseFloat(t.pnl)||0), 0);
+        
+        return {
+            cumulative_pnl: rawCumPnl * 100,
+            total_trades: total,
+            correct_trades: wins,
+            accuracy_percent: ((wins/total)*100).toFixed(1)
+        };
+    }, [activeLiveTrades]);
 
     // Calculate Realistic PnL
     const calculateRealisticPnL = () => {
         if (!activeLiveTrades.length) return "0.00";
-        // Gross PnL in percentage (e.g. 15.5)
         const grossPnL = activeLiveTrades.reduce((acc, t) => acc + (parseFloat(t.pnl) || 0), 0) * 100;
-        // Total Fees = Number of trades * Fee per trade
         const totalFees = activeLiveTrades.length * parseFloat(fee || 0);
         return (grossPnL - totalFees).toFixed(2);
     };
@@ -301,7 +301,6 @@ export default function AssetDetails() {
                         data={liveStats} 
                         timeSpanLabel={getDateRange(activeLiveTrades)} 
                     />
-                    {/* Exclude flat predictions (passed activeLiveTrades instead of liveHistory) */}
                     <HistoryTable trades={activeLiveTrades} />
                 </section>
             </div>
