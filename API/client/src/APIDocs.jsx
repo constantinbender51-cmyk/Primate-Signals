@@ -28,7 +28,7 @@ const API_KEY = "${testKey || 'YOUR_API_KEY_HERE'}";
 
 /**
  * Fetch data for a single asset or all assets.
- * @param {string} asset - 'BTC', 'XRP', 'SOL' or 'all'
+ * @param {string} asset - 'BTC', 'XRP', 'SOL', 'DOGE' or 'all'
  */
 async function getSignals(asset = 'all') {
   try {
@@ -189,6 +189,7 @@ async function getSignals(asset = 'all') {
                                     <option value="BTC">BTC</option>
                                     <option value="XRP">XRP</option>
                                     <option value="SOL">SOL</option>
+                                    <option value="DOGE">DOGE</option>
                                     <option value="all">ALL (Batch)</option>
                                 </select>
                             </div>
