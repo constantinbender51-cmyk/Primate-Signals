@@ -7,21 +7,28 @@ const ASSETS = ['BTC', 'XRP', 'SOL'];
 // --- Sub-Component: Asset Card ---
 const AssetCard = ({ symbol }) => {
     return (
-        <div style={{
-            background: '#fff',
-            border: '1px solid #e5e7eb',
-            borderRadius: '12px',
-            padding: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            minHeight: '100px'
-        }}>
-            <Link to={`/asset/${symbol}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <h3 style={{ margin: 0, fontSize: '1.5rem', cursor: 'pointer' }}>{symbol} / USD</h3>
-            </Link>
-        </div>
+        <Link 
+            to={`/asset/${symbol}`} 
+            style={{
+                textDecoration: 'none',
+                color: 'inherit',
+                background: '#fff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '12px',
+                padding: '16px', // Reduced padding
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                minHeight: '80px',
+                cursor: 'pointer',
+                transition: 'border-color 0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.borderColor = '#2563eb'}
+            onMouseOut={(e) => e.currentTarget.style.borderColor = '#e5e7eb'}
+        >
+            <h3 style={{ margin: 0, fontSize: '1.5rem' }}>{symbol} / USD</h3>
+        </Link>
     );
 };
 
