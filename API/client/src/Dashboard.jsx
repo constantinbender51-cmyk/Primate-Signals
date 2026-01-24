@@ -1,222 +1,182 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from './api';
-import toast from 'react-hot-toast';
+import LandingPage from './LandingPage'; // Import Landing Page
 
 const ASSETS = ['BTC', 'XRP', 'SOL'];
 
-// --- Sub-Component: Card View (Visual) ---
-const AssetCard = ({ symbol }) => {
-    const [stats, setStats] = useState(null);
+// --- Sub-Component: Asset Card ---
+const AssetCard = ({ symbol, isActive, onSubscribe }) => {
+    const [recentStats, setRecentStats] = useState(null);
+    const [currentSignal, setCurrentSignal] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchStats = async () => {
+        const fetchData = async () => {
+            setLoading(true);
             try {
-                const res = await api.get(`/api/signals/${symbol}/recent`);
-                setStats(res.data);
+                // Always fetch recent stats (Public)
+                const recRes = await api.get(`/api/signals/${symbol}/recent`);
+                setRecentStats(recRes.data);
+
+                // If active, try fetching current signal
+                if (isActive) {
+                    try {
+                        const curRes = await api.get(`/api/signals/${symbol}/current`);
+                        setCurrentSignal(curRes.data);
+                    } catch (e) { /* Ignore fetch error for signal */ }
+                }
             } catch (err) {
-                console.error(`Failed to load ${symbol} stats`);
+                console.error(`Failed to load ${symbol} data`);
             } finally {
                 setLoading(false);
             }
         };
-        fetchStats();
-    }, [symbol]);
+        fetchData();
+    }, [symbol, isActive]);
 
     return (
-        <Link to={`/asset/${symbol}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-            <div style={{
-                background: '#fff',
-                border: '1px solid #e5e7eb',
-                borderRadius: '12px',
-                padding: '24px',
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                height: '100%'
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)';
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-            }}
-            >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.5rem' }}>{symbol} / USD</h3>
-                    <span style={{ 
-                        background: '#eff6ff', color: '#2563eb', 
-                        padding: '4px 12px', borderRadius: '20px', 
-                        fontSize: '12px', fontWeight: '600' 
-                    }}>1H Signal</span>
-                </div>
-                
-                <div style={{ height: '1px', background: '#f3f4f6', margin: '8px 0' }}></div>
+        <div style={{
+            background: '#fff',
+            border: '1px solid #e5e7eb',
+            borderRadius: '12px',
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            height: '100%',
+            position: 'relative',
+            overflow: 'hidden'
+        }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Link to={`/asset/${symbol}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.5rem', cursor: 'pointer' }}>{symbol} / USD</h3>
+                </Link>
+                <span style={{ 
+                    background: '#eff6ff', color: '#2563eb', 
+                    padding: '4px 12px', borderRadius: '20px', 
+                    fontSize: '12px', fontWeight: '600' 
+                }}>1H</span>
+            </div>
 
+            <div style={{ height: '1px', background: '#f3f4f6' }}></div>
+
+            {/* Signal / Call to Action Area */}
+            <div style={{ minHeight: '60px', display: 'flex', alignItems: 'center' }}>
                 {loading ? (
-                    <div style={{ color: '#9ca3af', fontSize: '14px' }}>Loading stats...</div>
-                ) : stats ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                        <div>
-                            <div style={{ fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Accuracy</div>
-                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827' }}>{stats.accuracy_percent}%</div>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Total PnL</div>
-                            <div style={{ 
-                                fontSize: '18px', fontWeight: 'bold',
-                                color: stats.cumulative_pnl >= 0 ? '#10b981' : '#ef4444'
-                            }}>
-                                {stats.cumulative_pnl >= 0 ? '+' : ''}{parseFloat(stats.cumulative_pnl).toFixed(4)}
-                            </div>
-                        </div>
+                    <span style={{ color: '#9ca3af', fontSize: '14px' }}>Loading...</span>
+                ) : isActive && currentSignal ? (
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                         {currentSignal.pred_dir === 1 && (
+                            <span style={{ background: '#ecfdf5', color: '#059669', padding: '6px 12px', borderRadius: '6px', fontWeight: '700', fontSize:'14px' }}>BUY</span>
+                         )}
+                         {currentSignal.pred_dir === -1 && (
+                            <span style={{ background: '#fef2f2', color: '#dc2626', padding: '6px 12px', borderRadius: '6px', fontWeight: '700', fontSize:'14px' }}>SELL</span>
+                         )}
+                         {currentSignal.pred_dir === 0 && (
+                            <span style={{ background: '#f3f4f6', color: '#4b5563', padding: '6px 12px', borderRadius: '6px', fontWeight: '700', fontSize:'14px' }}>HOLD</span>
+                         )}
+                         <span style={{ fontSize: '16px', fontWeight: '600', color: '#374151' }}>
+                            ${currentSignal.entry_price}
+                         </span>
                     </div>
                 ) : (
-                    <div style={{ color: '#ef4444', fontSize: '14px' }}>Unavailable</div>
+                    <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                         <span style={{ fontSize: '14px', color: '#6b7280', fontStyle: 'italic' }}>Signal Locked</span>
+                         <button 
+                            onClick={onSubscribe}
+                            style={{ 
+                                background: '#2563eb', fontSize: '13px', padding: '8px 16px',
+                                boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)' 
+                            }}
+                        >
+                            Try for Free
+                        </button>
+                    </div>
                 )}
             </div>
-        </Link>
-    );
-};
 
-// --- Sub-Component: Table Row (Data) ---
-const AssetRow = ({ symbol }) => {
-    const [stats, setStats] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const navigate = useNavigate();
-
-    useEffect(() => {
-        api.get(`/api/signals/${symbol}/recent`)
-            .then(res => setStats(res.data))
-            .catch(console.error)
-            .finally(() => setLoading(false));
-    }, [symbol]);
-
-    if (loading) return (
-        <tr>
-            <td colSpan="6" style={{ padding: '16px', textAlign: 'center', color: '#9ca3af' }}>Loading {symbol}...</td>
-        </tr>
-    );
-
-    if (!stats) return null;
-
-    return (
-        <tr 
-            onClick={() => navigate(`/asset/${symbol}`)}
-            style={{ cursor: 'pointer', transition: 'background 0.1s' }}
-            onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-        >
-            <td style={{ fontWeight: '600', color: '#111827' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></div>
-                    {symbol}
-                </div>
-            </td>
-            <td><span style={{ background: '#f3f4f6', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '600' }}>1H</span></td>
-            <td>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {/* Recent Stats Grid */}
+            <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                <div>
+                    <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom:'4px' }}>Recent PnL</div>
                     <div style={{ 
-                        width: '100%', maxWidth: '60px', height: '6px', background: '#e5e7eb', borderRadius: '3px', overflow: 'hidden' 
+                        fontSize: '15px', fontWeight: 'bold',
+                        color: recentStats?.cumulative_pnl >= 0 ? '#10b981' : '#ef4444'
                     }}>
-                        <div style={{ width: `${stats.accuracy_percent}%`, height: '100%', background: '#2563eb' }}></div>
+                         {recentStats ? (recentStats.cumulative_pnl >= 0 ? '+' : '') + parseFloat(recentStats.cumulative_pnl).toFixed(2) + '%' : '-'}
                     </div>
-                    <span style={{ fontSize: '13px', fontWeight: '600' }}>{stats.accuracy_percent}%</span>
                 </div>
-            </td>
-            <td>{stats.total_trades}</td>
-            <td style={{ fontWeight: 'bold', color: stats.cumulative_pnl >= 0 ? '#10b981' : '#ef4444' }}>
-                {stats.cumulative_pnl >= 0 ? '+' : ''}{parseFloat(stats.cumulative_pnl).toFixed(4)}
-            </td>
-            <td style={{ textAlign: 'right' }}>
-                <button 
-                    style={{ 
-                        background: '#fff', border: '1px solid #e5e7eb', color: '#374151', 
-                        padding: '4px 10px', fontSize: '12px', borderRadius: '4px' 
-                    }}
-                >
-                    View Analysis
-                </button>
-            </td>
-        </tr>
+                <div>
+                    <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom:'4px' }}>Accuracy</div>
+                    <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#111827' }}>
+                        {recentStats ? `${recentStats.accuracy_percent}%` : '-'}
+                    </div>
+                </div>
+                <div>
+                    <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom:'4px' }}>Trades/14d</div>
+                    <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#111827' }}>
+                        {recentStats ? recentStats.total_trades : '-'}
+                    </div>
+                </div>
+            </div>
+            
+            <Link to={`/asset/${symbol}`} style={{ textAlign: 'center', fontSize: '13px', color: '#6b7280', marginTop: '8px', textDecoration: 'none' }}>
+                View Full Analysis &rarr;
+            </Link>
+        </div>
     );
 };
 
 // --- Main Dashboard Component ---
 export default function Dashboard() {
     const navigate = useNavigate();
-    const [time, setTime] = useState(new Date());
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    
+    // 1. If not logged in, show Landing Page
+    if (!token) {
+        return <LandingPage />;
+    }
 
-    useEffect(() => {
-        const t = setInterval(() => setTime(new Date()), 1000);
-        return () => clearInterval(t);
-    }, []);
+    const isActive = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
 
-    const formatUTC = (d) => d.toLocaleString('sv-SE', { timeZone: 'UTC' }).replace(' ', ' T ') + 'Z';
+    const handleSubscribe = async () => {
+        try {
+            const res = await api.post('/create-checkout-session');
+            window.location.href = res.data.url;
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     return (
         <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '80px', animation: 'fadeIn 0.5s ease-out' }}>
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
-                <div>
-                    <h2 style={{ fontSize: '1.8rem', fontWeight: '800', margin: '0 0 8px 0', color: '#111827' }}>Market Overview</h2>
-                    <p style={{ margin: 0, color: '#6b7280' }}>Real-time signal performance tracking.</p>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '600', marginBottom: '4px' }}>UTC SYSTEM TIME</div>
-                    <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: '500', color: '#374151' }}>{formatUTC(time)}</div>
-                </div>
+            <header style={{ marginBottom: '40px' }}>
+                <h2 style={{ fontSize: '1.8rem', fontWeight: '800', margin: '0 0 8px 0', color: '#111827' }}>Market Overview</h2>
+                <p style={{ margin: 0, color: '#6b7280' }}>
+                    Real-time AI signals for major assets. {isActive ? "Active Plan" : "Free Account"}
+                </p>
             </header>
 
-            {/* Section 1: Quick Cards */}
+            {/* Asset Cards */}
             <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
                 gap: '24px',
                 marginBottom: '48px'
             }}>
                 {ASSETS.map(symbol => (
-                    <AssetCard key={symbol} symbol={symbol} />
+                    <AssetCard 
+                        key={symbol} 
+                        symbol={symbol} 
+                        isActive={isActive} 
+                        onSubscribe={handleSubscribe} 
+                    />
                 ))}
             </div>
-
-            {/* Section 2: Detailed Table */}
-            <section>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700' }}>Performance Matrix</h3>
-                    <span style={{ fontSize: '13px', color: '#6b7280' }}>Updates automatically</span>
-                </div>
-
-                <div style={{ 
-                    background: '#fff', 
-                    borderRadius: '12px', 
-                    border: '1px solid #e5e7eb', 
-                    overflow: 'hidden', 
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)' 
-                }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', margin: 0, border: 'none' }}>
-                        <thead>
-                            <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                                <th style={{ padding: '16px', textAlign: 'left', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Asset</th>
-                                <th style={{ padding: '16px', textAlign: 'left', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Interval</th>
-                                <th style={{ padding: '16px', textAlign: 'left', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Accuracy</th>
-                                <th style={{ padding: '16px', textAlign: 'left', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Total Trades</th>
-                                <th style={{ padding: '16px', textAlign: 'left', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Net PnL</th>
-                                <th style={{ padding: '16px', textAlign: 'right', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {ASSETS.map(symbol => (
-                                <AssetRow key={symbol} symbol={symbol} />
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
         </div>
     );
 }
