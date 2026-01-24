@@ -54,7 +54,7 @@ export default function LandingPage() {
                     marginBottom: '40px',
                     lineHeight: '1.6'
                 }}>
-                    Stop guessing. Start striking. Our predictive models analyze major crypto assets in real-time to deliver high-accuracy trading signals.
+                    Stop guessing. Start striking. Our probabilistic models analyze major crypto assets in real-time to deliver high-accuracy trading signals.
                 </p>
 
                 <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
