@@ -143,13 +143,10 @@ const AssetCard = ({ symbol, metrics, isActive }) => {
 
                         {/* 4. Signal (or Try Free) */}
                         {isActive ? (
-                            <span style={{ 
-                                padding: '2px 8px', borderRadius: '4px', fontWeight: '700', fontSize: '11px',
-                                background: signal === 1 ? '#d1fae5' : signal === -1 ? '#fee2e2' : '#f3f4f6',
-                                color: signal === 1 ? '#047857' : signal === -1 ? '#b91c1c' : '#6b7280'
-                            }}>
+                            <div style={{ color: '#4b5563' }}>
+                                <span style={{ color: '#9ca3af', marginRight: '4px' }}>Signal:</span>
                                 {signal === 1 ? 'LONG' : signal === -1 ? 'SHORT' : 'FLAT'}
-                            </span>
+                            </div>
                         ) : (
                             <button 
                                 onClick={handleTryFree}
