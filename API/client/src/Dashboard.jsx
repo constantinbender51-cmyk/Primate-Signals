@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from './api';
-import LandingPage from './LandingPage'; // Import Landing Page
+import LandingPage from './LandingPage'; 
 
 const ASSETS = ['BTC', 'XRP', 'SOL'];
 
@@ -39,91 +39,99 @@ const AssetCard = ({ symbol, isActive, onSubscribe }) => {
         <div style={{
             background: '#fff',
             border: '1px solid #e5e7eb',
-            borderRadius: '12px',
-            padding: '24px',
+            borderRadius: '10px', // Slightly tighter radius
+            padding: '16px', // REDUCED from 24px
             display: 'flex',
             flexDirection: 'column',
-            gap: '16px',
+            gap: '12px', // REDUCED from 16px
             height: '100%',
             position: 'relative',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
         }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Link to={`/asset/${symbol}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.5rem', cursor: 'pointer' }}>{symbol} / USD</h3>
+                    <h3 style={{ margin: 0, fontSize: '1.25rem', cursor: 'pointer', fontWeight: '700' }}>{symbol} / USD</h3>
                 </Link>
                 <span style={{ 
                     background: '#eff6ff', color: '#2563eb', 
-                    padding: '4px 12px', borderRadius: '20px', 
-                    fontSize: '12px', fontWeight: '600' 
+                    padding: '2px 8px', borderRadius: '12px', 
+                    fontSize: '11px', fontWeight: '600' 
                 }}>1H</span>
             </div>
 
             <div style={{ height: '1px', background: '#f3f4f6' }}></div>
 
             {/* Signal / Call to Action Area */}
-            <div style={{ minHeight: '60px', display: 'flex', alignItems: 'center' }}>
+            <div style={{ minHeight: '40px', display: 'flex', alignItems: 'center' }}>
                 {loading ? (
-                    <span style={{ color: '#9ca3af', fontSize: '14px' }}>Loading...</span>
+                    <span style={{ color: '#9ca3af', fontSize: '13px' }}>Loading...</span>
                 ) : isActive && currentSignal ? (
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                          {currentSignal.pred_dir === 1 && (
-                            <span style={{ background: '#ecfdf5', color: '#059669', padding: '6px 12px', borderRadius: '6px', fontWeight: '700', fontSize:'14px' }}>BUY</span>
+                            <span style={{ background: '#ecfdf5', color: '#059669', padding: '4px 10px', borderRadius: '4px', fontWeight: '700', fontSize:'13px' }}>BUY</span>
                          )}
                          {currentSignal.pred_dir === -1 && (
-                            <span style={{ background: '#fef2f2', color: '#dc2626', padding: '6px 12px', borderRadius: '6px', fontWeight: '700', fontSize:'14px' }}>SELL</span>
+                            <span style={{ background: '#fef2f2', color: '#dc2626', padding: '4px 10px', borderRadius: '4px', fontWeight: '700', fontSize:'13px' }}>SELL</span>
                          )}
                          {currentSignal.pred_dir === 0 && (
-                            <span style={{ background: '#f3f4f6', color: '#4b5563', padding: '6px 12px', borderRadius: '6px', fontWeight: '700', fontSize:'14px' }}>HOLD</span>
+                            <span style={{ background: '#f3f4f6', color: '#4b5563', padding: '4px 10px', borderRadius: '4px', fontWeight: '700', fontSize:'13px' }}>HOLD</span>
                          )}
-                         <span style={{ fontSize: '16px', fontWeight: '600', color: '#374151' }}>
+                         <span style={{ fontSize: '15px', fontWeight: '600', color: '#374151' }}>
                             ${currentSignal.entry_price}
                          </span>
                     </div>
                 ) : (
                     <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                         <span style={{ fontSize: '14px', color: '#6b7280', fontStyle: 'italic' }}>Signal Locked</span>
+                         <span style={{ fontSize: '13px', color: '#6b7280', fontStyle: 'italic' }}>Signal Locked</span>
                          <button 
                             onClick={onSubscribe}
                             style={{ 
-                                background: '#2563eb', fontSize: '13px', padding: '8px 16px',
-                                boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)' 
+                                background: '#2563eb', fontSize: '12px', padding: '6px 12px',
+                                boxShadow: '0 2px 4px -1px rgba(37, 99, 235, 0.2)' 
                             }}
                         >
-                            Try for Free
+                            Try Free
                         </button>
                     </div>
                 )}
             </div>
 
-            {/* Recent Stats Grid */}
-            <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+            {/* Recent Stats Grid - Compacted */}
+            <div style={{ 
+                background: '#f9fafb', 
+                borderRadius: '6px', 
+                padding: '10px', // REDUCED from 16px
+                display: 'grid', 
+                gridTemplateColumns: '1fr 1fr 1fr', 
+                gap: '8px' // REDUCED from 12px
+            }}>
                 <div>
-                    <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom:'4px' }}>Recent PnL</div>
+                    <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', marginBottom:'2px' }}>Recent PnL</div>
                     <div style={{ 
-                        fontSize: '15px', fontWeight: 'bold',
+                        fontSize: '13px', fontWeight: 'bold',
                         color: recentStats?.cumulative_pnl >= 0 ? '#10b981' : '#ef4444'
                     }}>
                          {recentStats ? (recentStats.cumulative_pnl >= 0 ? '+' : '') + parseFloat(recentStats.cumulative_pnl).toFixed(2) + '%' : '-'}
                     </div>
                 </div>
                 <div>
-                    <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom:'4px' }}>Accuracy</div>
-                    <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#111827' }}>
+                    <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', marginBottom:'2px' }}>Accuracy</div>
+                    <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827' }}>
                         {recentStats ? `${recentStats.accuracy_percent}%` : '-'}
                     </div>
                 </div>
                 <div>
-                    <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom:'4px' }}>Trades/14d</div>
-                    <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#111827' }}>
+                    <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', marginBottom:'2px' }}>Trades/14d</div>
+                    <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827' }}>
                         {recentStats ? recentStats.total_trades : '-'}
                     </div>
                 </div>
             </div>
             
-            <Link to={`/asset/${symbol}`} style={{ textAlign: 'center', fontSize: '13px', color: '#6b7280', marginTop: '8px', textDecoration: 'none' }}>
-                View Full Analysis &rarr;
+            <Link to={`/asset/${symbol}`} style={{ textAlign: 'center', fontSize: '12px', color: '#6b7280', marginTop: '4px', textDecoration: 'none' }}>
+                Full Analysis &rarr;
             </Link>
         </div>
     );
@@ -154,9 +162,9 @@ export default function Dashboard() {
 
     return (
         <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '80px', animation: 'fadeIn 0.5s ease-out' }}>
-            <header style={{ marginBottom: '40px' }}>
-                <h2 style={{ fontSize: '1.8rem', fontWeight: '800', margin: '0 0 8px 0', color: '#111827' }}>Market Overview</h2>
-                <p style={{ margin: 0, color: '#6b7280' }}>
+            <header style={{ marginBottom: '32px' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 6px 0', color: '#111827' }}>Market Overview</h2>
+                <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>
                     Real-time AI signals for major assets. {isActive ? "Active Plan" : "Free Account"}
                 </p>
             </header>
@@ -164,8 +172,8 @@ export default function Dashboard() {
             {/* Asset Cards */}
             <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
-                gap: '24px',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', // Reduced minmax slightly
+                gap: '16px', // REDUCED from 24px
                 marginBottom: '48px'
             }}>
                 {ASSETS.map(symbol => (
