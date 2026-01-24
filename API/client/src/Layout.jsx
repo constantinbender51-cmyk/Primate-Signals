@@ -87,7 +87,7 @@ export default function Layout() {
               ) : (
                   <>
                     <Link to="/login" style={{ textDecoration: 'none', color: '#374151', fontSize: '14px', fontWeight: '500' }}>Login</Link>
-                    <button onClick={handleSubscribe} style={{ boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>Get Started</button>
+                    <button onClick={handleSubscribe} style={{ boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>Try for free</button>
                   </>
               )}
           </div>
