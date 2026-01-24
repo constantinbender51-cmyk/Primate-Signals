@@ -100,7 +100,7 @@ export default function LandingPage() {
                             src="https://i.postimg.cc/qRbFkRRN/IMG-20260124-192141.png" 
                             alt="chart" 
                             style={{ width: '100%', height: 'auto', display: 'block', background: '#fef3c7' }} 
-                        />Here's a chart. Do you know what it means? It's a good sign.
+                        />Proudly achieving great results. We are happy to share them with you.
                         <div style={{
                             position: 'absolute',
                             bottom: '20px',
