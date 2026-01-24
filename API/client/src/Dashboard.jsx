@@ -36,9 +36,9 @@ const EquityChart = ({ data }) => {
     // Calculate Grid Lines (Midnight of each day)
     const dayLines = [];
     let currentDay = new Date(minTime);
-    currentDay.setHours(0, 0, 0, 0); // Start at midnight local time
+    currentDay.setHours(0, 0, 0, 0); 
     if (currentDay.getTime() < minTime) {
-        currentDay.setDate(currentDay.getDate() + 1); // Move to next midnight if start is mid-day
+        currentDay.setDate(currentDay.getDate() + 1);
     }
     
     while (currentDay.getTime() <= maxTime) {
@@ -67,15 +67,15 @@ const EquityChart = ({ data }) => {
                 <path d={pathD} fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             
-            {/* PnL Under Chart */}
-            <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '18px', fontWeight: 'bold', color: isPositive ? '#10b981' : '#ef4444' }}>
+            {/* PnL Under Chart: Left Aligned & Smaller */}
+            <div style={{ textAlign: 'left', marginTop: '12px', fontSize: '14px', fontWeight: 'bold', color: isPositive ? '#10b981' : '#ef4444' }}>
                 Total PnL: {isPositive ? '+' : ''}{totalPnL.toFixed(2)}%
             </div>
         </div>
     );
 };
 
-// --- Sub-Component: Asset Card ---
+// --- Sub-Component: Asset Card (Row Style) ---
 const AssetCard = ({ symbol }) => {
     return (
         <Link 
@@ -85,25 +85,25 @@ const AssetCard = ({ symbol }) => {
                 color: 'inherit',
                 background: '#fff',
                 border: '1px solid #e5e7eb',
-                borderRadius: '8px', // Slightly smaller radius
-                padding: '10px 16px', // Much tighter padding
+                borderRadius: '8px',
+                padding: '16px 20px', // Standard list padding
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                // Removed minHeight to fix "80% space" issue
+                justifyContent: 'space-between', // Align content across the row
                 cursor: 'pointer',
-                transition: 'border-color 0.2s, box-shadow 0.2s'
+                transition: 'border-color 0.2s, background-color 0.2s'
             }}
             onMouseOver={(e) => {
                 e.currentTarget.style.borderColor = '#2563eb';
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
+                e.currentTarget.style.backgroundColor = '#f9fafb';
             }}
             onMouseOut={(e) => {
                 e.currentTarget.style.borderColor = '#e5e7eb';
-                e.currentTarget.style.boxShadow = 'none';
+                e.currentTarget.style.backgroundColor = '#fff';
             }}
         >
-            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600' }}>{symbol}</h3> 
+            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600' }}>{symbol}</h3>
+            <span style={{ color: '#9ca3af', fontSize: '1.2rem' }}>&rsaquo;</span>
         </Link>
     );
 };
@@ -123,7 +123,6 @@ export default function Dashboard() {
 
         const fetchAllLive = async () => {
             try {
-                // Fetch live data for all assets in parallel
                 const promises = ASSETS.map(symbol => 
                     api.get(`/api/signals/${symbol}/live`).catch(err => ({ data: [] }))
                 );
@@ -132,15 +131,12 @@ export default function Dashboard() {
                 
                 let allTrades = [];
                 results.forEach(res => {
-                    // Handle potential different response structures (array vs object with results)
                     const trades = Array.isArray(res.data) ? res.data : (res.data?.results || []);
                     allTrades = [...allTrades, ...trades];
                 });
 
-                // Sort all trades chronologically
                 allTrades.sort((a, b) => new Date(a.time) - new Date(b.time));
 
-                // Calculate cumulative PnL
                 let runningPnL = 0;
                 const curve = allTrades.map(t => {
                     runningPnL += (parseFloat(t.pnl) || 0);
@@ -160,7 +156,6 @@ export default function Dashboard() {
         fetchAllLive();
     }, [token]);
 
-    // 1. If not logged in, show Landing Page
     if (!token) {
         return <LandingPage />;
     }
@@ -176,11 +171,11 @@ export default function Dashboard() {
                 </p>
             </header>
 
-            {/* Asset Cards - Now Compact & Above Chart */}
+            {/* Asset List - Stacked Vertically */}
             <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', // Reduced min width for compact look
-                gap: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
             }}>
                 {ASSETS.map(symbol => (
                     <AssetCard 
@@ -190,7 +185,7 @@ export default function Dashboard() {
                 ))}
             </div>
 
-            {/* Combined Performance Chart - Moved Below */}
+            {/* Combined Performance Chart - Below List */}
             <EquityChart data={combinedData} />
         </div>
     );
