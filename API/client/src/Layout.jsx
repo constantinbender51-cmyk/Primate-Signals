@@ -50,12 +50,12 @@ export default function Layout() {
         fontWeight: '800', 
         letterSpacing: '-0.025em',
         display: 'flex',
-        alignItems: 'baseline'
+        alignItems: 'center'
     }}>
         <img 
           src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/vg2.png" 
           alt="voodooghost" 
-          style={{ height: '0px', margin: '0 0px' }} 
+          style={{ height: '48px', margin: '0 6px' }} 
         />Primate 
         {/* Updated Image Source */}
         
