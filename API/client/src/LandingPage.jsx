@@ -122,7 +122,7 @@ export default function LandingPage() {
                         <span style={{ color: '#dc2626' }}>Be the Hunter.</span>
                     </h2>
                     <p style={{ fontSize: '1.1rem', color: '#6b7280', marginBottom: '32px', lineHeight: '1.7' }}>
-                        The market is a wild beast. Most traders get eaten by volatility. We equip you with a spear that tracks down inefficiencies automatically. All you have to do is strike. 
+                        The market is a wild beast. Most traders get eaten by volatility. We equip you with a spear that tracks down predictable patterns automatically. All you have to do is strike. 
                     </p>
                     
                     <div style={{ display: 'grid', gap: '24px' }}>
