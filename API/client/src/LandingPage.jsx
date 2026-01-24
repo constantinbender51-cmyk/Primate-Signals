@@ -31,7 +31,7 @@ export default function LandingPage() {
                     letterSpacing: '0.05em',
                     border: '1px solid #fde68a'
                 }}>
-                    AI-Powered Prediction Engine
+                    Multiasset Next Hour Binomial Prediction 
                 </div>
                 
                 <h1 style={{ 
