@@ -11,7 +11,8 @@ export default function LandingPage() {
                 alignItems: 'center', 
                 textAlign: 'center', 
                 padding: '80px 20px',
-                background: `linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.95)), url('https://i.postimg.cc/HLmpLKr1/1769160143954.png ')`,
+                // Updated Background with Overlay + Image
+                background: `linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.95)), url('https://i.postimg.cc/HLmpLKr1/1769160143954.png')`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 borderRadius: '0 0 40px 40px',
@@ -85,56 +86,9 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            {/* How It Works Section */}
-            <section style={{ 
-                maxWidth: '900px', 
-                margin: '0 auto 80px', 
-                padding: '0 20px',
-                textAlign: 'center'
-            }}>
-                <h2 style={{ 
-                    fontSize: '2.2rem', 
-                    fontWeight: '800', 
-                    color: '#111827', 
-                    marginBottom: '24px'
-                }}>
-                    No Magic. Just Market Memory.
-                </h2>
-                <p style={{ 
-                    fontSize: '1.1rem', 
-                    color: '#4b5563', 
-                    lineHeight: '1.7',
-                    marginBottom: '32px'
-                }}>
-                    Our engine doesn’t rely on lagging indicators or black-box AI. Instead, it scans years of price action to find recurring 4-candle patterns.  
-                    Every time a new candle closes, it asks: <em>“When the market looked like this before, what happened next?”</em>  
-                    If history shows a strong directional bias, we issue a live <strong>BUY</strong>, <strong>SELL</strong>, or <strong>HOLD</strong> signal—updated every candle.
-                </p>
-                <div style={{
-                    background: '#f0fdf4',
-                    border: '1px solid #bbf7d0',
-                    borderRadius: '16px',
-                    padding: '20px',
-                    display: 'inline-block',
-                    fontSize: '0.95rem',
-                    color: '#065f46',
-                    fontWeight: '600'
-                }}>
-                    Pure price action • Pattern-based • API-ready for bots
-                </div>
-            </section>
-
             {/* Feature / Visual Section */}
-            <section style={{ 
-                maxWidth: '1100px', 
-                margin: '0 auto', 
-                padding: '0 20px', 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', 
-                gap: '60px', 
-                alignItems: 'center' 
-            }}>
-                <div style={{ order: 2 }}>
+            <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '60px', alignItems: 'center' }}>
+                <div style={{ order: 2 }}> {/* Image container */}
                     <div style={{ 
                         position: 'relative', 
                         borderRadius: '24px', 
@@ -162,7 +116,7 @@ export default function LandingPage() {
                     </div>
                 </div>
                 
-                <div style={{ order: 1 }}>
+                <div style={{ order: 1 }}> {/* Text content */}
                     <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '24px', lineHeight: '1.2' }}>
                         Don't Be Prey. <br/>
                         <span style={{ color: '#dc2626' }}>Be the Hunter.</span>
