@@ -97,7 +97,7 @@ export default function LandingPage() {
                         border: '4px solid #fff'
                     }}>
                         <img 
-                            src="https://i.postimg.cc/1tqDgs10/1769292918444.png" 
+                            src="https://i.postimg.cc/RZpPKSyX/IMG-20260124-233443.png" 
                             alt="chart" 
                             style={{ width: '100%', height: 'auto', display: 'block', background: '#fef3c7' }} 
                         />
