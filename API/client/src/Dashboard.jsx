@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from './api';
 import LandingPage from './LandingPage';
 
-const ASSETS = ['BTC', 'XRP', 'SOL'];
+const ASSETS = ['BTC', 'XRP', 'SOL', 'DOGE'];
 
 // --- Reusable Component: Equity Chart (Adapted for Dashboard) ---
 const EquityChart = ({ data }) => {
