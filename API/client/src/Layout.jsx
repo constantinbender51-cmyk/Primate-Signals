@@ -53,9 +53,9 @@ export default function Layout() {
         alignItems: 'baseline'
     }}>
         <img 
-          src="https://i.postimg.cc/yxFD7hbT/IMG-20260124-160140.png" 
+          src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/vg2.png" 
           alt="voodooghost" 
-          style={{ height: '48px', margin: '0 6px' }} 
+          style={{ height: '0px', margin: '0 0px' }} 
         />Primate 
         {/* Updated Image Source */}
         
