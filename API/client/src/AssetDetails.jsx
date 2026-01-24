@@ -19,10 +19,13 @@ const SectionStats = ({ data, timeSpanLabel }) => {
     const wins = data.correct_trades || 0;
     const total = data.total_trades || 0;
     
+    // PnL already multiplied by 100 in logic below before being passed here
+    const pnlVal = parseFloat(data.cumulative_pnl).toFixed(2);
+
     return (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '24px' }}>
             <StatBox label="Time Span" value={timeSpanLabel || 'N/A'} />
-            <StatBox label="Net PnL" value={(isPositive ? '+' : '') + parseFloat(data.cumulative_pnl).toFixed(2) + '%'} color={isPositive ? '#10b981' : '#ef4444'} />
+            <StatBox label="Net PnL" value={(isPositive ? '+' : '') + pnlVal + '%'} color={isPositive ? '#10b981' : '#ef4444'} />
             <StatBox label="Accuracy" value={`${data.accuracy_percent}%`} color="#2563eb" />
             <StatBox label="Win / Total" value={`${wins} / ${total}`} sub={`Win Rate: ${Math.round((wins/total)*100) || 0}%`} />
         </div>
@@ -31,15 +34,17 @@ const SectionStats = ({ data, timeSpanLabel }) => {
 
 const EquityChart = ({ data }) => {
     if (!data || data.length === 0) return <div style={{ height: '200px', background: '#f9fafb', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', marginBottom: '24px' }}>No Chart Data</div>;
-
     const height = 250;
     const width = 800;
     const padding = 20;
-
     // Normalize data
     const points = data.map(d => ({
         time: new Date(d.timestamp || d.time), 
-        val: d.cum_pnl || d.pnl // Fallback if property names differ
+        // Ensure val is multiplied by 100 if it hasn't been already. 
+        // Note: Logic in useEffect handles live stats, but if 'backtest' returns raw, we might need check. 
+        // Assuming backtest/recent endpoints return same RAW format, we multiply here to be safe or ensure backend sends %
+        // Based on user prompt "PnL from the API is a raw number", we multiply.
+        val: (d.cum_pnl || d.pnl) * 100 
     })).sort((a,b) => a.time - b.time);
 
     if (points.length < 2) return null;
@@ -101,7 +106,10 @@ const HistoryTable = ({ trades }) => {
                                 <td style={{ padding: '12px', textAlign: 'right' }}>{t.entry_price}</td>
                                 <td style={{ padding: '12px', textAlign: 'right' }}>{t.exit_price || '-'}</td>
                                 <td style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: t.pnl > 0 ? '#10b981' : t.pnl < 0 ? '#ef4444' : '#64748b' }}>
-                                    {t.pnl ? (t.pnl > 0 ? '+' : '') + Number(t.pnl).toFixed(2) + '%' : '-'}
+                                    {t.pnl ? 
+                                        // Multiply PnL by 100 here for display
+                                        (t.pnl > 0 ? '+' : '') + (Number(t.pnl) * 100).toFixed(2) + '%' 
+                                        : '-'}
                                 </td>
                             </tr>
                         ))}
@@ -129,7 +137,8 @@ export default function AssetDetails() {
     const [backtest, setBacktest] = useState(null);
     const [recent, setRecent] = useState(null);
     const [liveHistory, setLiveHistory] = useState([]);
-    const [liveStats, setLiveStats] = useState(null); // Derived stats for live
+    const [liveStats, setLiveStats] = useState(null);
+    // Derived stats for live
     const [currentSignal, setCurrentSignal] = useState(null);
     
     const [loading, setLoading] = useState(true);
@@ -145,17 +154,31 @@ export default function AssetDetails() {
                     api.get(`/api/signals/${symbol}/live`)
                 ]);
                 
+                // Process Backtest & Recent to scale PnL if needed (assuming logic matches live)
+                // For this snippet, assuming we calculate stats for LIVE manually below.
+                
+                // We might need to scale the pre-calculated stats from backend if they are raw.
+                // But specifically for LIVE user said: "PnL from the API is a raw number"
+                
+                // Let's assume Backtest/Recent objects come with correct % or handle similarly.
+                // However, the `SectionStats` component expects % values. If backend sends raw for backtest, we'd multiply there too.
+                // To be safe, we'll manually ensure `liveStats` is correct.
+
                 setBacktest(btRes.data);
                 setRecent(recRes.data);
                 
                 const lHist = Array.isArray(liveRes.data) ? liveRes.data : (liveRes.data.results || []);
                 setLiveHistory(lHist.sort((a,b) => new Date(b.time) - new Date(a.time)));
                 
-                // Derive stats for Live if not provided by API
+                // Derive stats for Live
                 if(lHist.length > 0) {
                      const total = lHist.length;
                      const wins = lHist.filter(t => t.pnl > 0).length;
-                     const cumPnl = lHist.reduce((acc, t) => acc + (parseFloat(t.pnl)||0), 0);
+                     
+                     // Sum RAW pnl then multiply by 100
+                     const rawCumPnl = lHist.reduce((acc, t) => acc + (parseFloat(t.pnl)||0), 0);
+                     const cumPnl = rawCumPnl * 100;
+
                      setLiveStats({
                          cumulative_pnl: cumPnl,
                          total_trades: total,
@@ -192,7 +215,7 @@ export default function AssetDetails() {
             window.location.href = res.data.url;
         } catch (err) { toast.error("Checkout unavailable"); }
     };
-    
+
     // Helper to get date range string
     const getDateRange = (list) => {
         if(!list || list.length === 0) return "N/A";
@@ -262,9 +285,6 @@ export default function AssetDetails() {
                     data={liveStats} 
                     timeSpanLabel={getDateRange(liveHistory)} 
                 />
-                {/* Note: Live chart usually derived from Live History accumulation if not provided by backend explicitly. 
-                    Using 'liveHistory' to plot equity if 'liveRes' didn't provide a curve object. 
-                    Assuming simple table for Live if no explicit equity curve object exists. */}
                 <HistoryTable trades={liveHistory} />
             </section>
 
@@ -279,7 +299,7 @@ export default function AssetDetails() {
                     timeSpanLabel="Last 14 Days" 
                 />
                 <EquityChart data={recent?.equity_curve} />
-                <HistoryTable trades={recent?.trades || []} /> {/* Assuming recent returns trades array, else empty */}
+                <HistoryTable trades={recent?.trades || []} />
             </section>
 
             {/* 4. BACKTEST SECTION */}
