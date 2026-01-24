@@ -58,7 +58,7 @@ export default function LandingPage() {
                 </p>
 
                 <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <Link to="/dashboard" style={{ 
+                    <Link to="/" style={{ 
                         textDecoration: 'none', 
                         background: '#d97706', 
                         color: '#fff', 
