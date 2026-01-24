@@ -97,10 +97,10 @@ export default function LandingPage() {
                         border: '4px solid #fff'
                     }}>
                         <img 
-                            src="https://i.postimg.cc/qRbFkRRN/IMG-20260124-192141.png" 
+                            src="https://i.postimg.cc/1tqDgs10/1769292918444.png" 
                             alt="chart" 
                             style={{ width: '100%', height: 'auto', display: 'block', background: '#fef3c7' }} 
-                        />Proudly achieving great results. We are happy to share them with you.
+                        />
                         <div style={{
                             position: 'absolute',
                             bottom: '20px',
