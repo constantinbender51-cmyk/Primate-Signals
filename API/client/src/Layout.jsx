@@ -55,7 +55,7 @@ export default function Layout() {
         <img 
           src="https://i.postimg.cc/yxFD7hbT/IMG-20260124-160140.png" 
           alt="voodooghost" 
-          style={{ height: '32px', margin: '0 0px' }} 
+          style={{ height: '48px', margin: '0 6px' }} 
         />Primate 
         {/* Updated Image Source */}
         
