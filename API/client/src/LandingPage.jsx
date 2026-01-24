@@ -130,6 +130,8 @@ export default function LandingPage() {
                             { title: 'Real-Time Precision', desc: 'Signals generated every 60 minutes based on recent market data.' },
                             { title: 'Transparent Performance', desc: 'Full historical logs. We don\'t hide our losses, because our wins speak louder.' },
                             { title: 'API Access', desc: 'Connect your own bots directly to our prediction engine.' }
+                            { title: 'Consistency', desc: 'We are very slow to improve our product. Even if we know ways to improve the product, we will hesitate doing so because it would make previous versions inconsistentcreating bugs and complications.' }
+
                         ].map((item, i) => (
                             <div key={i} style={{ display: 'flex', gap: '16px' }}>
                                 <div style={{ 
