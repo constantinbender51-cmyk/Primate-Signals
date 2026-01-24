@@ -40,10 +40,6 @@ const EquityChart = ({ data }) => {
     const points = data.map(d => ({
         time: new Date(d.timestamp || d.time), 
         // Ensure val is multiplied by 100 if it hasn't been already. 
-        // Note: Logic in useEffect handles live stats, but if 'backtest' returns raw, we might need check. 
-        // Assuming backtest/recent endpoints return same RAW format, we multiply here to be safe or ensure backend sends %
-     
-        // Based on user prompt "PnL from the API is a raw number", we multiply.
         val: (d.cum_pnl || d.pnl) * 100 
     })).sort((a,b) => a.time - b.time);
 
@@ -143,6 +139,9 @@ export default function AssetDetails() {
     // Derived stats for live
     const [currentSignal, setCurrentSignal] = useState(null);
     
+    // Fee Calculation State
+    const [fee, setFee] = useState(0.06);
+
     const [loading, setLoading] = useState(true);
     const [locked, setLocked] = useState(false);
 
@@ -156,12 +155,10 @@ export default function AssetDetails() {
                     api.get(`/api/signals/${symbol}/live`)
                 ]);
                 
-                // --- 1. Multiply Backtest and Recent PnL by 100 ---
                 const formatStats = (data) => {
                     if (!data) return null;
                     return {
                         ...data,
-                        // Convert raw PnL (e.g., 0.15) to Percentage (15)
                         cumulative_pnl: (parseFloat(data.cumulative_pnl) || 0) * 100
                     };
                 };
@@ -172,6 +169,7 @@ export default function AssetDetails() {
                 const lHist = Array.isArray(liveRes.data) ?
                 liveRes.data : (liveRes.data.results || []);
                 setLiveHistory(lHist.sort((a,b) => new Date(b.time) - new Date(a.time)));
+                
                 // Derive stats for Live
                 if(lHist.length > 0) {
                      const total = lHist.length;
@@ -217,16 +215,29 @@ export default function AssetDetails() {
             window.location.href = res.data.url;
         } catch (err) { toast.error("Checkout unavailable"); }
     };
-    // Helper to get date range string
+
     const getDateRange = (list) => {
         if(!list || list.length === 0) return "N/A";
         const start = new Date(list[list.length-1].time || list[list.length-1].timestamp);
         const end = new Date(list[0].time || list[0].timestamp);
         return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
     };
+
+    // Filter out flat predictions (0 or null)
+    const activeLiveTrades = liveHistory.filter(t => t.pred_dir === 1 || t.pred_dir === -1);
+
+    // Calculate Realistic PnL
+    const calculateRealisticPnL = () => {
+        if (!activeLiveTrades.length) return "0.00";
+        // Gross PnL in percentage (e.g. 15.5)
+        const grossPnL = activeLiveTrades.reduce((acc, t) => acc + (parseFloat(t.pnl) || 0), 0) * 100;
+        // Total Fees = Number of trades * Fee per trade
+        const totalFees = activeLiveTrades.length * parseFloat(fee || 0);
+        return (grossPnL - totalFees).toFixed(2);
+    };
+
     if (loading) return <div style={{ padding: '80px', textAlign: 'center', color: '#6b7280' }}>Initializing Primate data stream...</div>;
 
-    // --- 2. Split the page in two sections: Live and Proof ---
     return (
         <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '80px', animation: 'fadeIn 0.4s ease-out' }}>
             {/* Header / Nav */}
@@ -235,11 +246,10 @@ export default function AssetDetails() {
                 <h1 style={{ margin: 0, fontSize: '2rem' }}>{symbol} Analysis</h1>
             </div>
 
-            {/* SECTION 1: LIVE ANALYSIS (Signals + History) */}
+            {/* SECTION 1: LIVE ANALYSIS */}
             <div style={{ marginBottom: '60px' }}>
                 <h2 style={{ fontSize: '1.5rem', borderBottom: '2px solid #e5e7eb', paddingBottom: '10px', marginBottom: '24px', color: '#111827' }}>Live Analysis</h2>
                 
-                {/* 1.1 Current Signal Status */}
                 <section style={{ marginBottom: '32px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
                          <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#374151' }}>Current Signal</h3>
@@ -285,22 +295,21 @@ export default function AssetDetails() {
                     )}
                 </section>
 
-                {/* 1.2 Live Prediction History */}
                 <section>
                     <h3 style={{ margin: '0 0 15px 0', fontSize: '1.1rem', color: '#374151' }}>Live Prediction History</h3>
                     <SectionStats 
                         data={liveStats} 
-                        timeSpanLabel={getDateRange(liveHistory)} 
+                        timeSpanLabel={getDateRange(activeLiveTrades)} 
                     />
-                    <HistoryTable trades={liveHistory} />
+                    {/* Exclude flat predictions (passed activeLiveTrades instead of liveHistory) */}
+                    <HistoryTable trades={activeLiveTrades} />
                 </section>
             </div>
 
-            {/* SECTION 2: PROOF (Recent & Backtest) */}
-            <div>
+            {/* SECTION 2: PROOF */}
+            <div style={{ marginBottom: '60px' }}>
                 <h2 style={{ fontSize: '1.5rem', borderBottom: '2px solid #e5e7eb', paddingBottom: '10px', marginBottom: '24px', color: '#111827' }}>Strategy Proof</h2>
 
-                {/* 2.1 Recent Validation */}
                 <section style={{ marginBottom: '40px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
                          <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#374151' }}>Recent Validation (14 Days)</h3>
@@ -313,7 +322,6 @@ export default function AssetDetails() {
                     <EquityChart data={recent?.equity_curve} />
                 </section>
 
-                {/* 2.2 Historical Backtest */}
                 <section>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
                          <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#374151' }}>Historical Backtest</h3>
@@ -325,6 +333,38 @@ export default function AssetDetails() {
                     />
                     <EquityChart data={backtest?.equity_curve} />
                 </section>
+            </div>
+
+            {/* SECTION 3: FEE CALCULATION */}
+            <div style={{ borderTop: '4px solid #3b82f6', background: '#eff6ff', borderRadius: '8px', padding: '24px' }}>
+                <h3 style={{ margin: '0 0 16px 0', color: '#1e3a8a' }}>Fee Calculation (Live Predictions)</h3>
+                <p style={{ fontSize: '14px', color: '#475569', marginBottom: '20px' }}>
+                    Calculate your realistic PnL by applying your exchange fee per trade to the live history. 
+                    Calculated on {activeLiveTrades.length} non-flat predictions.
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'flex-end' }}>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>
+                            Fee per Trade (%)
+                        </label>
+                        <input 
+                            type="number" 
+                            step="0.01"
+                            value={fee}
+                            onChange={(e) => setFee(e.target.value)}
+                            style={{ 
+                                padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', width: '120px',
+                                fontSize: '16px', fontWeight: '600', color: '#334155'
+                            }} 
+                        />
+                    </div>
+                    <div style={{ flex: 1, minWidth: '200px', background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                        <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: '700' }}>Realistic Net PnL</div>
+                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#2563eb', marginTop: '4px' }}>
+                            {calculateRealisticPnL()}%
+                        </div>
+                    </div>
+                </div>
             </div>
 
         </div>
