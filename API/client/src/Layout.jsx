@@ -53,7 +53,7 @@ export default function Layout() {
         alignItems: 'center'
     }}>
         <img 
-          src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/vg2.png" 
+          src="https://i.postimg.cc/fb6pYY8L/IMG-20260124-155345.png" 
           alt="voodooghost" 
           style={{ height: '48px', margin: '0 6px' }} 
         />Primate 
