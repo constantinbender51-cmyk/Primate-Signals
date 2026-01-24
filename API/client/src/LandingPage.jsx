@@ -144,6 +144,11 @@ export default function LandingPage() {
                                     <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>{item.desc}</p>
                                 </div>
                             </div>
+<img 
+                            src="https://i.postimg.cc/qRbFkRRN/IMG-20260124-192141.png" 
+                            alt="Primate Hunter" 
+                            style={{ width: '100%', height: 'auto', display: 'block', background: '#fef3c7' }} 
+                        />Here's a chart. do you know what it means? it's a good sign.
                         ))}
                     </div>
                 </div>
