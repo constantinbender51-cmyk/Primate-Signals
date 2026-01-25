@@ -52,11 +52,11 @@ export default function Layout() {
         display: 'flex',
         alignItems: 'center'
     }}>
-        {/*<img 
-          src="https://raw.githubusercontent.com/constantinbender51-cmyk/Models/main/icons/vg2.png" 
-          alt="voodooghost" 
+        <img 
+          src="https://i.postimg.cc/Kv7ktXyZ/IMG-20260125-183606.png" 
+          alt="blacktriangle" 
           style={{ height: '48px', margin: '0 6px' }} 
-        />*/}Primate 
+        />Primate 
         {/* Updated Image Source */}
         
         <span style={{ fontWeight: '300' }}> Signals</span>
