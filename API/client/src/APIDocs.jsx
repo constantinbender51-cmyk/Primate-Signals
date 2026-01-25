@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '';
@@ -29,7 +28,7 @@ const API_KEY = "${testKey || 'YOUR_API_KEY_HERE'}";
 
 /**
  * Fetch data for a single asset or all assets.
- * @param {string} asset - 'BTC', 'XRP', 'SOL', 'DOGE' or 'all'
+ * @param {string} asset - 'BTC', 'ETH', 'XRP', 'SOL', 'DOGE', etc. or 'all'
  */
 async function getSignals(asset = 'all') {
   try {
@@ -57,12 +56,9 @@ async function getSignals(asset = 'all') {
         setConsoleOutput(null);
         setStatus(null);
 
-        // If key is present -> try 'current' (private). 
-        // If no key -> try 'recent' (public) as a fallback demo.
         const endpoint = testKey ? 'current' : 'recent';
         
         try {
-            // New route structure: /api/signals/{asset}/{type}
             const res = await fetch(`${BASE_URL}/api/signals/${selectedAsset}/${endpoint}`, {
                 method: 'GET',
                 headers: {
@@ -188,9 +184,20 @@ async function getSignals(asset = 'all') {
                                     }}
                                 >
                                     <option value="BTC">BTC</option>
+                                    <option value="ETH">ETH</option>
                                     <option value="XRP">XRP</option>
                                     <option value="SOL">SOL</option>
                                     <option value="DOGE">DOGE</option>
+                                    <option value="ADA">ADA</option>
+                                    <option value="BCH">BCH</option>
+                                    <option value="LINK">LINK</option>
+                                    <option value="XLM">XLM</option>
+                                    <option value="SUI">SUI</option>
+                                    <option value="AVAX">AVAX</option>
+                                    <option value="LTC">LTC</option>
+                                    <option value="HBAR">HBAR</option>
+                                    <option value="SHIB">SHIB</option>
+                                    <option value="TON">TON</option>
                                     <option value="all">ALL (Batch)</option>
                                 </select>
                             </div>
