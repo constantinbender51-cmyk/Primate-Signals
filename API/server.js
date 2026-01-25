@@ -17,8 +17,6 @@ const pool = new Pool({
 });
 
 const app = express();
-
-// ... (Email/Stripe Config & DB Init remain the same) ...
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: process.env.SMTP_PORT,
@@ -51,14 +49,50 @@ const initDB = async () => {
 };
 
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-    // ... (Webhook logic remains the same) ...
-    res.json({ received: true });
+    const sig = req.headers['stripe-signature'];
+    let event;
+    try {
+        event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    } catch (err) { return res.status(400).send(`Webhook Error: ${err.message}`); }
+
+    const client = await pool.connect();
+    try {
+        if (event.type === 'checkout.session.completed') {
+            const session = event.data.object;
+            await client.query(`UPDATE users SET subscription_status = 'active' WHERE stripe_customer_id = $1`, [session.customer]);
+        } 
+        else if (event.type === 'invoice.payment_succeeded') {
+            const invoice = event.data.object;
+            if (invoice.subscription && invoice.lines?.data?.length > 0) {
+                const periodEnd = invoice.lines.data[0].period.end;
+                const nextBilling = new Date(periodEnd * 1000); 
+                await client.query(
+                    `UPDATE users SET subscription_status = 'active', next_billing_date = $1 WHERE stripe_customer_id = $2`, 
+                    [nextBilling, invoice.customer]
+                );
+            }
+        }
+        else if (event.type === 'customer.subscription.updated') {
+            const subscription = event.data.object;
+            const nextBilling = new Date(subscription.current_period_end * 1000);
+            const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000) : null;
+            await client.query(
+                `UPDATE users SET subscription_status = $1, next_billing_date = $2, trial_ends_at = $3 WHERE stripe_customer_id = $4`,
+                [subscription.status, nextBilling, trialEnd, subscription.customer]
+            );
+        }
+        res.json({ received: true });
+    } catch (err) { 
+        console.error('Webhook Error:', err);
+        res.status(500).send('Server Error'); 
+    } finally { 
+        client.release(); 
+    }
 });
 
 app.use(express.json()); 
 app.use(cors());
 
-// ... (Authentication Middleware remains the same) ...
 const optionalAuthenticate = async (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
     const authHeader = req.headers['authorization'];
@@ -94,7 +128,6 @@ const dirToInt = (dir) => {
     return 0;
 };
 
-// Helper: Normalize Timestamp
 const normalizeDate = (ts) => {
     if (!ts) return new Date().toISOString();
     if (typeof ts === 'string' && ts.includes(' ')) {
@@ -103,7 +136,7 @@ const normalizeDate = (ts) => {
     return ts;
 };
 
-// 1. BATCH ROUTE
+// 1. BATCH ROUTE (Updated with all 15 Assets)
 app.get('/api/signals/all/:type', optionalAuthenticate, async (req, res) => {
     const type = req.params.type.toLowerCase();
 
@@ -120,7 +153,12 @@ app.get('/api/signals/all/:type', optionalAuthenticate, async (req, res) => {
         const logs = await response.json();
 
         const results = {};
-        const assets = ['BTC', 'XRP', 'SOL', 'DOGE']; 
+        // Full Asset List from Python Backend
+        const assets = [
+            'BTC', 'ETH', 'XRP', 'SOL', 'DOGE', 
+            'ADA', 'BCH', 'LINK', 'XLM', 'SUI', 
+            'AVAX', 'LTC', 'HBAR', 'SHIB', 'TON'
+        ]; 
         
         assets.forEach(asset => {
             const assetSymbol = `${asset}USDT`;
@@ -171,7 +209,7 @@ app.get('/api/signals/:asset/:type', optionalAuthenticate, async (req, res) => {
             });
         }
 
-        // B. LIVE / RECENT (Using Pre-Calculated Percentages)
+        // B. LIVE / RECENT
         if (type === 'live' || type === 'recent') {
             const r = await fetch(`${LAB_URL}/api/outcomes`);
             const outcomes = await r.json();
@@ -179,8 +217,6 @@ app.get('/api/signals/:asset/:type', optionalAuthenticate, async (req, res) => {
 
             const results = assetTrades.map(t => {
                 const dir = dirToInt(t.prediction);
-                // "pnl" is already in percent (e.g. 1.5 for 1.5%)
-                // We pass it through directly.
                 return {
                     time: normalizeDate(t.time_entry),
                     pred_dir: dir,
@@ -194,7 +230,6 @@ app.get('/api/signals/:asset/:type', optionalAuthenticate, async (req, res) => {
             const total = results.length;
             const cumPnl = results.reduce((sum, t) => sum + t.pnl, 0);
 
-            // Equity Curve: Simply sum the percentages
             let run = 0;
             const curve = results.slice().reverse().map(t => {
                 run += t.pnl; 
@@ -217,7 +252,6 @@ app.get('/api/signals/:asset/:type', optionalAuthenticate, async (req, res) => {
             if (!r.ok) return res.json({});
             const data = await r.json();
 
-            // Assume Backtest logs also contain 'pnl' in percent now
             const logs = data.logs.map(l => {
                 return {
                     time: normalizeDate(l.time_t),
@@ -253,7 +287,7 @@ app.get('/api/signals/:asset/:type', optionalAuthenticate, async (req, res) => {
     }
 });
 
-// ... (Auth/Stripe routes remain identical to previous versions) ...
+// ... Auth Routes ...
 app.post('/auth/register', async (req, res) => {
     const { email, password } = req.body;
     if (!password || password.length < 6 || !/\d/.test(password)) {
