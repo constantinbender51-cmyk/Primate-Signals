@@ -3,9 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from './api';
 import LandingPage from './LandingPage';
 
-const ASSETS = ['BTC', 'XRP', 'SOL', 'DOGE'];
+// UPDATED: Full Asset List
+const ASSETS = [
+    'BTC', 'ETH', 'XRP', 'SOL', 'DOGE', 
+    'ADA', 'BCH', 'LINK', 'XLM', 'SUI', 
+    'AVAX', 'LTC', 'HBAR', 'SHIB', 'TON'
+];
 
-// --- Reusable Component: Equity Chart (Adapted for Dashboard) ---
 const EquityChart = ({ data }) => {
     if (!data || data.length === 0) return <div style={{ height: '200px', background: '#f9fafb', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', marginTop: '24px' }}>Loading Performance...</div>;
 
@@ -67,15 +71,13 @@ const EquityChart = ({ data }) => {
     );
 };
 
-// --- Sub-Component: Asset Card (Row Style) ---
 const AssetCard = ({ symbol, metrics, isActive }) => {
-    // Default values if metrics are loading or unavailable
     const pnl = metrics?.pnl || 0;
     const isPos = pnl >= 0;
     const acc = metrics?.accuracy || 0;
     const trades = metrics?.trades || 0;
     const expRet = metrics?.exp_return || 0;
-    const signal = metrics?.signal || 0; // 1 = Long, -1 = Short
+    const signal = metrics?.signal || 0; 
 
     return (
         <Link 
@@ -105,34 +107,23 @@ const AssetCard = ({ symbol, metrics, isActive }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1 }}>
                 <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600', width: '60px' }}>{symbol}</h3>
                 
-                {/* Metrics Row */}
                 {metrics ? (
                     <div style={{ display: 'flex', gap: '20px', alignItems: 'center', fontSize: '13px' }}>
-                        
-                        {/* 1. Accuracy */}
                         <div style={{ color: '#4b5563' }}>
                             <span style={{ color: '#9ca3af', marginRight: '4px' }}>Acc:</span>
                             <span style={{ fontWeight: '600' }}>{acc}%</span>
                         </div>
-
-                        {/* 2. PnL */}
                         <div style={{ color: isPos ? '#10b981' : '#ef4444', fontWeight: '700' }}>
                             {isPos ? '+' : ''}{pnl.toFixed(2)}%
                         </div>
-
-                        {/* 3. Expected Return */}
                         <div style={{ color: '#4b5563' }}>
                             <span style={{ color: '#9ca3af', marginRight: '4px' }}>Exp. Ret:</span>
                             {expRet > 0 ? '+' : ''}{expRet.toFixed(2)}%
                         </div>
-
-                        {/* 4. Trades */}
                         <div style={{ color: '#4b5563' }}>
                             <span style={{ color: '#9ca3af', marginRight: '4px' }}>Trades:</span>
                             {trades}
                         </div>
-
-                        {/* 5. Signal or Restricted */}
                         <div style={{ color: '#4b5563' }}>
                             <span style={{ color: '#9ca3af', marginRight: '4px' }}>Signal:</span>
                             {isActive ? (
@@ -141,18 +132,15 @@ const AssetCard = ({ symbol, metrics, isActive }) => {
                                 <span style={{ color: '#dc2626', fontWeight: '600', fontSize: '12px' }}>RESTRICTED</span>
                             )}
                         </div>
-
                     </div>
                 ) : (
                     <span style={{ fontSize: '12px', color: '#9ca3af' }}>Loading stats...</span>
                 )}
             </div>
-            {/* Arrow removed */}
         </Link>
     );
 };
 
-// --- Main Dashboard Component ---
 export default function Dashboard() {
     const navigate = useNavigate();
     const token = localStorage.getItem('token');
@@ -163,14 +151,14 @@ export default function Dashboard() {
 
     const isActive = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
 
-    // Fetch and aggregate data for the combined plot
     useEffect(() => {
         if (!token) return;
 
         const fetchAllLive = async () => {
             try {
+                // Fetch stats for all assets in parallel
                 const promises = ASSETS.map(symbol => 
-                    api.get(`/api/signals/${symbol}/live`).catch(err => ({ data: [] }))
+                    api.get(`/api/signals/${symbol}/live`).catch(err => ({ data: { results: [] } }))
                 );
                 
                 const results = await Promise.all(promises);
@@ -179,29 +167,22 @@ export default function Dashboard() {
                 const newStats = {};
            
                 results.forEach((res, index) => {
-                    const trades = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+                    const trades = res.data?.results || [];
                     const symbol = ASSETS[index];
 
-                    // Calculate Per-Asset Stats
                     if (trades.length > 0) {
                         const sorted = [...trades].sort((a, b) => new Date(a.time) - new Date(b.time));
                         
-                        // Valid Trades: Filter out flat predictions (0) and flat outcomes (0 pnl)
-                        const validTrades = sorted.filter(t => t.pred_dir !== 0 && parseFloat(t.pnl) !== 0);
+                        const validTrades = sorted.filter(t => t.pred_dir !== 0);
                         const wins = validTrades.filter(t => (parseFloat(t.pnl) || 0) > 0).length;
                         const validCount = validTrades.length;
                         
-                        // Total PnL: Sum raw pnl 
-                        const rawCumPnl = sorted.reduce((acc, t) => acc + (parseFloat(t.pnl) || 0), 0);
-                        const pnlPercent = rawCumPnl * 100;
-
-                        // Expected Return Per Trade
-                        const avgReturn = validCount > 0 ? (pnlPercent / validCount) : 0;
-
+                        const totalPnl = sorted.reduce((acc, t) => acc + (parseFloat(t.pnl) || 0), 0);
+                        const avgReturn = validCount > 0 ? (totalPnl / validCount) : 0;
                         const lastTrade = sorted[sorted.length - 1];
 
                         newStats[symbol] = {
-                            pnl: pnlPercent,
+                            pnl: totalPnl,
                             trades: validCount,
                             accuracy: validCount > 0 ? ((wins / validCount) * 100).toFixed(1) : 0,
                             exp_return: avgReturn,
@@ -220,8 +201,7 @@ export default function Dashboard() {
 
                 let runningPnL = 0;
                 const curve = allTrades.map(t => {
-                    // Multiply individual trade PnL by 100 for the curve
-                    runningPnL += ((parseFloat(t.pnl) || 0) * 100);
+                    runningPnL += (parseFloat(t.pnl) || 0);
                     return {
                         time: t.time,
                         val: runningPnL
@@ -238,9 +218,7 @@ export default function Dashboard() {
         fetchAllLive();
     }, [token]);
 
-    if (!token) {
-        return <LandingPage />;
-    }
+    if (!token) return <LandingPage />;
 
     return (
         <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '80px', animation: 'fadeIn 0.5s ease-out' }}>
@@ -251,12 +229,7 @@ export default function Dashboard() {
                 </p>
             </header>
 
-            {/* Asset List - Stacked Vertically */}
-            <div style={{ 
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-            }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {ASSETS.map(symbol => (
                     <AssetCard 
                         key={symbol} 
@@ -267,7 +240,6 @@ export default function Dashboard() {
                 ))}
             </div>
 
-            {/* Combined Performance Chart */}
             <EquityChart data={combinedData} />
         </div>
     );
