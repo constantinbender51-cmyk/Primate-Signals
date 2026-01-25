@@ -3,8 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from './api';
 import toast from 'react-hot-toast';
 
-// --- Reusable Components ---
-
 const StatBox = ({ label, value, color, sub }) => (
     <div style={{ background: '#f9fafb', padding: '16px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
         <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '4px', fontWeight: '600' }}>{label}</div>
@@ -15,15 +13,17 @@ const StatBox = ({ label, value, color, sub }) => (
 
 const SectionStats = ({ data, timeSpanLabel }) => {
     if (!data) return null;
-    const isPositive = data.cumulative_pnl >= 0;
+    
+    // Data comes in as percent (e.g. 5.5)
+    const pnlVal = parseFloat(data.cumulative_pnl) || 0;
+    const isPositive = pnlVal >= 0;
     const wins = data.correct_trades || 0;
     const total = data.total_trades || 0;
-    // PnL already multiplied by 100 in logic below before being passed here
-    const pnlVal = parseFloat(data.cumulative_pnl).toFixed(2);
+
     return (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '24px' }}>
             <StatBox label="Time Span" value={timeSpanLabel || 'N/A'} />
-            <StatBox label="Net PnL" value={(isPositive ? '+' : '') + pnlVal + '%'} color={isPositive ? '#10b981' : '#ef4444'} />
+            <StatBox label="Net PnL" value={(isPositive ? '+' : '') + pnlVal.toFixed(2) + '%'} color={isPositive ? '#10b981' : '#ef4444'} />
             <StatBox label="Accuracy" value={`${data.accuracy_percent}%`} color="#2563eb" />
             <StatBox label="Win / Total" 
                 value={`${wins} / ${total}`} sub={`Win Rate: ${Math.round((wins/total)*100) || 0}%`} />
@@ -36,11 +36,10 @@ const EquityChart = ({ data }) => {
     const height = 250;
     const width = 800;
     const padding = 20;
-    // Normalize data
+    
     const points = data.map(d => ({
-        time: new Date(d.timestamp || d.time), 
-        // Ensure val is multiplied by 100 if it hasn't been already. 
-        val: (d.cum_pnl || d.pnl) * 100 
+        time: new Date(d.time), 
+        val: d.val 
     })).sort((a,b) => a.time - b.time);
 
     if (points.length < 2) return null;
@@ -57,6 +56,7 @@ const EquityChart = ({ data }) => {
     const zeroY = getY(0);
 
     const pathD = points.map((p, i) => `${i===0?'M':'L'} ${getX(p.time)} ${getY(p.val)}`).join(' ');
+    
     return (
         <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '20px', background: '#fff', marginBottom: '24px', overflow: 'hidden' }}>
             <h4 style={{ margin: '0 0 15px 0', color: '#374151', fontSize: '14px', textTransform: 'uppercase' }}>Equity Curve</h4>
@@ -76,6 +76,7 @@ const HistoryTable = ({ trades }) => {
     if (!trades || trades.length === 0) return <div style={{ fontStyle: 'italic', color: '#9ca3af' }}>No history available.</div>;
     const totalPages = Math.ceil(trades.length / ITEMS);
     const currentData = trades.slice((page - 1) * ITEMS, page * ITEMS);
+    
     return (
         <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
             <div style={{ overflowX: 'auto' }}>
@@ -92,21 +93,19 @@ const HistoryTable = ({ trades }) => {
                     <tbody>
                         {currentData.map((t, i) => (
                             <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                <td style={{ padding: '12px' }}>{new Date(t.time ||
-                                t.timestamp).toLocaleDateString()} <span style={{color:'#94a3b8'}}>{new Date(t.time || t.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span></td>
+                                <td style={{ padding: '12px' }}>{new Date(t.time).toLocaleDateString()} <span style={{color:'#94a3b8'}}>{new Date(t.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span></td>
                                 <td style={{ padding: '12px' }}>
                                     {t.pred_dir === 1 ?
                                     <span style={{color: '#10b981', fontWeight: '600'}}>LONG</span> : 
                                      t.pred_dir === -1 ?
                                     <span style={{color: '#dc2626', fontWeight: '600'}}>SHORT</span> : 'FLAT'}
                                 </td>
-                                <td style={{ padding: '12px', textAlign: 'right' }}>{t.entry_price}</td>
+                                <td style={{ padding: '12px', textAlign: 'right' }}>{t.entry_price || '-'}</td>
                                 <td style={{ padding: '12px', textAlign: 'right' }}>{t.exit_price || '-'}</td>
                                 <td style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: t.pnl > 0 ?
                                 '#10b981' : t.pnl < 0 ? '#ef4444' : '#64748b' }}>
                                     {t.pnl ?
-                                        // Multiply PnL by 100 here for display
-                                        (t.pnl > 0 ? '+' : '') + (Number(t.pnl) * 100).toFixed(2) + '%' 
+                                        (t.pnl > 0 ? '+' : '') + Number(t.pnl).toFixed(2) + '%' 
                                         : '-'}
                                 </td>
                             </tr>
@@ -125,22 +124,16 @@ const HistoryTable = ({ trades }) => {
     );
 };
 
-// --- Main Page Component ---
-
 export default function AssetDetails() {
     const { symbol } = useParams();
     const navigate = useNavigate();
     
-    // Data State
     const [backtest, setBacktest] = useState(null);
     const [recent, setRecent] = useState(null);
     const [liveHistory, setLiveHistory] = useState([]);
-    // Removed separate liveStats state; we will derive it from activeLiveTrades
     const [currentSignal, setCurrentSignal] = useState(null);
     
-    // Fee Calculation State
     const [fee, setFee] = useState(0.06);
-
     const [loading, setLoading] = useState(true);
     const [locked, setLocked] = useState(false);
 
@@ -148,30 +141,18 @@ export default function AssetDetails() {
         const fetchAll = async () => {
             setLoading(true);
             try {
-                const [btRes, recRes, liveRes] = await Promise.all([
-                    api.get(`/api/signals/${symbol}/backtest`),
-                    api.get(`/api/signals/${symbol}/recent`),
-                    api.get(`/api/signals/${symbol}/live`)
+                const [btRes, recRes] = await Promise.all([
+                    api.get(`/api/signals/${symbol}/backtest`).catch(() => ({ data: null })),
+                    api.get(`/api/signals/${symbol}/recent`).catch(() => ({ data: null }))
                 ]);
                 
-                const formatStats = (data) => {
-                    if (!data) return null;
-                    return {
-                        ...data,
-                        cumulative_pnl: (parseFloat(data.cumulative_pnl) || 0) * 100
-                    };
-                };
+                if (btRes.data) setBacktest(btRes.data);
+                if (recRes.data) setRecent(recRes.data);
 
-                setBacktest(formatStats(btRes.data));
-                setRecent(formatStats(recRes.data));
-                
-                const lHist = Array.isArray(liveRes.data) ?
-                liveRes.data : (liveRes.data.results || []);
+                const liveRes = await api.get(`/api/signals/${symbol}/live`).catch(() => ({ data: {} }));
+                const lHist = Array.isArray(liveRes.data?.results) ? liveRes.data.results : [];
                 setLiveHistory(lHist.sort((a,b) => new Date(b.time) - new Date(a.time)));
                 
-                // Note: liveStats are now derived in the render body below
-                
-                // Private Data
                 try {
                     const curRes = await api.get(`/api/signals/${symbol}/current`);
                     setCurrentSignal(curRes.data);
@@ -202,17 +183,15 @@ export default function AssetDetails() {
 
     const getDateRange = (list) => {
         if(!list || list.length === 0) return "N/A";
-        const start = new Date(list[list.length-1].time || list[list.length-1].timestamp);
-        const end = new Date(list[0].time || list[0].timestamp);
+        const start = new Date(list[list.length-1].time);
+        const end = new Date(list[0].time);
         return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
     };
 
-    // 1. Filter out flat predictions (0 or null)
     const activeLiveTrades = useMemo(() => {
         return liveHistory.filter(t => t.pred_dir === 1 || t.pred_dir === -1);
     }, [liveHistory]);
 
-    // 2. Derive Live Stats from active trades (Excluding flats from count)
     const liveStats = useMemo(() => {
         if (activeLiveTrades.length === 0) return null;
         
@@ -221,17 +200,18 @@ export default function AssetDetails() {
         const rawCumPnl = activeLiveTrades.reduce((acc, t) => acc + (parseFloat(t.pnl)||0), 0);
         
         return {
-            cumulative_pnl: rawCumPnl * 100,
+            cumulative_pnl: rawCumPnl,
             total_trades: total,
             correct_trades: wins,
             accuracy_percent: ((wins/total)*100).toFixed(1)
         };
     }, [activeLiveTrades]);
 
-    // Calculate Realistic PnL
+    // Fee calculation logic updated (No multiplying by 100)
     const calculateRealisticPnL = () => {
         if (!activeLiveTrades.length) return "0.00";
-        const grossPnL = activeLiveTrades.reduce((acc, t) => acc + (parseFloat(t.pnl) || 0), 0) * 100;
+        // Assuming PnL is already in percent (e.g. 1.5)
+        const grossPnL = activeLiveTrades.reduce((acc, t) => acc + (parseFloat(t.pnl) || 0), 0);
         const totalFees = activeLiveTrades.length * parseFloat(fee || 0);
         return (grossPnL - totalFees).toFixed(2);
     };
@@ -240,13 +220,12 @@ export default function AssetDetails() {
 
     return (
         <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '80px', animation: 'fadeIn 0.4s ease-out' }}>
-            {/* Header / Nav */}
             <div style={{ marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <button onClick={() => navigate('/')} style={{ background: 'none', border: '1px solid #ddd', color: '#666', padding: '6px 12px' }}>&larr; Dashboard</button>
                 <h1 style={{ margin: 0, fontSize: '2rem' }}>{symbol} Analysis</h1>
             </div>
 
-            {/* SECTION 1: LIVE ANALYSIS */}
+            {/* LIVE ANALYSIS */}
             <div style={{ marginBottom: '60px' }}>
                 <h2 style={{ fontSize: '1.5rem', borderBottom: '2px solid #e5e7eb', paddingBottom: '10px', marginBottom: '24px', color: '#111827' }}>Live Analysis</h2>
                 
@@ -276,19 +255,19 @@ export default function AssetDetails() {
                                       {currentSignal?.pred_dir === 1 ?
                                       <span style={{color: '#059669'}}>LONG</span> : 
                                       currentSignal?.pred_dir === -1 ?
-                                      <span style={{color: '#dc2626'}}>SHORT</span> : 'NEUTRAL'}
+                                      <span style={{color: '#dc2626'}}>SHORT</span> : 'WAITING'}
                                  </div>
                              </div>
                              <div>
                                  <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: '700', textTransform: 'uppercase' }}>Entry Price</div>
                                  <div style={{ fontSize: '24px', fontWeight: '600', color: '#111827', marginTop: '4px' }}>
-                                     ${currentSignal?.entry_price}
+                                     {currentSignal?.entry_price || '-'}
                                  </div>
                              </div>
                              <div>
                                  <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: '700', textTransform: 'uppercase' }}>Generated At</div>
                                  <div style={{ fontSize: '16px', color: '#374151', marginTop: '8px' }}>
-                                     {currentSignal?.time}
+                                     {currentSignal?.time ? new Date(currentSignal.time).toLocaleString() : '-'}
                                  </div>
                              </div>
                         </div>
@@ -305,18 +284,18 @@ export default function AssetDetails() {
                 </section>
             </div>
 
-            {/* SECTION 2: PROOF */}
+            {/* PROOF SECTION */}
             <div style={{ marginBottom: '60px' }}>
                 <h2 style={{ fontSize: '1.5rem', borderBottom: '2px solid #e5e7eb', paddingBottom: '10px', marginBottom: '24px', color: '#111827' }}>Strategy Proof</h2>
 
                 <section style={{ marginBottom: '40px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
-                         <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#374151' }}>Recent Validation (14 Days)</h3>
+                         <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#374151' }}>Recent Validation</h3>
                          <span style={{ fontSize: '12px', background: '#f3f4f6', color: '#4b5563', padding: '4px 10px', borderRadius: '20px', fontWeight: '600' }}>OUT-OF-SAMPLE</span>
                     </div>
                     <SectionStats 
                         data={recent} 
-                        timeSpanLabel="Last 14 Days" 
+                        timeSpanLabel="Verified History" 
                     />
                     <EquityChart data={recent?.equity_curve} />
                 </section>
@@ -328,13 +307,13 @@ export default function AssetDetails() {
                     </div>
                     <SectionStats 
                         data={backtest} 
-                        timeSpanLabel={backtest ? "2020 - 2023" : "All Time"} 
+                        timeSpanLabel={backtest ? "Historical Data" : "Loading"} 
                     />
                     <EquityChart data={backtest?.equity_curve} />
                 </section>
             </div>
 
-            {/* SECTION 3: FEE CALCULATION */}
+            {/* FEE CALCULATION */}
             <div style={{ borderTop: '4px solid #3b82f6', background: '#eff6ff', borderRadius: '8px', padding: '24px' }}>
                 <h3 style={{ margin: '0 0 16px 0', color: '#1e3a8a' }}>Fee Calculation (Live Predictions)</h3>
                 <p style={{ fontSize: '14px', color: '#475569', marginBottom: '20px' }}>
