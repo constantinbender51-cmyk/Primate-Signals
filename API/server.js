@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
@@ -9,6 +10,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const path = require('path');
 const fs = require('fs');
 const nodemailer = require('nodemailer'); 
+const fetch = require('node-fetch'); // Ensure node-fetch is available
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -96,12 +98,11 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 app.use(express.json()); 
 app.use(cors());
 
-// Optional Authentication (For Public Data + Private Data Mix)
+// Optional Authentication
 const optionalAuthenticate = async (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
     const authHeader = req.headers['authorization'];
-    
-    req.user = null; // Default to guest
+    req.user = null; 
 
     try {
         if (apiKey) {
@@ -113,40 +114,41 @@ const optionalAuthenticate = async (req, res, next) => {
             const result = await pool.query('SELECT * FROM users WHERE id = $1 AND is_active = true', [decoded.userId]);
             if (result.rows.length > 0) req.user = result.rows[0];
         }
-    } catch (err) {
-        // Soft fail: Just proceed as guest if token is weird
-    }
+    } catch (err) { }
     next();
 };
 
-// Strict Authentication (For Account/Billing)
 const authenticate = async (req, res, next) => {
-    if (req.user) return next(); // Already found by optionalAuthenticate?
-    // If not, re-run strict check logic or just reuse logic above. 
-    // For simplicity, we'll assume optionalAuthenticate covers it or just re-verify:
     return optionalAuthenticate(req, res, () => {
         if (!req.user) return res.status(401).json({ error: 'Authentication required' });
         next();
     });
 };
 
-// --- DATA ROUTES ---
+// --- DATA ROUTES (UPDATED FOR try3lab) ---
 
-const SUPPORTED_ASSETS = {
-    'BTC': 'https://try3btc.up.railway.app',
-    'XRP': 'https://try3xrp.up.railway.app',
-    'SOL': 'https://try3sol.up.railway.app',
-    'DOGE': 'https://try3doge.up.railway.app'
+const LAB_URL = 'https://try3lab.up.railway.app';
+
+// Helper: Convert Direction String to Int for Frontend
+const dirToInt = (dir) => {
+    if (dir === 'UP') return 1;
+    if (dir === 'DOWN') return -1;
+    return 0;
 };
 
-const SUPPORTED_ENDPOINTS = ['current', 'live', 'backtest', 'recent'];
+// Helper: Calculate Percentage PnL
+const calcPnlPercent = (entry, exit, dir) => {
+    if (!entry || entry === 0) return 0;
+    if (dir === 1) return (exit - entry) / entry;
+    if (dir === -1) return (entry - exit) / entry;
+    return 0;
+};
 
-// BATCH ROUTE (ALL ASSETS)
+// 1. BATCH ROUTE (ALL ASSETS)
 app.get('/api/signals/all/:type', optionalAuthenticate, async (req, res) => {
     const type = req.params.type.toLowerCase();
 
-    if (!SUPPORTED_ENDPOINTS.includes(type)) return res.status(404).json({ error: 'Invalid endpoint type.' });
-
+    // Permissions
     if (type === 'current') {
         const user = req.user;
         const isSubscribed = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
@@ -154,47 +156,169 @@ app.get('/api/signals/all/:type', optionalAuthenticate, async (req, res) => {
         if (!isSubscribed) return res.status(403).json({ error: 'Subscription required to view current signals.' });
     }
 
-    const assets = Object.keys(SUPPORTED_ASSETS);
-    const results = {};
-
     try {
-        await Promise.all(assets.map(async (asset) => {
-            try {
-                const response = await fetch(`${SUPPORTED_ASSETS[asset]}/api/${type}`);
-                if (!response.ok) throw new Error(`Status ${response.status}`);
-                results[asset] = await response.json();
-            } catch (err) {
-                results[asset] = { error: 'Unavailable', details: err.message };
+        // Fetch global logs from Lab
+        const response = await fetch(`${LAB_URL}/api/livelog`);
+        if (!response.ok) throw new Error(`Lab API error: ${response.status}`);
+        const logs = await response.json();
+
+        // Group by Symbol and get latest
+        const results = {};
+        const assets = ['BTC', 'XRP', 'SOL', 'DOGE']; // Or dynamic if preferred
+        
+        assets.forEach(asset => {
+            const assetSymbol = `${asset}USDT`;
+            // logs are sorted newest first by default in Python API
+            const latest = logs.find(l => l.symbol === assetSymbol);
+            
+            if (latest) {
+                results[asset] = {
+                    time: latest.timestamp,
+                    entry_price: latest.close_price,
+                    pred_dir: dirToInt(latest.prediction)
+                };
+            } else {
+                results[asset] = { pred_dir: 0, error: 'No Signal' };
             }
-        }));
+        });
+
         res.json(results);
     } catch (err) {
+        console.error('Batch Fetch Error:', err);
         res.status(502).json({ error: 'Failed to fetch batch data.' });
     }
 });
 
-// SINGLE ASSET ROUTE
+// 2. SINGLE ASSET ROUTE
 app.get('/api/signals/:asset/:type', optionalAuthenticate, async (req, res) => {
-    const asset = req.params.asset.toUpperCase();
+    const assetRaw = req.params.asset.toUpperCase();
+    const assetSymbol = assetRaw.endsWith('USDT') ? assetRaw : `${assetRaw}USDT`;
     const type = req.params.type.toLowerCase();
 
-    if (!SUPPORTED_ASSETS[asset]) return res.status(404).json({ error: 'Asset not supported. Only BTC, XRP, SOL, DOGE available.' });
-    if (!SUPPORTED_ENDPOINTS.includes(type)) return res.status(404).json({ error: 'Invalid endpoint type.' });
-
+    // Permissions
     if (type === 'current') {
         const user = req.user;
         const isSubscribed = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
-        if (!user) return res.status(401).json({ error: 'Authentication required for live signals.' });
-        if (!isSubscribed) return res.status(403).json({ error: 'Subscription required to view current signals.' });
+        if (!user) return res.status(401).json({ error: 'Authentication required.' });
+        if (!isSubscribed) return res.status(403).json({ error: 'Subscription required.' });
     }
 
     try {
-        const response = await fetch(`${SUPPORTED_ASSETS[asset]}/api/${type}`);
-        if (!response.ok) throw new Error(`Upstream API error: ${response.status}`);
-        const data = await response.json();
-        res.json(data);
+        // A. CURRENT SIGNAL
+        if (type === 'current') {
+            const r = await fetch(`${LAB_URL}/api/livelog`);
+            const logs = await r.json();
+            const latest = logs.find(l => l.symbol === assetSymbol);
+            if (!latest) return res.json({ pred_dir: 0 });
+
+            return res.json({
+                time: latest.timestamp,
+                entry_price: latest.close_price,
+                pred_dir: dirToInt(latest.prediction)
+            });
+        }
+
+        // B. LIVE HISTORY & RECENT VALIDATION (Using Verified Outcomes)
+        if (type === 'live' || type === 'recent') {
+            const r = await fetch(`${LAB_URL}/api/outcomes`);
+            const outcomes = await r.json();
+            
+            // Filter for asset
+            const assetTrades = outcomes.filter(o => o.symbol === assetSymbol);
+
+            // Transform to Frontend Format
+            // Frontend expects: time, pred_dir, entry_price, exit_price, pnl (as decimal %, e.g. 0.01)
+            const results = assetTrades.map(t => {
+                const dir = dirToInt(t.prediction);
+                // Python sends absolute PnL. Frontend needs %.
+                // We calculate % based on entry/exit.
+                const pnlPercent = calcPnlPercent(t.entry_price, t.exit_price, dir);
+                
+                return {
+                    time: t.time_entry,
+                    pred_dir: dir,
+                    entry_price: t.entry_price,
+                    exit_price: t.exit_price,
+                    pnl: pnlPercent
+                };
+            });
+
+            // For 'recent', user implies summary stats, but AssetDetails.jsx handles array calculation.
+            // We just return the array of trades.
+            // If the frontend expects a summary object for 'recent', we might need to calc it, 
+            // but looking at AssetDetails.jsx, it accepts `data` and passes it to SectionStats 
+            // AND EquityChart. SectionStats needs 'cumulative_pnl'.
+            
+            // Calculate summary stats for the response
+            const wins = results.filter(t => t.pnl > 0).length;
+            const total = results.length;
+            const cumPnl = results.reduce((sum, t) => sum + t.pnl, 0);
+
+            // Construct Equity Curve
+            let run = 0;
+            const curve = results.slice().reverse().map(t => {
+                run += (t.pnl * 100); // Scale for chart
+                return { time: t.time, val: run };
+            });
+
+            return res.json({
+                cumulative_pnl: cumPnl, // Decimal format
+                accuracy_percent: total > 0 ? ((wins/total)*100).toFixed(1) : 0,
+                correct_trades: wins,
+                total_trades: total,
+                equity_curve: curve,
+                results: results
+            });
+        }
+
+        // C. BACKTEST
+        if (type === 'backtest') {
+            const r = await fetch(`${LAB_URL}/api/details?symbol=${assetSymbol}`);
+            if (!r.ok) return res.json({});
+            const data = await r.json();
+
+            // Python 'details' returns: { sharpe, accuracy, pnl (absolute), logs: [...] }
+            // We need to transform this.
+            
+            // Transform logs
+            // Python log: { time_t, rnd_t_0, prediction, actual, pnl (absolute) }
+            const logs = data.logs.map(l => {
+                const dir = dirToInt(l.prediction);
+                // ESTIMATE % PnL because we don't have exact entry price in logs, only rounded 'rnd_t_0'
+                const priceEst = l.rnd_t_0; 
+                const pnlAbs = l.pnl;
+                const pnlPercent = (priceEst && priceEst !== 0) ? (pnlAbs / priceEst) : 0;
+
+                return {
+                    time: l.time_t,
+                    pred_dir: dir,
+                    pnl: pnlPercent
+                };
+            });
+
+            const wins = logs.filter(l => l.pnl > 0).length;
+            const total = logs.length;
+            const cumPnl = logs.reduce((sum, l) => sum + l.pnl, 0);
+            
+            let run = 0;
+            const curve = logs.map(l => {
+                run += (l.pnl * 100);
+                return { time: l.time, val: run };
+            });
+
+            return res.json({
+                cumulative_pnl: cumPnl,
+                accuracy_percent: data.accuracy, // Python sends "55.2" string
+                correct_trades: wins,
+                total_trades: total,
+                equity_curve: curve
+            });
+        }
+
+        res.status(404).json({ error: 'Invalid type' });
+
     } catch (err) {
-        console.error(`Proxy Error (${asset}/${type}):`, err);
+        console.error(`Proxy Error (${assetSymbol}/${type}):`, err);
         res.status(502).json({ error: 'Failed to fetch signal data.' });
     }
 });
@@ -284,29 +408,21 @@ app.get('/legal/impressum', async (req, res) => {
         res.send(await response.text());
     } catch (err) { res.status(500).send('Could not fetch Impressum'); }
 });
-app.get('/legal/privacy', async (req, res) => { /* ... */ });
-app.get('/legal/terms', async (req, res) => { /* ... */ });
+app.get('/legal/privacy', async (req, res) => { res.send("Privacy Policy Placeholder"); });
+app.get('/legal/terms', async (req, res) => { res.send("Terms Placeholder"); });
 
 // --- STATIC FILES & SPA FALLBACK ---
-// 1. Serve static files (css, js, images) from client/dist
 app.use(express.static(path.join(__dirname, 'client/dist')));
 
-// 2. Catch-All Handler for SPA (Fixes the "Black Page" / 404 on reload)
 app.get('*', (req, res) => {
-    // A: If it looks like an API request that wasn't caught above, return 404 JSON
     if (req.path.startsWith('/api')) {
         return res.status(404).json({ error: 'Not Found' });
     }
-
-    // B: For any other route (e.g., /asset/BTC), serve index.html
     const indexPath = path.join(__dirname, 'client/dist', 'index.html');
-    
-    // Check if build exists to give a helpful error instead of crashing/blank page
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
-        console.error("Frontend build not found at:", indexPath);
-        res.status(500).send("Application not built. Run 'npm run build' in client directory.");
+        res.status(500).send("Application not built.");
     }
 });
 
