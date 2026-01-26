@@ -69,7 +69,8 @@ export default function Layout() {
                           textDecoration: 'none',
                           color: isActive ? '#374151' : '#9ca3af',
                           opacity: isActive ? 1 : 0.5,
-                          pointerEvents: isActive ? 'auto' : 'none'
+                          pointerEvents: isActive ? 'auto' : 'none',
+                          alignItems: 'baseline'
                       }}
                   >
                       API
