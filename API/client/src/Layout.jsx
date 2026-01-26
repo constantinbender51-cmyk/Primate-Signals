@@ -50,7 +50,7 @@ export default function Layout() {
         fontWeight: '800', 
         letterSpacing: '-0.025em',
         display: 'flex',
-        alignItems: 'center'
+        alignItems: 'baseline'
     }}>
         <img 
           src="https://i.postimg.cc/Kv7ktXyZ/IMG-20260125-183606.png" 
