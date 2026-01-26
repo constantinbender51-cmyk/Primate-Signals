@@ -55,7 +55,7 @@ export default function Layout() {
         <img 
           src="https://i.postimg.cc/BQr1rH2D/IMG_20260126_183446.png" 
           alt="blacktriangle" 
-          style={{ height: '24px', margin: '0 6px' }} 
+          style={{ height: '18px', margin: '0 6px' }} 
         />Primate 
         {/* Updated Image Source */}
         
