@@ -50,7 +50,7 @@ export default function Layout() {
         fontWeight: '800', 
         letterSpacing: '-0.025em',
         display: 'flex',
-        alignItems: 'baseline'
+        alignItems: 'center'
     }}>
         <img 
           src="https://i.postimg.cc/8C0fN0Y3/IMG-20260126-201906.png" 
@@ -69,8 +69,7 @@ export default function Layout() {
                           textDecoration: 'none',
                           color: isActive ? '#374151' : '#9ca3af',
                           opacity: isActive ? 1 : 0.5,
-                          pointerEvents: isActive ? 'auto' : 'none',
-                          alignItems: 'baseline'
+                          pointerEvents: isActive ? 'auto' : 'none'
                       }}
                   >
                       API
