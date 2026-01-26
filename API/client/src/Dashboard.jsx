@@ -19,7 +19,7 @@ export default function Dashboard() {
             background: '#fff'
         }}>
             <iframe 
-                src="https://harmonious-perfection-production.up.railway.app/"
+                src="https://machine-learning.up.railway.app/"
                 title="Market Analysis Relay"
                 style={{ 
                     width: '100%', 
