@@ -53,7 +53,7 @@ export default function Layout() {
         alignItems: 'baseline'
     }}>
         <img 
-          src="https://i.postimg.cc/Kv7ktXyZ/IMG-20260125-183606.png" 
+          src="https://i.postimg.cc/DZVPvRV0/IMG-20260126-174910.png" 
           alt="blacktriangle" 
           style={{ height: '24px', margin: '0 6px' }} 
         />Primate 
