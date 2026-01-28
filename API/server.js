@@ -24,6 +24,9 @@ const transporter = nodemailer.createTransport({
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
 });
 
+// Upstream URL from your Python script
+const OCTOPUS_URL = 'https://live-trading-production.up.railway.app';
+
 const initDB = async () => {
     try {
         const client = await pool.connect();
@@ -118,38 +121,30 @@ const authenticate = async (req, res, next) => {
     });
 };
 
-// --- DATA ROUTES ---
+// --- OCTOPUS STRATEGY ROUTE ---
 
-const LAB_URL = 'https://try3lab.up.railway.app';
-const OCTOPUS_URL = 'https://live-trading-production.up.railway.app';
-
-const dirToInt = (dir) => {
-    if (dir === 'UP') return 1;
-    if (dir === 'DOWN') return -1;
-    return 0;
-};
-
-const normalizeDate = (ts) => {
-    if (!ts) return new Date().toISOString();
-    if (typeof ts === 'string' && ts.includes(' ')) {
-        return ts.replace(' ', 'T') + 'Z'; 
-    }
-    return ts;
-};
-
-// NEW: Octopus Grid Route
 app.get('/api/octopus/latest', optionalAuthenticate, async (req, res) => {
-    // Paywall Check
+    // 1. Paywall Logic
     const user = req.user;
     const isSubscribed = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
+    
+    // We allow fetching even if not logged in/subscribed, but the Frontend will handle the 403 
+    // to show the "Locked" state. 
+    // HOWEVER, strictly enforcing it here ensures no data leaks.
     
     if (!user) return res.status(401).json({ error: 'Auth required' });
     if (!isSubscribed) return res.status(403).json({ error: 'Sub required' });
 
     try {
+        // Fetch from the upstream logic controller
         const response = await fetch(`${OCTOPUS_URL}/api/parameters`);
-        if (!response.ok) throw new Error(`Octopus API error: ${response.status}`);
+        
+        if (!response.ok) {
+            throw new Error(`Octopus Upstream Error: ${response.status}`);
+        }
+        
         const data = await response.json();
+        // Forward the specific params needed for the frontend
         res.json(data);
     } catch (err) {
         console.error("Octopus Proxy Error:", err);
@@ -157,158 +152,8 @@ app.get('/api/octopus/latest', optionalAuthenticate, async (req, res) => {
     }
 });
 
-// 1. BATCH ROUTE (Updated with all 15 Assets)
-app.get('/api/signals/all/:type', optionalAuthenticate, async (req, res) => {
-    const type = req.params.type.toLowerCase();
+// --- Auth & System Routes ---
 
-    if (type === 'current') {
-        const user = req.user;
-        const isSubscribed = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
-        if (!user) return res.status(401).json({ error: 'Auth required' });
-        if (!isSubscribed) return res.status(403).json({ error: 'Sub required' });
-    }
-
-    try {
-        const response = await fetch(`${LAB_URL}/api/livelog`);
-        if (!response.ok) throw new Error(`Lab API error: ${response.status}`);
-        const logs = await response.json();
-
-        const results = {};
-        // Full Asset List from Python Backend
-        const assets = [
-            'BTC', 'ETH', 'XRP', 'SOL', 'DOGE', 
-            'ADA', 'BCH', 'LINK', 'XLM', 'SUI', 
-            'AVAX', 'LTC', 'HBAR', 'SHIB', 'TON'
-        ]; 
-        
-        assets.forEach(asset => {
-            const assetSymbol = `${asset}USDT`;
-            const latest = logs.find(l => l.symbol === assetSymbol);
-            
-            if (latest) {
-                results[asset] = {
-                    time: normalizeDate(latest.timestamp),
-                    entry_price: latest.close_price,
-                    pred_dir: dirToInt(latest.prediction)
-                };
-            } else {
-                results[asset] = { pred_dir: 0, error: 'No Signal' };
-            }
-        });
-
-        res.json(results);
-    } catch (err) {
-        res.status(502).json({ error: 'Batch fetch failed' });
-    }
-});
-
-// 2. SINGLE ASSET ROUTE
-app.get('/api/signals/:asset/:type', optionalAuthenticate, async (req, res) => {
-    const assetRaw = req.params.asset.toUpperCase();
-    const assetSymbol = assetRaw.endsWith('USDT') ? assetRaw : `${assetRaw}USDT`;
-    const type = req.params.type.toLowerCase();
-
-    if (type === 'current') {
-        const user = req.user;
-        const isSubscribed = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
-        if (!user) return res.status(401).json({ error: 'Auth required' });
-        if (!isSubscribed) return res.status(403).json({ error: 'Sub required' });
-    }
-
-    try {
-        // A. CURRENT SIGNAL
-        if (type === 'current') {
-            const r = await fetch(`${LAB_URL}/api/livelog`);
-            const logs = await r.json();
-            const latest = logs.find(l => l.symbol === assetSymbol);
-            if (!latest) return res.json({ pred_dir: 0 });
-
-            return res.json({
-                time: normalizeDate(latest.timestamp),
-                entry_price: latest.close_price,
-                pred_dir: dirToInt(latest.prediction)
-            });
-        }
-
-        // B. LIVE / RECENT
-        if (type === 'live' || type === 'recent') {
-            const r = await fetch(`${LAB_URL}/api/outcomes`);
-            const outcomes = await r.json();
-            const assetTrades = outcomes.filter(o => o.symbol === assetSymbol);
-
-            const results = assetTrades.map(t => {
-                const dir = dirToInt(t.prediction);
-                return {
-                    time: normalizeDate(t.time_entry),
-                    pred_dir: dir,
-                    entry_price: t.entry_price,
-                    exit_price: t.exit_price,
-                    pnl: parseFloat(t.pnl) || 0 
-                };
-            });
-
-            const wins = results.filter(t => t.pnl > 0).length;
-            const total = results.length;
-            const cumPnl = results.reduce((sum, t) => sum + t.pnl, 0);
-
-            let run = 0;
-            const curve = results.slice().reverse().map(t => {
-                run += t.pnl; 
-                return { time: t.time, val: run };
-            });
-
-            return res.json({
-                cumulative_pnl: cumPnl,
-                accuracy_percent: total > 0 ? ((wins/total)*100).toFixed(1) : 0,
-                correct_trades: wins,
-                total_trades: total,
-                equity_curve: curve,
-                results: results
-            });
-        }
-
-        // C. BACKTEST
-        if (type === 'backtest') {
-            const r = await fetch(`${LAB_URL}/api/details?symbol=${assetSymbol}`);
-            if (!r.ok) return res.json({});
-            const data = await r.json();
-
-            const logs = data.logs.map(l => {
-                return {
-                    time: normalizeDate(l.time_t),
-                    pred_dir: dirToInt(l.prediction),
-                    pnl: parseFloat(l.pnl) || 0,
-                    entry_price: l.rnd_t_0
-                };
-            });
-
-            const wins = logs.filter(l => l.pnl > 0).length;
-            const total = logs.length;
-            const cumPnl = logs.reduce((sum, l) => sum + l.pnl, 0);
-            
-            let run = 0;
-            const curve = logs.map(l => {
-                run += l.pnl;
-                return { time: l.time, val: run };
-            });
-
-            return res.json({
-                cumulative_pnl: cumPnl,
-                accuracy_percent: data.accuracy, 
-                correct_trades: wins,
-                total_trades: total,
-                equity_curve: curve
-            });
-        }
-
-        res.status(404).json({ error: 'Invalid type' });
-    } catch (err) {
-        console.error(`Proxy Error (${assetSymbol}/${type}):`, err);
-        res.status(502).json({ error: 'Failed to fetch signal data.' });
-    }
-});
-
-// ... Auth Routes ...
 app.post('/auth/register', async (req, res) => {
     const { email, password } = req.body;
     if (!password || password.length < 6 || !/\d/.test(password)) {
