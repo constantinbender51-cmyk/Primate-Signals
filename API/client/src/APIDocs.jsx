@@ -8,7 +8,7 @@ export default function APIDocs() {
     const initialKey = user.api_key || "";
 
     const [testKey, setTestKey] = useState(""); 
-    const [selectedAsset, setSelectedAsset] = useState("BTC"); // Default
+    const [selectedAsset, setSelectedAsset] = useState("BTC");
     const [consoleOutput, setConsoleOutput] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState(null);
@@ -23,7 +23,7 @@ export default function APIDocs() {
     };
 
     const codeExample = `// Configuration
-const BASE_URL = "https://your-domain.com/api/signals"; 
+const BASE_URL = "https://your-domain.com/api/signals";
 const API_KEY = "${testKey || 'YOUR_API_KEY_HERE'}";
 
 /**
@@ -55,7 +55,6 @@ async function getSignals(asset = 'all') {
         setIsLoading(true);
         setConsoleOutput(null);
         setStatus(null);
-
         const endpoint = testKey ? 'current' : 'recent';
         
         try {
@@ -117,7 +116,7 @@ async function getSignals(asset = 'all') {
             <section style={{ marginBottom: '4rem' }}>
                 <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1rem' }}>Authentication</h4>
                 <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '1.5rem' }}>
-                    Authenticate your requests by including your API key in the <code>x-api-key</code> header of every request.
+                     Authenticate your requests by including your API key in the <code>x-api-key</code> header of every request.
                 </p>
                 <pre>{codeExample}</pre>
             </section>
