@@ -4,7 +4,6 @@ import Login from './Login';
 import Register from './Register';
 import Dashboard from './Dashboard';
 import Profile from './Profile';
-import AssetDetails from './AssetDetails'; // Import new Component
 import LegalTextPage from './LegalTextPage';
 import APIDocs from './APIDocs';
 
@@ -15,8 +14,8 @@ function App() {
         <Route element={<Layout />}>
            <Route path="/login" element={<Login />} />
            <Route path="/register" element={<Register />} />
+           {/* Dashboard is now the main view for the Octopus Strategy */}
            <Route path="/" element={<Dashboard />} />
-           <Route path="/asset/:symbol" element={<AssetDetails />} /> {/* New Route */}
            <Route path="/profile" element={<Profile />} />
            {/* Legal Pages */}
            <Route path="/legal/:type" element={<LegalTextPage />} />
