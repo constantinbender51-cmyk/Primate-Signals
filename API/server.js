@@ -124,27 +124,18 @@ const authenticate = async (req, res, next) => {
 // --- OCTOPUS STRATEGY ROUTE ---
 
 app.get('/api/octopus/latest', optionalAuthenticate, async (req, res) => {
-    // 1. Paywall Logic
     const user = req.user;
     const isSubscribed = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
-    
-    // We allow fetching even if not logged in/subscribed, but the Frontend will handle the 403 
-    // to show the "Locked" state. 
-    // HOWEVER, strictly enforcing it here ensures no data leaks.
     
     if (!user) return res.status(401).json({ error: 'Auth required' });
     if (!isSubscribed) return res.status(403).json({ error: 'Sub required' });
 
     try {
-        // Fetch from the upstream logic controller
         const response = await fetch(`${OCTOPUS_URL}/api/parameters`);
-        
         if (!response.ok) {
             throw new Error(`Octopus Upstream Error: ${response.status}`);
         }
-        
         const data = await response.json();
-        // Forward the specific params needed for the frontend
         res.json(data);
     } catch (err) {
         console.error("Octopus Proxy Error:", err);
@@ -227,14 +218,33 @@ app.post('/create-portal-session', authenticate, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Failed to create portal session' }); }
 });
 
-// Moved these to /api namespace to avoid collision with Frontend routes
-app.get('/api/legal/impressum', async (req, res) => { res.send("Impressum Placeholder"); });
-app.get('/api/legal/privacy', async (req, res) => { res.send("Privacy Placeholder"); });
-app.get('/api/legal/terms', async (req, res) => { res.send("Terms Placeholder"); });
+// --- HELPER FOR SERVING TEXT FILES ---
+const serveTextFile = (filename, res) => {
+    const filePath = path.join(__dirname, filename);
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+            console.error(`Error reading ${filename}:`, err);
+            return res.status(500).send("Content unavailable");
+        }
+        res.send(data);
+    });
+};
+
+// Updated Routes to serve actual files
+app.get('/api/legal/impressum', (req, res) => serveTextFile('impressum.txt', res));
+app.get('/api/legal/privacy', (req, res) => serveTextFile('pp.txt', res));
+app.get('/api/legal/terms', (req, res) => serveTextFile('tos.txt', res));
 
 app.use(express.static(path.join(__dirname, 'client/dist')));
+
+// --- FIXED WILDCARD HANDLER ---
 app.get('*', (req, res) => {
-    if (req.path.startsWith('/api')) return res.status(404).json({ error: 'Not Found' });
+    // FIX: Only return 404 if the path starts with /api/ (trailing slash is critical)
+    // This prevents /api-docs from triggering the API 404 JSON
+    if (req.path.startsWith('/api/') || req.path === '/api') {
+        return res.status(404).json({ error: 'Not Found' });
+    }
+    
     const indexPath = path.join(__dirname, 'client/dist', 'index.html');
     if (fs.existsSync(indexPath)) res.sendFile(indexPath);
     else res.status(500).send("App not built.");
