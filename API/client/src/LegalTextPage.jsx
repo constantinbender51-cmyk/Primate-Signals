@@ -35,7 +35,8 @@ export default function LegalTextPage() {
                         return;
                 }
                 setTitle(pageTitle);
-                const res = await api.get(`/legal/${endpointType}`);
+                // Updated to fetch from /api/legal to match server change
+                const res = await api.get(`/api/legal/${endpointType}`);
                 setContent(res.data);
             } catch (err) {
                 console.error(`Failed to fetch ${type} content:`, err);
