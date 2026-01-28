@@ -14,7 +14,7 @@ function App() {
         <Route element={<Layout />}>
            <Route path="/login" element={<Login />} />
            <Route path="/register" element={<Register />} />
-           {/* Dashboard is now the main view for the Octopus Strategy */}
+           {/* Dashboard is the main view for the Spearhead Strategy */}
            <Route path="/" element={<Dashboard />} />
            <Route path="/profile" element={<Profile />} />
            {/* Legal Pages */}
