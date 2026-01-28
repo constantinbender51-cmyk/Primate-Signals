@@ -15,7 +15,8 @@ export default defineConfig({
       '/auth': 'http://localhost:3000',
       '/create-checkout-session': 'http://localhost:3000',
       '/create-portal-session': 'http://localhost:3000',
-      '/legal': 'http://localhost:3000',
+      
+      // REMOVED: '/legal' proxy caused collision with frontend routes
       
       // Legacy/Cleanup (You can likely remove these if you updated APIDocs.jsx)
       '/live_matrix': 'http://localhost:3000',
