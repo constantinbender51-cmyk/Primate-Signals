@@ -110,8 +110,8 @@ export default function LandingPage() {
                             borderRadius: '12px',
                             backdropFilter: 'blur(4px)'
                         }}>
-                            <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '600' }}>SIGNAL ACCURACY</div>
-                            <div style={{ fontSize: '24px', fontWeight: '800', color: '#059669' }}>84.2%</div>
+                            <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '600' }}>REVERSAL SIGNALS</div>
+                            <div style={{ fontSize: '24px', fontWeight: '800', color: '#059669' }}>2+ Sharpe</div>
                         </div>
                     </div>
                 </div>
