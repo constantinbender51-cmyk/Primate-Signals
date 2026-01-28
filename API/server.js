@@ -121,6 +121,7 @@ const authenticate = async (req, res, next) => {
 // --- DATA ROUTES ---
 
 const LAB_URL = 'https://try3lab.up.railway.app';
+const OCTOPUS_URL = 'https://live-trading-production.up.railway.app';
 
 const dirToInt = (dir) => {
     if (dir === 'UP') return 1;
@@ -135,6 +136,26 @@ const normalizeDate = (ts) => {
     }
     return ts;
 };
+
+// NEW: Octopus Grid Route
+app.get('/api/octopus/latest', optionalAuthenticate, async (req, res) => {
+    // Paywall Check
+    const user = req.user;
+    const isSubscribed = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
+    
+    if (!user) return res.status(401).json({ error: 'Auth required' });
+    if (!isSubscribed) return res.status(403).json({ error: 'Sub required' });
+
+    try {
+        const response = await fetch(`${OCTOPUS_URL}/api/parameters`);
+        if (!response.ok) throw new Error(`Octopus API error: ${response.status}`);
+        const data = await response.json();
+        res.json(data);
+    } catch (err) {
+        console.error("Octopus Proxy Error:", err);
+        res.status(502).json({ error: 'Failed to fetch grid data' });
+    }
+});
 
 // 1. BATCH ROUTE (Updated with all 15 Assets)
 app.get('/api/signals/all/:type', optionalAuthenticate, async (req, res) => {
