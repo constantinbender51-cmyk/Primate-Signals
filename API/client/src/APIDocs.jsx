@@ -7,7 +7,9 @@ export default function APIDocs() {
     const user = userStr ? JSON.parse(userStr) : {};
     const initialKey = user.api_key || "";
 
+    // State for the Live Console
     const [testKey, setTestKey] = useState(""); 
+    const [testSymbol, setTestSymbol] = useState("BTC"); // New state for symbol
     
     const [consoleOutput, setConsoleOutput] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -22,17 +24,19 @@ export default function APIDocs() {
         }
     };
 
+    // Updated Code Example to reflect the /status/:symbol endpoint
     const codeExample = `// Configuration
 const BASE_URL = "https://your-domain.com/api";
 const API_KEY = "${testKey || 'YOUR_API_KEY_HERE'}";
 
 /**
- * Fetch live Octopus Strategy grid parameters.
- * Returns active price lines, stop-loss, and take-profit ratios.
+ * Fetch live Octopus Strategy status for a specific asset.
+ * @param {string} symbol - The asset symbol (e.g., 'BTC', 'ETH', 'SOL')
  */
-async function getGridParams() {
+async function getStrategyStatus(symbol) {
   try {
-    const response = await fetch(\`\${BASE_URL}/octopus/latest\`, {
+    // Endpoint: /octopus/status/:symbol
+    const response = await fetch(\`\${BASE_URL}/octopus/status/\${symbol}\`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -43,12 +47,15 @@ async function getGridParams() {
     if (!response.ok) throw new Error("API Request failed: " + response.status);
 
     const data = await response.json();
-    console.log("Active Grid Lines:", data.line_prices);
+    console.log(\`[\${symbol}] Active Params:\`, data.params);
     return data;
   } catch (error) {
-    console.error("Failed to fetch grid parameters:", error.message);
+    console.error("Failed to fetch strategy data:", error.message);
   }
-}`;
+}
+
+// Example Usage
+getStrategyStatus('BTC');`;
 
     const handleSimulate = async (e) => {
         e.preventDefault();
@@ -57,8 +64,8 @@ async function getGridParams() {
         setStatus(null);
         
         try {
-            // Updated to point to the actual Octopus Strategy endpoint
-            const res = await fetch(`${BASE_URL}/api/octopus/latest`, {
+            // Updated fetch to use the dynamic symbol
+            const res = await fetch(`${BASE_URL}/api/octopus/status/${testSymbol}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -67,7 +74,6 @@ async function getGridParams() {
             });
             setStatus(res.status);
             
-            // Handle non-JSON responses (like 401/403 text errors)
             const contentType = res.headers.get("content-type");
             if (contentType && contentType.indexOf("application/json") !== -1) {
                 const data = await res.json();
@@ -88,7 +94,7 @@ async function getGridParams() {
             <header style={{ marginBottom: '3rem' }}>
                 <h3 style={{ border: 'none', margin: '0 0 0.5rem 0', fontSize: '1.75rem' }}>API Reference</h3>
                 <p style={{ color: '#6b7280', fontSize: '15px' }}>
-                    Integrate live Octopus Strategy grid parameters into your own trading bots or dashboards.
+                    Integrate live Octopus Strategy grid parameters, trade logs, and equity curves into your own applications.
                 </p>
             </header>
             
@@ -125,30 +131,38 @@ async function getGridParams() {
             <section style={{ marginBottom: '4rem' }}>
                 <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1rem' }}>Authentication</h4>
                 <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '1.5rem' }}>
-                     Authenticate your requests by including your API key in the <code>x-api-key</code> header of every request.
+                     Authenticate by including your API key in the <code>x-api-key</code> header.
                      <br/>
-                     <span style={{ color: '#ef4444', fontSize: '12px', fontWeight: '600' }}>NOTE:</span> An active subscription is required to fetch data.
+                     <span style={{ color: '#ef4444', fontSize: '12px', fontWeight: '600' }}>NOTE:</span> Active subscription required.
                 </p>
                 <pre>{codeExample}</pre>
             </section>
 
             <section style={{ marginBottom: '4rem' }}>
-                <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1.5rem' }}>Response Format</h4>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1.5rem' }}>Endpoint Structure</h4>
                 <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-                    The API returns the current grid configuration calculated by the strategy engine.
+                    <code>GET /api/octopus/status/:symbol</code><br/>
+                    Returns the full execution state for the requested symbol.
                 </p>
 
-                <h5 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '1rem', color: '#334155' }}>Response Example (JSON)</h5>
+                <h5 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '1rem', color: '#334155' }}>Response Object (JSON)</h5>
                 <pre style={{ marginBottom: '2rem' }}>
 {`{
-  "line_prices": [
-    95120.50,
-    95450.00,
-    95800.75
+  "status": "Running",
+  "params": {
+    "stop_pct": 0.02,
+    "profit_pct": 0.015,
+    "lines": [ ... ]
+  },
+  "live_logs": [
+    {
+      "timestamp": "2023-10-27 10:00:00",
+      "price": 34500.50,
+      "position": "LONG",
+      "active_sl": 33810.00
+    }
   ],
-  "stop_percent": 0.02,    // 2.0%
-  "profit_percent": 0.015, // 1.5%
-  "timestamp": "2023-10-27T10:00:00Z"
+  "equity_curve": [ ... ] 
 }`}
                 </pre>
             </section>
@@ -168,6 +182,7 @@ async function getGridParams() {
                 }}>
                     <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb' }}>
                         <form onSubmit={handleSimulate} style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                            {/* API Key Input */}
                             <div style={{ flexGrow: 1, minWidth: '200px' }}>
                                 <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>
                                     X-API-KEY
@@ -180,9 +195,23 @@ async function getGridParams() {
                                     style={{ margin: 0, width: '100%', boxSizing: 'border-box', padding: '10px', borderRadius: '6px', border: '1px solid #e5e7eb' }}
                                 />
                             </div>
+
+                            {/* Symbol Input */}
+                            <div style={{ width: '100px' }}>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>
+                                    SYMBOL
+                                </label>
+                                <input 
+                                    type="text" 
+                                    value={testSymbol} 
+                                    onChange={(e) => setTestSymbol(e.target.value.toUpperCase())}
+                                    placeholder="BTC"
+                                    style={{ margin: 0, width: '100%', boxSizing: 'border-box', padding: '10px', borderRadius: '6px', border: '1px solid #e5e7eb', textAlign: 'center' }}
+                                />
+                            </div>
                             
-                            <button type="submit" disabled={isLoading} style={{ height: '42px', whiteSpace: 'nowrap', cursor: 'pointer', padding: '0 20px' }}>
-                                {isLoading ? 'Sending...' : 'GET /octopus/latest'}
+                            <button type="submit" disabled={isLoading} style={{ height: '42px', whiteSpace: 'nowrap', cursor: 'pointer', padding: '0 20px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px' }}>
+                                {isLoading ? 'Sending...' : 'GET Status'}
                             </button>
                         </form>
                     </div>
@@ -197,7 +226,7 @@ async function getGridParams() {
                             )}
                         </div>
                         {consoleOutput ? (
-                            <pre style={{ background: 'transparent', padding: 0, margin: 0, color: '#38bdf8', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                            <pre style={{ background: 'transparent', padding: 0, margin: 0, color: '#38bdf8', whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '12px' }}>
                                 {JSON.stringify(consoleOutput, null, 2)}
                             </pre>
                         ) : (
