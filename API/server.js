@@ -9,7 +9,7 @@ const fetch = require('node-fetch');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 const app = express();
-const OCTOPUS_URL = 'https://live-trading-production.up.railway.app';
+const OCTOPUS_URL = 'https://spearhead-production.up.railway.app/';
 
 app.use(express.json());
 app.use(cors());
