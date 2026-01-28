@@ -8,8 +8,6 @@ export default function APIDocs() {
     const initialKey = user.api_key || "";
 
     const [testKey, setTestKey] = useState(""); 
-    // STRICT: Only BTC is supported
-    const asset = "BTC"; 
     
     const [consoleOutput, setConsoleOutput] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -25,15 +23,16 @@ export default function APIDocs() {
     };
 
     const codeExample = `// Configuration
-const BASE_URL = "https://your-domain.com/api/signals";
+const BASE_URL = "https://your-domain.com/api";
 const API_KEY = "${testKey || 'YOUR_API_KEY_HERE'}";
 
 /**
- * Fetch current signals for BTC.
+ * Fetch live Octopus Strategy grid parameters.
+ * Returns active price lines, stop-loss, and take-profit ratios.
  */
-async function getSignals() {
+async function getGridParams() {
   try {
-    const response = await fetch(\`\${BASE_URL}/BTC/current\`, {
+    const response = await fetch(\`\${BASE_URL}/octopus/latest\`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -44,10 +43,10 @@ async function getSignals() {
     if (!response.ok) throw new Error("API Request failed: " + response.status);
 
     const data = await response.json();
-    console.log(data);
+    console.log("Active Grid Lines:", data.line_prices);
     return data;
   } catch (error) {
-    console.error("Failed to fetch signals:", error.message);
+    console.error("Failed to fetch grid parameters:", error.message);
   }
 }`;
 
@@ -57,11 +56,9 @@ async function getSignals() {
         setConsoleOutput(null);
         setStatus(null);
         
-        const endpoint = testKey ? 'current' : 'recent';
-        
         try {
-            // STRICT: Hardcoded to BTC
-            const res = await fetch(`${BASE_URL}/api/signals/${asset}/${endpoint}`, {
+            // Updated to point to the actual Octopus Strategy endpoint
+            const res = await fetch(`${BASE_URL}/api/octopus/latest`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -69,8 +66,16 @@ async function getSignals() {
                 }
             });
             setStatus(res.status);
-            const data = await res.json();
-            setConsoleOutput(data);
+            
+            // Handle non-JSON responses (like 401/403 text errors)
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                const data = await res.json();
+                setConsoleOutput(data);
+            } else {
+                const text = await res.text();
+                setConsoleOutput({ error: text });
+            }
         } catch (err) {
             setConsoleOutput({ error: "Network/Fetch Error", details: err.message });
         } finally {
@@ -83,7 +88,7 @@ async function getSignals() {
             <header style={{ marginBottom: '3rem' }}>
                 <h3 style={{ border: 'none', margin: '0 0 0.5rem 0', fontSize: '1.75rem' }}>API Reference</h3>
                 <p style={{ color: '#6b7280', fontSize: '15px' }}>
-                    Integrate real-time BTC signals into your own trading bots or dashboards.
+                    Integrate live Octopus Strategy grid parameters into your own trading bots or dashboards.
                 </p>
             </header>
             
@@ -121,6 +126,8 @@ async function getSignals() {
                 <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1rem' }}>Authentication</h4>
                 <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '1.5rem' }}>
                      Authenticate your requests by including your API key in the <code>x-api-key</code> header of every request.
+                     <br/>
+                     <span style={{ color: '#ef4444', fontSize: '12px', fontWeight: '600' }}>NOTE:</span> An active subscription is required to fetch data.
                 </p>
                 <pre>{codeExample}</pre>
             </section>
@@ -128,17 +135,20 @@ async function getSignals() {
             <section style={{ marginBottom: '4rem' }}>
                 <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1.5rem' }}>Response Format</h4>
                 <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-                    The API currently supports <code>BTC</code>.
+                    The API returns the current grid configuration calculated by the strategy engine.
                 </p>
 
                 <h5 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '1rem', color: '#334155' }}>Response Example (JSON)</h5>
                 <pre style={{ marginBottom: '2rem' }}>
 {`{
-  "BTC": {
-    "time": "2023-10-27 10:00:00",
-    "entry_price": 34500.00,
-    "pred_dir": 1
-  }
+  "line_prices": [
+    95120.50,
+    95450.00,
+    95800.75
+  ],
+  "stop_percent": 0.02,    // 2.0%
+  "profit_percent": 0.015, // 1.5%
+  "timestamp": "2023-10-27T10:00:00Z"
 }`}
                 </pre>
             </section>
@@ -170,24 +180,9 @@ async function getSignals() {
                                     style={{ margin: 0, width: '100%', boxSizing: 'border-box', padding: '10px', borderRadius: '6px', border: '1px solid #e5e7eb' }}
                                 />
                             </div>
-                            <div style={{ minWidth: '100px' }}>
-                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>
-                                    Asset
-                                </label>
-                                <div style={{ 
-                                    padding: '10px', 
-                                    background: '#f1f5f9', 
-                                    border: '1px solid #e2e8f0', 
-                                    borderRadius: '6px', 
-                                    color: '#64748b',
-                                    fontSize: '14px',
-                                    fontWeight: '600'
-                                }}>
-                                    BTC
-                                </div>
-                            </div>
+                            
                             <button type="submit" disabled={isLoading} style={{ height: '42px', whiteSpace: 'nowrap', cursor: 'pointer', padding: '0 20px' }}>
-                                {isLoading ? 'Sending...' : 'Test Request'}
+                                {isLoading ? 'Sending...' : 'GET /octopus/latest'}
                             </button>
                         </form>
                     </div>
