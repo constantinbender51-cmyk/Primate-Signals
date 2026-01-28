@@ -227,17 +227,14 @@ app.post('/create-portal-session', authenticate, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Failed to create portal session' }); }
 });
 
-// FIXED: Moved these to /api/legal to avoid collision with Frontend routes
+// Moved these to /api namespace to avoid collision with Frontend routes
 app.get('/api/legal/impressum', async (req, res) => { res.send("Impressum Placeholder"); });
 app.get('/api/legal/privacy', async (req, res) => { res.send("Privacy Placeholder"); });
 app.get('/api/legal/terms', async (req, res) => { res.send("Terms Placeholder"); });
 
 app.use(express.static(path.join(__dirname, 'client/dist')));
 app.get('*', (req, res) => {
-    // FIXED: Only return 404 for strictly api routes, permitting /api-docs to fall through to React
-    if (req.path.startsWith('/api/') || req.path === '/api') {
-        return res.status(404).json({ error: 'Not Found' });
-    }
+    if (req.path.startsWith('/api')) return res.status(404).json({ error: 'Not Found' });
     const indexPath = path.join(__dirname, 'client/dist', 'index.html');
     if (fs.existsSync(indexPath)) res.sendFile(indexPath);
     else res.status(500).send("App not built.");
