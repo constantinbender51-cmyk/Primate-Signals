@@ -11,8 +11,7 @@ export default function LandingPage() {
                 alignItems: 'center', 
                 textAlign: 'center', 
                 padding: '80px 20px',
-                // Updated Background with Overlay + Image
-                background: `linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.95)), url('https://i.postimg.cc/HLmpLKr1/1769160143954.png')`,
+                background: `linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.95)), url('https://i.postimg.cc/HLmpLKr1/1769160143954.png')`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 borderRadius: '0 0 40px 40px',
@@ -31,7 +30,7 @@ export default function LandingPage() {
                     letterSpacing: '0.05em',
                     border: '1px solid #fde68a'
                 }}>
-                    Multiasset Next Hour Binomial Prediction 
+                    Multi-Asset Spearhead Strategy
                 </div>
                 
                 <h1 style={{ 
@@ -43,8 +42,8 @@ export default function LandingPage() {
                     maxWidth: '800px',
                     letterSpacing: '-0.02em'
                 }}>
-                    Hunt the Market with <br/>
-                    <span style={{ color: '#d97706' }}>Primate Precision</span>
+                    Precision Volatility <br/>
+                    <span style={{ color: '#d97706' }}>Hunting Engine</span>
                 </h1>
                 
                 <p style={{ 
@@ -54,7 +53,7 @@ export default function LandingPage() {
                     marginBottom: '40px',
                     lineHeight: '1.6'
                 }}>
-                    Stop guessing. Start striking. Our probabilistic models analyze major crypto assets in real-time to deliver high-accuracy trading signals.
+                    Access live grid signals across 15+ major crypto assets. Our Spearhead algorithms track volatility clusters to find the perfect strike point.
                 </p>
 
                 <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -69,7 +68,7 @@ export default function LandingPage() {
                         transition: 'transform 0.2s',
                         boxShadow: '0 10px 15px -3px rgba(217, 119, 6, 0.3)'
                     }}>
-                        View Live Market
+                        View Performance
                     </Link>
                     <Link to="/register" style={{ 
                         textDecoration: 'none', 
@@ -81,14 +80,14 @@ export default function LandingPage() {
                         fontWeight: '700',
                         fontSize: '18px'
                     }}>
-                        Create Account
+                        Start Trial
                     </Link>
                 </div>
             </section>
 
             {/* Feature / Visual Section */}
             <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '60px', alignItems: 'center' }}>
-                <div style={{ order: 2 }}> {/* Image container */}
+                <div style={{ order: 2 }}> 
                     <div style={{ 
                         position: 'relative', 
                         borderRadius: '24px', 
@@ -101,37 +100,23 @@ export default function LandingPage() {
                             alt="chart" 
                             style={{ width: '100%', height: 'auto', display: 'block', background: '#fef3c7' }} 
                         />
-                        <div style={{
-                            position: 'absolute',
-                            bottom: '20px',
-                            left: '20px',
-                            background: 'rgba(255, 255, 255, 0.9)',
-                            padding: '12px 20px',
-                            borderRadius: '12px',
-                            backdropFilter: 'blur(4px)'
-                        }}>
-                            <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '600' }}>REVERSAL SIGNALS</div>
-                            <div style={{ fontSize: '24px', fontWeight: '800', color: '#059669' }}>2+ Sharpe</div>
-                        </div>
                     </div>
                 </div>
                 
-                <div style={{ order: 1 }}> {/* Text content */}
+                <div style={{ order: 1 }}>
                     <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '24px', lineHeight: '1.2' }}>
-                        Don't Be Prey. <br/>
-                        <span style={{ color: '#dc2626' }}>Be the Hunter.</span>
+                        Spearhead <span style={{ color: '#dc2626' }}>Execution</span>
                     </h2>
                     <p style={{ fontSize: '1.1rem', color: '#6b7280', marginBottom: '32px', lineHeight: '1.7' }}>
-                        The market is a wild beast. Most traders get eaten by volatility. We equip you with a spear that tracks down predictable patterns automatically. All you have to do is strike. 
+                        Don't just watch one chart. Monitor the entire market. Spearhead runs simultaneous genetic algorithms on BTC, ETH, SOL, and more to isolate the highest probability setups.
                     </p>
                     
                     <div style={{ display: 'grid', gap: '24px' }}>
                         {[
-                            { title: 'Real-Time Precision', desc: 'Signals generated every 60 minutes based on recent market data.' },
-                            { title: 'Transparent Performance', desc: 'Full historical logs. We don\'t hide our losses, because our wins speak louder.' },
-                            { title: 'API Access', desc: 'Connect your own bots directly to our prediction engine.' },
-                            { title: 'Consistency', desc: 'We improve slowly. We value consistency over performance enhancemens.' }
-
+                            { title: 'Global Coverage', desc: 'Simultaneous tracking of top 15 assets by volume.' },
+                            { title: 'Transparent History', desc: 'Full public access to historical trade logs and PnL.' },
+                            { title: 'API First', desc: 'Programmatic access for your execution bots.' },
+                            { title: 'Live Signals', desc: 'Real-time entry, stop-loss, and take-profit updates.' }
                         ].map((item, i) => (
                             <div key={i} style={{ display: 'flex', gap: '16px' }}>
                                 <div style={{ 
@@ -144,7 +129,7 @@ export default function LandingPage() {
                                     <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>{item.desc}</p>
                                 </div>
                             </div> 
-                              ))}
+                        ))}
                     </div>
                 </div>
             </section>
