@@ -133,6 +133,9 @@ export default function AssetDetails() {
     const [liveHistory, setLiveHistory] = useState([]);
     const [currentSignal, setCurrentSignal] = useState(null);
     
+    // Octopus Strategy State
+    const [octopusData, setOctopusData] = useState(null);
+    
     const [fee, setFee] = useState(0.06);
     const [loading, setLoading] = useState(true);
     const [locked, setLocked] = useState(false);
@@ -160,6 +163,19 @@ export default function AssetDetails() {
                 } catch (err) {
                     if (err.response?.status === 403 || err.response?.status === 401) {
                         setLocked(true);
+                    }
+                }
+
+                // Fetch Octopus Data only for BTC
+                if (symbol === 'BTC') {
+                    try {
+                        const octRes = await api.get('/api/octopus/latest');
+                        setOctopusData(octRes.data);
+                    } catch (err) {
+                        if (err.response?.status === 403) {
+                            // Already handled by setLocked(true) above typically, 
+                            // but ensures we know it's locked.
+                        }
                     }
                 }
 
@@ -207,10 +223,8 @@ export default function AssetDetails() {
         };
     }, [activeLiveTrades]);
 
-    // Fee calculation logic updated (No multiplying by 100)
     const calculateRealisticPnL = () => {
         if (!activeLiveTrades.length) return "0.00";
-        // Assuming PnL is already in percent (e.g. 1.5)
         const grossPnL = activeLiveTrades.reduce((acc, t) => acc + (parseFloat(t.pnl) || 0), 0);
         const totalFees = activeLiveTrades.length * parseFloat(fee || 0);
         return (grossPnL - totalFees).toFixed(2);
@@ -229,10 +243,68 @@ export default function AssetDetails() {
             <div style={{ marginBottom: '60px' }}>
                 <h2 style={{ fontSize: '1.5rem', borderBottom: '2px solid #e5e7eb', paddingBottom: '10px', marginBottom: '24px', color: '#111827' }}>Live Analysis</h2>
                 
+                {/* OCTOPUS GRID STRATEGY SECTION (BTC Only) */}
+                {symbol === 'BTC' && (
+                    <section style={{ marginBottom: '32px' }}>
+                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
+                             <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#7c3aed' }}>Octopus Grid Strategy</h3>
+                             <span style={{ fontSize: '12px', background: '#ede9fe', color: '#7c3aed', padding: '4px 10px', borderRadius: '20px', fontWeight: '600' }}>ACTIVE STRATEGY</span>
+                        </div>
+                        
+                        {locked ? (
+                             <div style={{ 
+                                background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '12px', padding: '40px', 
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginBottom: '20px'
+                            }}>
+                                <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#475569', marginBottom: '16px' }}>Grid Parameters Locked</div>
+                                <p style={{ color: '#64748b', marginBottom: '24px' }}>Subscribe to view live Grid Lines and Risk settings for the Octopus Strategy.</p>
+                                <button onClick={handleSubscribe} style={{ padding: '12px 32px', fontSize: '16px' }}>Unlock Access</button>
+                            </div>
+                        ) : octopusData ? (
+                            <div style={{ 
+                                background: '#fff', border: '1px solid #ddd6fe', borderRadius: '12px', padding: '24px',
+                                display: 'flex', flexWrap: 'wrap', gap: '30px', alignItems: 'flex-start', boxShadow: '0 4px 6px -1px rgba(124, 58, 237, 0.05)',
+                                marginBottom: '24px'
+                            }}>
+                                <div style={{ flex: 1, minWidth: '200px' }}>
+                                    <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: '700', textTransform: 'uppercase' }}>Active Grid Lines</div>
+                                    <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                        {octopusData.line_prices && octopusData.line_prices.slice(0, 8).map((price, idx) => (
+                                            <span key={idx} style={{ 
+                                                background: '#f3f4f6', fontSize: '13px', padding: '4px 8px', borderRadius: '4px', 
+                                                color: '#374151', border: '1px solid #e5e7eb', fontFamily: 'monospace'
+                                            }}>
+                                                {price.toLocaleString()}
+                                            </span>
+                                        ))}
+                                        {octopusData.line_prices?.length > 8 && <span style={{ fontSize: '12px', color: '#9ca3af', alignSelf: 'center' }}>+more</span>}
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '30px' }}>
+                                    <div>
+                                        <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: '700', textTransform: 'uppercase' }}>Stop Loss</div>
+                                        <div style={{ fontSize: '20px', fontWeight: '700', color: '#dc2626', marginTop: '4px' }}>
+                                            {(octopusData.stop_percent * 100).toFixed(1)}%
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: '700', textTransform: 'uppercase' }}>Take Profit</div>
+                                        <div style={{ fontSize: '20px', fontWeight: '700', color: '#10b981', marginTop: '4px' }}>
+                                            {(octopusData.profit_percent * 100).toFixed(1)}%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                             <div style={{ padding: '20px', color: '#6b7280', fontStyle: 'italic' }}>Loading Grid Data...</div>
+                        )}
+                    </section>
+                )}
+
                 <section style={{ marginBottom: '32px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
-                         <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#374151' }}>Current Signal</h3>
-                         <span style={{ fontSize: '12px', background: '#dbeafe', color: '#1e40af', padding: '4px 10px', borderRadius: '20px', fontWeight: '600' }}>REAL-TIME</span>
+                         <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#374151' }}>Current Directional Signal</h3>
+                         <span style={{ fontSize: '12px', background: '#dbeafe', color: '#1e40af', padding: '4px 10px', borderRadius: '20px', fontWeight: '600' }}>PRIMATE ML</span>
                     </div>
                     
                     {locked ? (
@@ -302,7 +374,7 @@ export default function AssetDetails() {
 
                 <section>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
-                         <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#374151' }}>Historical Backtest</h3>
+                         <h3 style={{ margin: '0 0 1.1rem', color: '#374151' }}>Historical Backtest</h3>
                          <span style={{ fontSize: '12px', background: '#f3f4f6', color: '#4b5563', padding: '4px 10px', borderRadius: '20px', fontWeight: '600' }}>IN-SAMPLE</span>
                     </div>
                     <SectionStats 
