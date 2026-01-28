@@ -8,7 +8,9 @@ export default function APIDocs() {
     const initialKey = user.api_key || "";
 
     const [testKey, setTestKey] = useState(""); 
-    const [selectedAsset, setSelectedAsset] = useState("BTC");
+    // STRICT: Only BTC is supported
+    const asset = "BTC"; 
+    
     const [consoleOutput, setConsoleOutput] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState(null);
@@ -27,12 +29,11 @@ const BASE_URL = "https://your-domain.com/api/signals";
 const API_KEY = "${testKey || 'YOUR_API_KEY_HERE'}";
 
 /**
- * Fetch data for a single asset or all assets.
- * @param {string} asset - 'BTC', 'ETH', 'XRP', 'SOL', 'DOGE', etc. or 'all'
+ * Fetch current signals for BTC.
  */
-async function getSignals(asset = 'all') {
+async function getSignals() {
   try {
-    const response = await fetch(\`\${BASE_URL}/\${asset}/current\`, {
+    const response = await fetch(\`\${BASE_URL}/BTC/current\`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -55,10 +56,12 @@ async function getSignals(asset = 'all') {
         setIsLoading(true);
         setConsoleOutput(null);
         setStatus(null);
+        
         const endpoint = testKey ? 'current' : 'recent';
         
         try {
-            const res = await fetch(`${BASE_URL}/api/signals/${selectedAsset}/${endpoint}`, {
+            // STRICT: Hardcoded to BTC
+            const res = await fetch(`${BASE_URL}/api/signals/${asset}/${endpoint}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -80,7 +83,7 @@ async function getSignals(asset = 'all') {
             <header style={{ marginBottom: '3rem' }}>
                 <h3 style={{ border: 'none', margin: '0 0 0.5rem 0', fontSize: '1.75rem' }}>API Reference</h3>
                 <p style={{ color: '#6b7280', fontSize: '15px' }}>
-                    Integrate real-time signals into your own trading bots or dashboards.
+                    Integrate real-time BTC signals into your own trading bots or dashboards.
                 </p>
             </header>
             
@@ -106,7 +109,8 @@ async function getSignals(asset = 'all') {
                         border: '1px solid #d1d5db',
                         color: '#374151',
                         fontSize: '13px',
-                        padding: '6px 12px'
+                        padding: '6px 12px',
+                        cursor: 'pointer'
                     }}
                 >
                     {copySuccess || 'Copy Key'}
@@ -124,21 +128,16 @@ async function getSignals(asset = 'all') {
             <section style={{ marginBottom: '4rem' }}>
                 <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1.5rem' }}>Response Format</h4>
                 <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-                    The API supports fetching single assets (e.g., <code>/BTC/current</code>) or all assets at once (e.g., <code>/all/current</code>).
+                    The API currently supports <code>BTC</code>.
                 </p>
 
-                <h5 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '1rem', color: '#334155' }}>Batch Response Example (JSON)</h5>
+                <h5 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '1rem', color: '#334155' }}>Response Example (JSON)</h5>
                 <pre style={{ marginBottom: '2rem' }}>
 {`{
   "BTC": {
     "time": "2023-10-27 10:00:00",
     "entry_price": 34500.00,
     "pred_dir": 1
-  },
-  "XRP": {
-    "time": "2023-10-27 10:00:00",
-    "entry_price": 0.55,
-    "pred_dir": 0
   }
 }`}
                 </pre>
@@ -167,40 +166,27 @@ async function getSignals(asset = 'all') {
                                     type="text" 
                                     value={testKey} 
                                     onChange={(e) => setTestKey(e.target.value)}
-                                    placeholder="Paste your API key here (Leave empty for public data)"
-                                    style={{ margin: 0 }}
+                                    placeholder="Paste your API key here"
+                                    style={{ margin: 0, width: '100%', boxSizing: 'border-box', padding: '10px', borderRadius: '6px', border: '1px solid #e5e7eb' }}
                                 />
                             </div>
-                            <div style={{ minWidth: '120px' }}>
+                            <div style={{ minWidth: '100px' }}>
                                 <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>
-                                    Target Asset
+                                    Asset
                                 </label>
-                                <select 
-                                    value={selectedAsset}
-                                    onChange={(e) => setSelectedAsset(e.target.value)}
-                                    style={{ 
-                                        width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '14px', background: '#fff'
-                                    }}
-                                >
-                                    <option value="BTC">BTC</option>
-                                    <option value="ETH">ETH</option>
-                                    <option value="XRP">XRP</option>
-                                    <option value="SOL">SOL</option>
-                                    <option value="DOGE">DOGE</option>
-                                    <option value="ADA">ADA</option>
-                                    <option value="BCH">BCH</option>
-                                    <option value="LINK">LINK</option>
-                                    <option value="XLM">XLM</option>
-                                    <option value="SUI">SUI</option>
-                                    <option value="AVAX">AVAX</option>
-                                    <option value="LTC">LTC</option>
-                                    <option value="HBAR">HBAR</option>
-                                    <option value="SHIB">SHIB</option>
-                                    <option value="TON">TON</option>
-                                    <option value="all">ALL (Batch)</option>
-                                </select>
+                                <div style={{ 
+                                    padding: '10px', 
+                                    background: '#f1f5f9', 
+                                    border: '1px solid #e2e8f0', 
+                                    borderRadius: '6px', 
+                                    color: '#64748b',
+                                    fontSize: '14px',
+                                    fontWeight: '600'
+                                }}>
+                                    BTC
+                                </div>
                             </div>
-                            <button type="submit" disabled={isLoading} style={{ height: '42px', whiteSpace: 'nowrap' }}>
+                            <button type="submit" disabled={isLoading} style={{ height: '42px', whiteSpace: 'nowrap', cursor: 'pointer', padding: '0 20px' }}>
                                 {isLoading ? 'Sending...' : 'Test Request'}
                             </button>
                         </form>
@@ -216,7 +202,7 @@ async function getSignals(asset = 'all') {
                             )}
                         </div>
                         {consoleOutput ? (
-                            <pre style={{ background: 'transparent', padding: 0, margin: 0, color: '#38bdf8' }}>
+                            <pre style={{ background: 'transparent', padding: 0, margin: 0, color: '#38bdf8', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                                 {JSON.stringify(consoleOutput, null, 2)}
                             </pre>
                         ) : (
