@@ -7,10 +7,7 @@ export default function APIDocs() {
     const user = userStr ? JSON.parse(userStr) : {};
     const initialKey = user.api_key || "";
 
-    // State for the Live Console
     const [testKey, setTestKey] = useState(""); 
-    const [testSymbol, setTestSymbol] = useState("BTC"); // New state for symbol
-    
     const [consoleOutput, setConsoleOutput] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState(null);
@@ -24,19 +21,17 @@ export default function APIDocs() {
         }
     };
 
-    // Updated Code Example to reflect the /status/:symbol endpoint
     const codeExample = `// Configuration
 const BASE_URL = "https://your-domain.com/api";
 const API_KEY = "${testKey || 'YOUR_API_KEY_HERE'}";
 
 /**
- * Fetch live Octopus Strategy status for a specific asset.
- * @param {string} symbol - The asset symbol (e.g., 'BTC', 'ETH', 'SOL')
+ * Fetch live Spearhead Signals for all assets.
+ * Returns positions, entry prices, and current stops.
  */
-async function getStrategyStatus(symbol) {
+async function getSignals() {
   try {
-    // Endpoint: /octopus/status/:symbol
-    const response = await fetch(\`\${BASE_URL}/octopus/status/\${symbol}\`, {
+    const response = await fetch(\`\${BASE_URL}/spearhead/signals\`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -47,15 +42,12 @@ async function getStrategyStatus(symbol) {
     if (!response.ok) throw new Error("API Request failed: " + response.status);
 
     const data = await response.json();
-    console.log(\`[\${symbol}] Active Params:\`, data.params);
+    console.log("BTC Signal:", data['BTC']);
     return data;
   } catch (error) {
-    console.error("Failed to fetch strategy data:", error.message);
+    console.error("Failed to fetch signals:", error.message);
   }
-}
-
-// Example Usage
-getStrategyStatus('BTC');`;
+}`;
 
     const handleSimulate = async (e) => {
         e.preventDefault();
@@ -64,8 +56,8 @@ getStrategyStatus('BTC');`;
         setStatus(null);
         
         try {
-            // Updated fetch to use the dynamic symbol
-            const res = await fetch(`${BASE_URL}/api/octopus/status/${testSymbol}`, {
+            // Point to new Spearhead Signals endpoint
+            const res = await fetch(`${BASE_URL}/api/spearhead/signals`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -94,7 +86,7 @@ getStrategyStatus('BTC');`;
             <header style={{ marginBottom: '3rem' }}>
                 <h3 style={{ border: 'none', margin: '0 0 0.5rem 0', fontSize: '1.75rem' }}>API Reference</h3>
                 <p style={{ color: '#6b7280', fontSize: '15px' }}>
-                    Integrate live Octopus Strategy grid parameters, trade logs, and equity curves into your own applications.
+                    Integrate Spearhead signals directly into your trading bots.
                 </p>
             </header>
             
@@ -129,40 +121,35 @@ getStrategyStatus('BTC');`;
             </div>
 
             <section style={{ marginBottom: '4rem' }}>
-                <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1rem' }}>Authentication</h4>
-                <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '1.5rem' }}>
-                     Authenticate by including your API key in the <code>x-api-key</code> header.
-                     <br/>
-                     <span style={{ color: '#ef4444', fontSize: '12px', fontWeight: '600' }}>NOTE:</span> Active subscription required.
-                </p>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1rem' }}>Endpoints</h4>
+                <div style={{ marginBottom: '1.5rem', fontSize: '14px' }}>
+                    <div style={{ marginBottom: '8px' }}>
+                        <code style={{ background: '#dbeafe', color: '#1e40af' }}>GET /api/spearhead/history</code>
+                        <span style={{ marginLeft: '10px', color: '#4b5563' }}>Public. Returns aggregate trade stats and PnL.</span>
+                    </div>
+                    <div>
+                        <code style={{ background: '#fee2e2', color: '#991b1b' }}>GET /api/spearhead/signals</code>
+                        <span style={{ marginLeft: '10px', color: '#4b5563' }}>Protected. Returns live positions and targets.</span>
+                    </div>
+                </div>
                 <pre>{codeExample}</pre>
             </section>
 
             <section style={{ marginBottom: '4rem' }}>
-                <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1.5rem' }}>Endpoint Structure</h4>
-                <p style={{ fontSize: '14px', color: '#4b5563', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-                    <code>GET /api/octopus/status/:symbol</code><br/>
-                    Returns the full execution state for the requested symbol.
-                </p>
-
-                <h5 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '1rem', color: '#334155' }}>Response Object (JSON)</h5>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1.5rem' }}>Signal Response Object</h4>
                 <pre style={{ marginBottom: '2rem' }}>
 {`{
-  "status": "Running",
-  "params": {
-    "stop_pct": 0.02,
-    "profit_pct": 0.015,
-    "lines": [ ... ]
+  "BTC": {
+    "timestamp": "2026-01-28 10:55:01.123456",
+    "position": "LONG",
+    "position_int": 1,
+    "entry_price": 95120.50,
+    "current_price": 95450.00,
+    "unrealized_pnl_pct": 0.0034,
+    "stop_loss_price": 94100.00,
+    "take_profit_price": 96500.00
   },
-  "live_logs": [
-    {
-      "timestamp": "2023-10-27 10:00:00",
-      "price": 34500.50,
-      "position": "LONG",
-      "active_sl": 33810.00
-    }
-  ],
-  "equity_curve": [ ... ] 
+  "ETH": { ... }
 }`}
                 </pre>
             </section>
@@ -171,7 +158,7 @@ getStrategyStatus('BTC');`;
 
             <section>
                 <h3 style={{ border: 'none', margin: '0 0 0.5rem 0' }}>Live Console</h3>
-                <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '1.5rem' }}>Test your integration directly from the browser.</p>
+                <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '1.5rem' }}>Test your key against the live signals endpoint.</p>
 
                 <div style={{ 
                     background: '#fff', 
@@ -182,7 +169,6 @@ getStrategyStatus('BTC');`;
                 }}>
                     <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb' }}>
                         <form onSubmit={handleSimulate} style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                            {/* API Key Input */}
                             <div style={{ flexGrow: 1, minWidth: '200px' }}>
                                 <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>
                                     X-API-KEY
@@ -195,23 +181,9 @@ getStrategyStatus('BTC');`;
                                     style={{ margin: 0, width: '100%', boxSizing: 'border-box', padding: '10px', borderRadius: '6px', border: '1px solid #e5e7eb' }}
                                 />
                             </div>
-
-                            {/* Symbol Input */}
-                            <div style={{ width: '100px' }}>
-                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>
-                                    SYMBOL
-                                </label>
-                                <input 
-                                    type="text" 
-                                    value={testSymbol} 
-                                    onChange={(e) => setTestSymbol(e.target.value.toUpperCase())}
-                                    placeholder="BTC"
-                                    style={{ margin: 0, width: '100%', boxSizing: 'border-box', padding: '10px', borderRadius: '6px', border: '1px solid #e5e7eb', textAlign: 'center' }}
-                                />
-                            </div>
                             
-                            <button type="submit" disabled={isLoading} style={{ height: '42px', whiteSpace: 'nowrap', cursor: 'pointer', padding: '0 20px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px' }}>
-                                {isLoading ? 'Sending...' : 'GET Status'}
+                            <button type="submit" disabled={isLoading} style={{ height: '42px', whiteSpace: 'nowrap', cursor: 'pointer', padding: '0 20px' }}>
+                                {isLoading ? 'Sending...' : 'GET /spearhead/signals'}
                             </button>
                         </form>
                     </div>
@@ -226,7 +198,7 @@ getStrategyStatus('BTC');`;
                             )}
                         </div>
                         {consoleOutput ? (
-                            <pre style={{ background: 'transparent', padding: 0, margin: 0, color: '#38bdf8', whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '12px' }}>
+                            <pre style={{ background: 'transparent', padding: 0, margin: 0, color: '#38bdf8', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                                 {JSON.stringify(consoleOutput, null, 2)}
                             </pre>
                         ) : (
