@@ -105,7 +105,7 @@ export default function LandingPage() {
                 
                 <div style={{ order: 1 }}>
                     <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '24px', lineHeight: '1.2' }}>
-                        Spearhead <span style={{ color: '#dc2626' }}>Execution</span>
+                        Bet the <span style={{ color: '#dc2626' }}>Spread</span>
                     </h2>
                     <p style={{ fontSize: '1.1rem', color: '#6b7280', marginBottom: '32px', lineHeight: '1.7' }}>
                         Don't just watch one chart. Monitor the entire market. Spearhead runs simultaneous genetic algorithms on BTC, ETH, SOL, and more to isolate the highest probability setups.
