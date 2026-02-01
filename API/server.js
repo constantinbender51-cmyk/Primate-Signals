@@ -11,9 +11,12 @@ const fs = require('fs');
 const nodemailer = require('nodemailer'); 
 const fetch = require('node-fetch');
 
+// Optimization: Reduce pool size if running on constrained hardware (e.g. Railway Starter)
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
+    max: 10, // Default is 10. Lower to 5 if you see connection timeouts or OOM kills.
+    idleTimeoutMillis: 30000
 });
 
 const app = express();
@@ -24,7 +27,6 @@ const transporter = nodemailer.createTransport({
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
 });
 
-// Upstream URL for Spearhead Engine
 const SPEARHEAD_URL = 'https://spearhead-production.up.railway.app';
 
 const initDB = async () => {
@@ -121,55 +123,47 @@ const authenticate = async (req, res, next) => {
     });
 };
 
-// --- SPEARHEAD STRATEGY PROXY ROUTES ---
+// --- OPTIMIZED SPEARHEAD STRATEGY PROXY ROUTES (STREAMING) ---
 
-// 1. PUBLIC: Trade History (No Auth Required)
-app.get('/api/spearhead/history', async (req, res) => {
+// Helper for streaming proxy to reduce code duplication and memory footprint
+const streamProxy = async (endpoint, res) => {
     try {
-        const response = await fetch(`${SPEARHEAD_URL}/api/history`);
+        const response = await fetch(`${SPEARHEAD_URL}${endpoint}`);
         if (!response.ok) throw new Error(`Upstream Error: ${response.status}`);
-        const data = await response.json();
-        res.json(data);
+        
+        // Forward the content-type header so the client knows it's JSON
+        res.setHeader('Content-Type', response.headers.get('content-type') || 'application/json');
+        
+        // Pipe the stream directly. Node does not buffer the whole body.
+        response.body.pipe(res);
     } catch (err) {
-        console.error("Spearhead History Error:", err);
-        res.status(502).json({ error: 'Failed to fetch history data' });
+        console.error(`Proxy Error [${endpoint}]:`, err);
+        // If headers are already sent (partial stream), we can't send JSON error.
+        if (!res.headersSent) res.status(502).json({ error: 'Failed to fetch data' });
     }
+};
+
+// 1. PUBLIC: Trade History
+app.get('/api/spearhead/history', async (req, res) => {
+    await streamProxy('/api/history', res);
 });
 
-// 2. PROTECTED: Live Signals (Requires Subscription)
+// 2. PROTECTED: Live Signals
 app.get('/api/spearhead/signals', authenticate, async (req, res) => {
     const user = req.user;
     const isSubscribed = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
-    
-    if (!isSubscribed) return res.status(403).json({ error: 'Subscription required for live signals' });
+    if (!isSubscribed) return res.status(403).json({ error: 'Subscription required' });
 
-    try {
-        const response = await fetch(`${SPEARHEAD_URL}/api/signals`);
-        if (!response.ok) throw new Error(`Upstream Error: ${response.status}`);
-        const data = await response.json();
-        res.json(data);
-    } catch (err) {
-        console.error("Spearhead Signals Error:", err);
-        res.status(502).json({ error: 'Failed to fetch live signals' });
-    }
+    await streamProxy('/api/signals', res);
 });
 
-// 3. PROTECTED: Parameters/Grid Lines (Requires Subscription)
+// 3. PROTECTED: Parameters/Grid Lines
 app.get('/api/spearhead/parameters', authenticate, async (req, res) => {
     const user = req.user;
     const isSubscribed = user && (user.subscription_status === 'active' || user.subscription_status === 'trialing');
-    
-    if (!isSubscribed) return res.status(403).json({ error: 'Subscription required for grid parameters' });
+    if (!isSubscribed) return res.status(403).json({ error: 'Subscription required' });
 
-    try {
-        const response = await fetch(`${SPEARHEAD_URL}/api/parameters`);
-        if (!response.ok) throw new Error(`Upstream Error: ${response.status}`);
-        const data = await response.json();
-        res.json(data);
-    } catch (err) {
-        console.error("Spearhead Params Error:", err);
-        res.status(502).json({ error: 'Failed to fetch parameters' });
-    }
+    await streamProxy('/api/parameters', res);
 });
 
 // --- Auth & System Routes ---
@@ -247,15 +241,17 @@ app.post('/create-portal-session', authenticate, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Failed to create portal session' }); }
 });
 
+// OPTIMIZED: Use Streams instead of readFile
 const serveTextFile = (filename, res) => {
     const filePath = path.join(__dirname, filename);
-    fs.readFile(filePath, 'utf8', (err, data) => {
-        if (err) {
-            console.error(`Error reading ${filename}:`, err);
-            return res.status(500).send("Content unavailable");
-        }
-        res.send(data);
+    const stream = fs.createReadStream(filePath, 'utf8');
+    
+    stream.on('error', (err) => {
+        console.error(`Error reading ${filename}:`, err);
+        res.status(500).send("Content unavailable");
     });
+
+    stream.pipe(res);
 };
 
 app.get('/api/legal/impressum', (req, res) => serveTextFile('impressum.txt', res));
@@ -269,7 +265,10 @@ app.get('*', (req, res) => {
         return res.status(404).json({ error: 'Not Found' });
     }
     const indexPath = path.join(__dirname, 'client/dist', 'index.html');
-    if (fs.existsSync(indexPath)) res.sendFile(indexPath);
+    if (fs.existsSync(indexPath)) {
+        // Stream index.html as well for efficiency
+        fs.createReadStream(indexPath).pipe(res);
+    }
     else res.status(500).send("App not built.");
 });
 
