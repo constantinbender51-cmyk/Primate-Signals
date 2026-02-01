@@ -11,7 +11,7 @@ export default function LandingPage() {
                 alignItems: 'center', 
                 textAlign: 'center', 
                 padding: '80px 20px',
-                background: `linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.80)), url('https://i.postimg.cc/HLmpLKr1/1769160143954.png')`,
+                background: `linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 1)), url('https://i.postimg.cc/HLmpLKr1/1769160143954.png')`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 borderRadius: '0 0 40px 40px',
