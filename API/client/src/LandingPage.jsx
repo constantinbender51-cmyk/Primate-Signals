@@ -39,7 +39,7 @@ export default function LandingPage() {
                     letterSpacing: '0.05em',
                     border: '1px solid #fde68a'
                 }}>
-                    Know what to think 
+                    Community scraping
                 </div>
                 
                 <h1 style={{ 
@@ -52,7 +52,7 @@ export default function LandingPage() {
                     letterSpacing: '-0.02em'
                 }}>
                     Crypto Sentiment <br/>
-                    <span style={{ color: '#d97706' }}>Comprehensive Analysis</span>
+                    <span style={{ color: '#d97706' }}> Analysis</span>
                 </h1>
 
                 {sentiment && (
