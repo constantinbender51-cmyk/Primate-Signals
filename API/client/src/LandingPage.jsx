@@ -4,13 +4,6 @@ import { Link } from 'react-router-dom';
 export default function LandingPage() {
     const [sentiment, setSentiment] = useState(null);
 
-    useEffect(() => {
-        fetch('https://machine-learning.up.railway.app/analysis_result.json')
-            .then(res => res.json())
-            .then(data => setSentiment(data))
-            .catch(() => setSentiment(null));
-    }, []);
-
     return (
         <div style={{ paddingBottom: '80px', animation: 'fadeIn 0.6s ease-out' }}>
             {/* Hero Section */}
