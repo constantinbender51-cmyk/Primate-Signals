@@ -1,7 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 export default function LandingPage() {
+    const [sentiment, setSentiment] = useState(null);
+
+    useEffect(() => {
+        fetch('https://machine-learning.up.railway.app/analysis_result.json')
+            .then(res => res.json())
+            .then(data => setSentiment(data))
+            .catch(() => setSentiment(null));
+    }, []);
+
     return (
         <div style={{ paddingBottom: '80px', animation: 'fadeIn 0.6s ease-out' }}>
             {/* Hero Section */}
@@ -11,7 +20,7 @@ export default function LandingPage() {
                 alignItems: 'center', 
                 textAlign: 'center', 
                 padding: '80px 20px',
-                background: `linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.8)), url('https://i.postimg.cc/HLmpLKr1/1769160143954.png')`,
+                background: `linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.95)), url('https://i.postimg.cc/HLmpLKr1/1769160143954.png')`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 borderRadius: '0 0 40px 40px',
@@ -45,6 +54,21 @@ export default function LandingPage() {
                     Precision Volatility <br/>
                     <span style={{ color: '#d97706' }}>Hunting Engine</span>
                 </h1>
+
+                {sentiment && (
+                    <div style={{
+                        marginBottom: '24px',
+                        padding: '12px 20px',
+                        background: '#f3f4f6',
+                        borderRadius: '12px',
+                        border: '1px solid #e5e7eb',
+                        fontSize: '14px',
+                        fontFamily: 'monospace',
+                        color: '#374151'
+                    }}>
+                        <strong>LLM Sentiment Analysis:</strong> {JSON.stringify(sentiment)}
+                    </div>
+                )}
                 
                 <p style={{ 
                     fontSize: '1.25rem', 
@@ -96,7 +120,7 @@ export default function LandingPage() {
                         border: '4px solid #fff'
                     }}>
                         <img 
-                            src="https://i.postimg.cc/bwWcsv4w/1769974033793.png" 
+                            src="https://i.postimg.cc/G3g5y2Sw/IMG-20260128-070021.png" 
                             alt="chart" 
                             style={{ width: '100%', height: 'auto', display: 'block', background: '#fef3c7' }} 
                         />
@@ -105,7 +129,7 @@ export default function LandingPage() {
                 
                 <div style={{ order: 1 }}>
                     <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '24px', lineHeight: '1.2' }}>
-                        Bet the <span style={{ color: '#dc2626' }}>Spread</span>
+                        Spearhead <span style={{ color: '#dc2626' }}>Execution</span>
                     </h2>
                     <p style={{ fontSize: '1.1rem', color: '#6b7280', marginBottom: '32px', lineHeight: '1.7' }}>
                         Don't just watch one chart. Monitor the entire market. Spearhead runs simultaneous genetic algorithms on BTC, ETH, SOL, and more to isolate the highest probability setups.
