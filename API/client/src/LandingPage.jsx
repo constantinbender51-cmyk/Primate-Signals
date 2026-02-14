@@ -120,7 +120,7 @@ export default function LandingPage() {
                         border: '4px solid #fff'
                     }}>
                         <img 
-                            src="https://i.postimg.cc/G3g5y2Sw/IMG-20260128-070021.png" 
+                            src="https://i.postimg.cc/G3g5y2Sw/IMG-20260128-070021.pg" 
                             alt="chart" 
                             style={{ width: '100%', height: 'auto', display: 'block', background: '#fef3c7' }} 
                         />
