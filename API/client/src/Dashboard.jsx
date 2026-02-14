@@ -3,42 +3,112 @@ import LandingPage from './LandingPage';
 import api from './api';
 import toast from 'react-hot-toast';
 
+// --- Recursive JSON Component ---
+const JsonNode = ({ k, v, isLast }) => {
+    const [expanded, setExpanded] = useState(true); // Default open for visibility
+    const isObject = v && typeof v === 'object';
+    const isArray = Array.isArray(v);
+    
+    // Style constants
+    const styles = {
+        container: { marginLeft: '20px', fontFamily: 'Menlo, Monaco, "Courier New", monospace', fontSize: '13px', lineHeight: '1.6' },
+        key: { color: '#0f172a', fontWeight: '700', cursor: isObject ? 'pointer' : 'default' },
+        string: { color: '#16a34a' }, // Green
+        number: { color: '#d97706' }, // Orange
+        boolean: { color: '#dc2626' }, // Red
+        bracket: { color: '#94a3b8', fontWeight: 'bold' },
+        toggle: { display: 'inline-block', width: '12px', marginRight: '6px', cursor: 'pointer', color: '#64748b', fontSize: '10px' }
+    };
+
+    if (isObject) {
+        const keys = Object.keys(v);
+        const isEmpty = keys.length === 0;
+        const openBracket = isArray ? '[' : '{';
+        const closeBracket = isArray ? ']' : '}';
+
+        return (
+            <div style={styles.container}>
+                <span onClick={() => setExpanded(!expanded)} style={styles.key}>
+                    <span style={styles.toggle}>{expanded ? '▼' : '▶'}</span>
+                    {k && <span>{k}: </span>}
+                    <span style={styles.bracket}>{openBracket}</span>
+                </span>
+                
+                {!expanded && <span style={{color: '#94a3b8', fontStyle: 'italic'}}> ... {closeBracket}</span>}
+                
+                {expanded && (
+                    <div>
+                        {keys.map((key, i) => (
+                            <JsonNode 
+                                key={key} 
+                                k={isArray ? null : key} 
+                                v={v[key]} 
+                                isLast={i === keys.length - 1} 
+                            />
+                        ))}
+                    </div>
+                )}
+                
+                {expanded && (
+                    <div style={{ marginLeft: '18px' }}>
+                        <span style={styles.bracket}>{closeBracket}</span>
+                        {!isLast && <span style={styles.bracket}>,</span>}
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // Primitives
+    let valColor = styles.string;
+    let displayVal = JSON.stringify(v);
+    
+    if (typeof v === 'number') valColor = styles.number;
+    if (typeof v === 'boolean') valColor = styles.boolean;
+    if (v === null) { displayVal = 'null'; valColor = styles.boolean; }
+
+    // Strip quotes if simple string for cleaner look (optional, but looks nicer)
+    if (typeof v === 'string') displayVal = `"${v}"`;
+
+    return (
+        <div style={styles.container}>
+            {k && <span style={styles.key}>{k}: </span>}
+            <span style={valColor}>{displayVal}</span>
+            {!isLast && <span style={styles.bracket}>,</span>}
+        </div>
+    );
+};
+
 export default function Dashboard() {
     const token = localStorage.getItem('token');
     
     // Data State
-    const [historyData, setHistoryData] = useState(null);
-    const [signalData, setSignalData] = useState(null);
-    
-    // UI State
+    const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isSubscribed, setIsSubscribed] = useState(false);
-    const [expandedRow, setExpandedRow] = useState(null);
+    const [lastUpdated, setLastUpdated] = useState(null);
 
     // If not logged in, show Landing Page immediately
     if (!token) return <LandingPage />;
 
-    // 1. Fetch Public Asset List
-    const fetchHistory = async () => {
+    const fetchData = async () => {
         try {
-            const res = await api.get('/api/spearhead/history');
-            setHistoryData(res.data);
-        } catch (err) {
-            console.error("Asset list fetch error:", err);
-            toast.error("Failed to load asset list.");
-        }
-    };
-
-    // 2. Fetch Protected Sentiment Analysis (Live Data)
-    const fetchSignals = async () => {
-        try {
+            // Try to fetch the full signals (Protected)
             const res = await api.get('/api/spearhead/signals');
-            setSignalData(res.data);
-            setIsSubscribed(true); // If this succeeds, user is subscribed
+            setData(res.data);
+            setIsSubscribed(true);
+            setLastUpdated(new Date());
         } catch (err) {
+            // If forbidden (403), fetch the public structure (Redacted)
             if (err.response && err.response.status === 403) {
                 setIsSubscribed(false);
-                setSignalData(null);
+                try {
+                    const publicRes = await api.get('/api/spearhead/history');
+                    setData(publicRes.data); // Should contain keys but no values
+                    setLastUpdated(new Date());
+                } catch (e) {
+                    toast.error("Unable to connect to analysis engine.");
+                }
             }
         }
     };
@@ -46,20 +116,14 @@ export default function Dashboard() {
     useEffect(() => {
         const init = async () => {
             setLoading(true);
-            await fetchHistory();
-            await fetchSignals();
+            await fetchData();
             setLoading(false);
         };
-
         init();
         
-        const signalInterval = setInterval(fetchSignals, 5000); 
-        const historyInterval = setInterval(fetchHistory, 60000);
-        
-        return () => {
-            clearInterval(signalInterval);
-            clearInterval(historyInterval);
-        };
+        // Poll every 5 seconds
+        const interval = setInterval(fetchData, 5000); 
+        return () => clearInterval(interval);
     }, [token]);
 
     const handleSubscribe = async () => {
@@ -71,146 +135,115 @@ export default function Dashboard() {
         }
     };
 
-    const toggleRow = (symbol) => {
-        if (!isSubscribed) return;
-        setExpandedRow(expandedRow === symbol ? null : symbol);
-    };
-
-    // --- RENDERERS ---
-
-    const renderDetail = (symbol) => {
-        if (!signalData || !signalData[symbol]) return null;
-        
-        const data = signalData[symbol];
-
-        return (
-            <div style={{ padding: '20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-                <h4 style={{ fontSize: '14px', textTransform: 'uppercase', color: '#64748b', marginBottom: '15px' }}>
-                    Live Sentiment Details ({symbol})
-                </h4>
-                <div style={{ fontSize: '13px', fontFamily: 'monospace' }}>
-                    <pre>{JSON.stringify(data, null, 2)}</pre>
-                </div>
-            </div>
-        );
-    };
-
-    const renderTable = () => {
-        if (!historyData) return <div style={{ textAlign: 'center', padding: '40px' }}>Loading Analysis Engine...</div>;
-
-        const symbols = Object.keys(historyData).sort();
-
-        return (
-            <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                        <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
-                            <th style={{ padding: '16px', textAlign: 'left', fontSize: '12px', color: '#64748b' }}>ASSET</th>
-                            <th style={{ padding: '16px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>STATUS</th>
-                            <th style={{ padding: '16px', textAlign: 'right', fontSize: '12px', color: '#64748b' }}>SENTIMENT SCORE</th>
-                            <th style={{ padding: '16px', textAlign: 'right', fontSize: '12px', color: '#64748b' }}>SUMMARY</th>
-                            <th style={{ padding: '16px', width: '40px' }}></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {symbols.map(sym => {
-                            const sig = signalData ? signalData[sym] : null;
-                            const isLocked = !isSubscribed || !sig;
-
-                            // Live Signal Badge
-                            let signalBadge = <span style={{ fontSize: '12px', color: '#94a3b8' }}>Waiting...</span>;
-                            if (isLocked) {
-                                signalBadge = <span style={{ fontSize: '12px', color: '#64748b', background: '#e2e8f0', padding: '4px 8px', borderRadius: '12px' }}>🔒 Locked</span>;
-                            } else if (sig) {
-                                // Assume sig.sentiment or default to keys found in JSON
-                                const sentimentText = sig.sentiment || sig.direction || "NEUTRAL";
-                                const isBullish = sentimentText.toLowerCase().includes('bull');
-                                const isBearish = sentimentText.toLowerCase().includes('bear');
-                                
-                                const bg = isBullish ? '#dcfce7' : (isBearish ? '#fee2e2' : '#f1f5f9');
-                                const col = isBullish ? '#166534' : (isBearish ? '#991b1b' : '#64748b');
-                                signalBadge = (
-                                    <span style={{ fontSize: '11px', fontWeight: '700', background: bg, color: col, padding: '4px 10px', borderRadius: '12px', display: 'inline-block', minWidth: '60px' }}>
-                                        {sentimentText}
-                                    </span>
-                                );
-                            }
-
-                            // Live Score
-                            let liveScore = <span style={{ color: '#cbd5e1' }}>---</span>;
-                            if (!isLocked && sig) {
-                                liveScore = <span style={{ fontWeight: '600' }}>{sig.score || sig.value || 'N/A'}</span>;
-                            }
-                            
-                            // Summary
-                            let summary = <span style={{ color: '#cbd5e1' }}>---</span>;
-                            if (!isLocked && sig) {
-                                summary = <span style={{ fontSize: '12px', color: '#475569' }}>{sig.summary || sig.analysis || 'Available'}</span>;
-                            }
-
-                            return (
-                                <React.Fragment key={sym}>
-                                    <tr 
-                                        onClick={() => toggleRow(sym)}
-                                        style={{ 
-                                            borderBottom: '1px solid #f1f5f9', 
-                                            cursor: isSubscribed ? 'pointer' : 'default',
-                                            transition: 'background 0.2s'
-                                        }}
-                                        onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
-                                        onMouseLeave={(e) => e.currentTarget.style.background = '#fff'}
-                                    >
-                                        <td style={{ padding: '16px', fontWeight: '700', color: '#1e293b' }}>{sym}</td>
-                                        <td style={{ padding: '16px', textAlign: 'center' }}>{signalBadge}</td>
-                                        <td style={{ padding: '16px', textAlign: 'right', fontFamily: 'monospace' }}>{liveScore}</td>
-                                        <td style={{ padding: '16px', textAlign: 'right' }}>{summary}</td>
-                                        <td style={{ padding: '16px', textAlign: 'center', color: '#94a3b8' }}>
-                                            {isSubscribed && (expandedRow === sym ? '▲' : '▼')}
-                                        </td>
-                                    </tr>
-                                    {expandedRow === sym && (
-                                        <tr>
-                                            <td colSpan="5" style={{ padding: 0 }}>
-                                                {renderDetail(sym)}
-                                            </td>
-                                        </tr>
-                                    )}
-                                </React.Fragment>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
-        );
-    };
-
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '80px' }}>
-            <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '80px', fontFamily: 'Inter, sans-serif' }}>
+            
+            {/* Header */}
+            <div style={{ 
+                marginBottom: '30px', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'flex-end',
+                borderBottom: '1px solid #e2e8f0',
+                paddingBottom: '20px'
+            }}>
                 <div>
-                    <h1 style={{ margin: '0 0 8px 0', fontSize: '1.8rem', color: '#0f172a' }}>Sentiment Control Center</h1>
-                    <p style={{ margin: 0, color: '#64748b' }}>Real-time ML Sentiment Scoring.</p>
+                    <h1 style={{ margin: '0 0 8px 0', fontSize: '1.8rem', color: '#0f172a', fontWeight: '800' }}>
+                        Live Neural Output
+                    </h1>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ 
+                                height: '8px', width: '8px', borderRadius: '50%', 
+                                background: loading ? '#f59e0b' : '#10b981',
+                                boxShadow: loading ? 'none' : '0 0 8px #10b981'
+                            }}></span>
+                            <span style={{ fontSize: '12px', color: '#64748b', fontFamily: 'monospace' }}>
+                                {loading ? 'SYNCING...' : 'ONLINE'}
+                            </span>
+                        </div>
+                        {lastUpdated && (
+                            <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                                Updated: {lastUpdated.toLocaleTimeString()}
+                            </span>
+                        )}
+                    </div>
                 </div>
+
                 {!isSubscribed && (
                     <button 
                         onClick={handleSubscribe}
-                        style={{ background: '#2563eb', padding: '10px 20px', boxShadow: '0 4px 6px -2px rgba(37, 99, 235, 0.3)' }}
+                        style={{ 
+                            background: '#2563eb', 
+                            color: '#fff',
+                            border: 'none',
+                            padding: '12px 24px', 
+                            borderRadius: '8px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.3)'
+                        }}
                     >
-                        Unlock Live Analysis
+                        Unlock Full Payload
                     </button>
                 )}
             </div>
 
+            {/* Locked State Warning */}
             {!isSubscribed && !loading && (
-                <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', padding: '12px 20px', borderRadius: '8px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '20px' }}>🔒</span>
-                    <div style={{ fontSize: '14px', color: '#9a3412' }}>
-                        <strong>View Only Mode:</strong> You are viewing the asset list. Subscribe to see live ML sentiment analysis and scores.
+                <div style={{ 
+                    background: '#fff7ed', 
+                    border: '1px solid #fed7aa', 
+                    padding: '16px', 
+                    borderRadius: '8px', 
+                    marginBottom: '24px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '16px' 
+                }}>
+                    <div style={{ background: '#ffedd5', padding: '8px', borderRadius: '50%' }}>🔒</div>
+                    <div>
+                        <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', color: '#9a3412' }}>Redacted View</h3>
+                        <p style={{ margin: 0, fontSize: '13px', color: '#c2410c' }}>
+                            You are viewing the raw structure of the analysis. Values are hidden. Subscribe to decrypt the live data stream.
+                        </p>
                     </div>
                 </div>
             )}
 
-            {renderTable()}
+            {/* The Main Data Container */}
+            <div style={{ 
+                background: '#fff', 
+                borderRadius: '12px', 
+                boxShadow: '0 4px 20px -5px rgba(0,0,0,0.1)', 
+                border: '1px solid #e2e8f0',
+                overflow: 'hidden'
+            }}>
+                <div style={{ 
+                    padding: '12px 20px', 
+                    background: '#f8fafc', 
+                    borderBottom: '1px solid #e2e8f0',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>JSON Stream</span>
+                    <span style={{ fontSize: '12px', fontFamily: 'monospace', color: '#94a3b8' }}>
+                        {data ? `${JSON.stringify(data).length} bytes` : '0 bytes'}
+                    </span>
+                </div>
+                
+                <div style={{ padding: '20px', overflowX: 'auto', background: '#ffffff' }}>
+                    {data ? (
+                        <JsonNode k="root" v={data} isLast={true} />
+                    ) : (
+                        <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
+                            Waiting for neural engine...
+                        </div>
+                    )}
+                </div>
+            </div>
+
         </div>
     );
 }
