@@ -86,148 +86,6 @@ const setupDatabase = async () => {
 setupDatabase();
 
 // ==========================================
-// CLIENT CHAT HISTORY ENDPOINTS
-// ==========================================
-app.get('/api/client/chats', authenticate, requireRole('client'), async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT 
-        c.id, 
-        c.status, 
-        c.created_at, 
-        c.updated_at,
-        u.email as provider_name,
-        (SELECT COUNT(*) FROM messages WHERE chat_id = c.id) as message_count,
-        (SELECT text FROM messages WHERE chat_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message
-      FROM chats c
-      LEFT JOIN users u ON c.worker_user_id = u.id
-      WHERE c.client_user_id = $1 AND c.status IN ('closed', 'pending')
-      ORDER BY c.updated_at DESC`,
-      [req.user.id]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching client chat history:", err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-app.get('/api/client/chats/:chatId/messages', authenticate, requireRole('client'), async (req, res) => {
-  const { chatId } = req.params;
-  try {
-    // Verify the chat belongs to this client
-    const chatCheck = await pool.query(
-      'SELECT id FROM chats WHERE id = $1 AND client_user_id = $2',
-      [chatId, req.user.id]
-    );
-    
-    if (chatCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    const result = await pool.query(
-      `SELECT 
-        m.id, 
-        m.text, 
-        m.created_at as timestamp,
-        u.role as sender_role
-      FROM messages m
-      JOIN users u ON m.sender_user_id = u.id
-      WHERE m.chat_id = $1
-      ORDER BY m.created_at ASC`,
-      [chatId]
-    );
-
-    const messages = result.rows.map(m => ({
-      id: m.id,
-      text: m.text,
-      sender: m.sender_role === 'client' ? 'user' : 'ai',
-      timestamp: m.timestamp
-    }));
-
-    res.json(messages);
-  } catch (err) {
-    console.error("Error fetching chat messages:", err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-app.post('/api/client/chats/:chatId/resume', authenticate, requireRole('client'), async (req, res) => {
-  const { chatId } = req.params;
-  const client = await pool.connect();
-  
-  try {
-    await client.query('BEGIN');
-    
-    // Verify the chat belongs to this client and is closed
-    const chatCheck = await client.query(
-      'SELECT id, worker_user_id FROM chats WHERE id = $1 AND client_user_id = $2 AND status = $3',
-      [chatId, req.user.id, 'closed']
-    );
-    
-    if (chatCheck.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Chat not found or not eligible for resumption' });
-    }
-
-    // Check if the worker is still active
-    const workerCheck = await client.query(
-      'SELECT is_active FROM users WHERE id = $1',
-      [chatCheck.rows[0].worker_user_id]
-    );
-
-    if (workerCheck.rows.length === 0 || !workerCheck.rows[0].is_active) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Previous provider is no longer available' });
-    }
-
-    // Update chat status to active
-    await client.query(
-      'UPDATE chats SET status = $1, updated_at = NOW() WHERE id = $2',
-      ['active', chatId]
-    );
-
-    // Fetch all messages
-    const messagesRes = await client.query(
-      `SELECT 
-        m.id, 
-        m.text, 
-        m.created_at as timestamp,
-        u.role as sender_role
-      FROM messages m
-      JOIN users u ON m.sender_user_id = u.id
-      WHERE m.chat_id = $1
-      ORDER BY m.created_at ASC`,
-      [chatId]
-    );
-
-    await client.query('COMMIT');
-
-    const messages = messagesRes.rows.map(m => ({
-      id: m.id,
-      text: m.text,
-      sender: m.sender_role === 'client' ? 'user' : 'ai',
-      timestamp: m.timestamp
-    }));
-
-    // Notify the worker via socket if they're online
-    const workerId = chatCheck.rows[0].worker_user_id;
-    io.to(workerId.toString()).emit('chat_resumed', { 
-      room: parseInt(chatId),
-      clientId: req.user.id 
-    });
-
-    res.json({ success: true, messages });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error("Error resuming chat:", err);
-    res.status(500).json({ error: 'Server error' });
-  } finally {
-    client.release();
-  }
-});
-
-// ==========================================
 // WEBSOCKET LOGIC (DATABASE-DRIVEN)
 // ==========================================
 io.use((socket, next) => {
@@ -399,6 +257,148 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
 app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// ==========================================
+// CLIENT CHAT HISTORY ENDPOINTS
+// ==========================================
+app.get('/api/client/chats', authenticate, requireRole('client'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+        c.id, 
+        c.status, 
+        c.created_at, 
+        c.updated_at,
+        u.email as provider_name,
+        (SELECT COUNT(*) FROM messages WHERE chat_id = c.id) as message_count,
+        (SELECT text FROM messages WHERE chat_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message
+      FROM chats c
+      LEFT JOIN users u ON c.worker_user_id = u.id
+      WHERE c.client_user_id = $1 AND c.status IN ('closed', 'pending')
+      ORDER BY c.updated_at DESC`,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching client chat history:", err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/api/client/chats/:chatId/messages', authenticate, requireRole('client'), async (req, res) => {
+  const { chatId } = req.params;
+  try {
+    // Verify the chat belongs to this client
+    const chatCheck = await pool.query(
+      'SELECT id FROM chats WHERE id = $1 AND client_user_id = $2',
+      [chatId, req.user.id]
+    );
+    
+    if (chatCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const result = await pool.query(
+      `SELECT 
+        m.id, 
+        m.text, 
+        m.created_at as timestamp,
+        u.role as sender_role
+      FROM messages m
+      JOIN users u ON m.sender_user_id = u.id
+      WHERE m.chat_id = $1
+      ORDER BY m.created_at ASC`,
+      [chatId]
+    );
+
+    const messages = result.rows.map(m => ({
+      id: m.id,
+      text: m.text,
+      sender: m.sender_role === 'client' ? 'user' : 'ai',
+      timestamp: m.timestamp
+    }));
+
+    res.json(messages);
+  } catch (err) {
+    console.error("Error fetching chat messages:", err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/client/chats/:chatId/resume', authenticate, requireRole('client'), async (req, res) => {
+  const { chatId } = req.params;
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    // Verify the chat belongs to this client and is closed
+    const chatCheck = await client.query(
+      'SELECT id, worker_user_id FROM chats WHERE id = $1 AND client_user_id = $2 AND status = $3',
+      [chatId, req.user.id, 'closed']
+    );
+    
+    if (chatCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Chat not found or not eligible for resumption' });
+    }
+
+    // Check if the worker is still active
+    const workerCheck = await client.query(
+      'SELECT is_active FROM users WHERE id = $1',
+      [chatCheck.rows[0].worker_user_id]
+    );
+
+    if (workerCheck.rows.length === 0 || !workerCheck.rows[0].is_active) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Previous provider is no longer available' });
+    }
+
+    // Update chat status to active
+    await client.query(
+      'UPDATE chats SET status = $1, updated_at = NOW() WHERE id = $2',
+      ['active', chatId]
+    );
+
+    // Fetch all messages
+    const messagesRes = await client.query(
+      `SELECT 
+        m.id, 
+        m.text, 
+        m.created_at as timestamp,
+        u.role as sender_role
+      FROM messages m
+      JOIN users u ON m.sender_user_id = u.id
+      WHERE m.chat_id = $1
+      ORDER BY m.created_at ASC`,
+      [chatId]
+    );
+
+    await client.query('COMMIT');
+
+    const messages = messagesRes.rows.map(m => ({
+      id: m.id,
+      text: m.text,
+      sender: m.sender_role === 'client' ? 'user' : 'ai',
+      timestamp: m.timestamp
+    }));
+
+    // Notify the worker via socket if they're online
+    const workerId = chatCheck.rows[0].worker_user_id;
+    io.to(workerId.toString()).emit('chat_resumed', { 
+      room: parseInt(chatId),
+      clientId: req.user.id 
+    });
+
+    res.json({ success: true, messages });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error("Error resuming chat:", err);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+});
 
 // --- AUTH ROUTES ---
 app.post('/auth/register', async (req, res) => {
