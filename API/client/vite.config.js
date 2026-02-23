@@ -8,6 +8,12 @@ export default defineConfig({
   base: '/', 
   server: {
     proxy: {
+      // 3. NEW: Proxies WebSocket connections to the backend server
+      '/socket.io': {
+        target: 'http://localhost:3000',
+        ws: true,
+      },
+
       // 2. Proxies the new API routes to your backend
       '/api': 'http://localhost:3000',
       
