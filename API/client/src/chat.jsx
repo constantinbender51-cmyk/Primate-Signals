@@ -29,7 +29,8 @@ export default function Chat() {
     }
     
     const user = JSON.parse(userStr);
-    if (user.role !== 'client' || !user.subscription || user.subscription.status !== 'active') {
+    // FIX: Updated to match our real database object
+    if (user.role !== 'client' || user.subscription_status !== 'active') {
       navigate('/subscription');
       return;
     }
