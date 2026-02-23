@@ -238,7 +238,7 @@ app.post('/api/worker/create-verification-session', authenticate, requireRole('w
       metadata: {
         userId: req.user.id.toString() // Attach DB ID to session
       },
-      return_url: `${domain}/terminal?verified=true`, // Where to send them after completion
+      return_url: `${domain}/verification?verified=true`, // Where to send them after completion
     });
     
     res.json({ url: verificationSession.url });
