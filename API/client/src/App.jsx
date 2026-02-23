@@ -16,6 +16,7 @@ function App() {
     const userStr = localStorage.getItem('user');
     if (!userStr) return false;
     const user = JSON.parse(userStr);
+    // FIX: Using the real DB column name 'subscription_status'
     return user.role === 'client' && user.subscription_status === 'active';
   };
   
@@ -23,6 +24,7 @@ function App() {
     const userStr = localStorage.getItem('user');
     if (!userStr) return false;
     const user = JSON.parse(userStr);
+    // FIX: Using the real DB column name 'is_verified'
     return user.role === 'worker' && user.is_verified === true;
   };
 
@@ -41,9 +43,6 @@ function App() {
             : <Navigate to={isClient() ? "/chat" : "/"} />
         } />
         <Route path="/chat" element={
-          isClient() ? <Chat /> : <Navigate to="/subscription" />
-        } />
-        <Route path="/chat/:chatId" element={
           isClient() ? <Chat /> : <Navigate to="/subscription" />
         } />
         
