@@ -8,13 +8,23 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const crypto = require('crypto');
 const path = require('path');
 
+// --- NEW SOCKET IMPORTS ---
+const http = require('http');
+const { Server } = require('socket.io');
+
 const app = express();
 const port = process.env.PORT || 3000;
+
+// --- CREATE HTTP SERVER & SOCKET.IO ---
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: '*' }
+});
 
 app.use(cors());
 
 // ==========================================
-// DATABASE SETUP
+// DATABASE SETUP & SEEDING
 // ==========================================
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -46,20 +56,22 @@ const setupDatabase = async () => {
     `);
 
     // 3. SEED MASTER ACCOUNTS FOR TESTING
-    const testPassword = await bcrypt.hash('master123', 10); // Password is: master123
+    const testPassword = await bcrypt.hash('master123', 10);
 
     // Insert Master Client (Bypasses Payment)
     await client.query(`
       INSERT INTO users (email, password_hash, role, subscription_status, is_active)
       VALUES ('client@test.com', $1, 'client', 'active', true)
-      ON CONFLICT (email) DO NOTHING;
+      ON CONFLICT (email) DO UPDATE 
+      SET subscription_status = 'active', is_active = true, role = 'client';
     `, [testPassword]);
 
     // Insert Master Worker (Bypasses Verification)
     await client.query(`
       INSERT INTO users (email, password_hash, role, is_verified, is_active)
       VALUES ('worker@test.com', $1, 'worker', true, true)
-      ON CONFLICT (email) DO NOTHING;
+      ON CONFLICT (email) DO UPDATE 
+      SET is_verified = true, is_active = true, role = 'worker';
     `, [testPassword]);
 
     console.log("✅ Database tables checked and Master accounts seeded.");
@@ -70,6 +82,71 @@ const setupDatabase = async () => {
   }
 };
 setupDatabase();
+
+// ==========================================
+// REAL-TIME WEBSOCKET LOGIC (CHAT)
+// ==========================================
+const activeRequests = {}; // Holds pending chat requests
+
+io.on('connection', (socket) => {
+  console.log('A user connected:', socket.id);
+
+  // 1. Client sends a request for an AI chat
+  socket.on('request_chat', (data) => {
+    const request = {
+      id: socket.id, // Using socket ID as the room/request ID
+      user: data.user || 'Anonymous User',
+      topic: data.topic || 'General Inquiry',
+      message: data.message,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      priority: 'normal'
+    };
+    activeRequests[socket.id] = request;
+    
+    // Broadcast to all connected workers
+    io.emit('new_request', request);
+  });
+
+  // 2. Worker accepts the chat
+  socket.on('accept_request', (requestId) => {
+    if (activeRequests[requestId]) {
+      const room = requestId; 
+      socket.join(room); // Worker joins the specific chat room
+      
+      // Remove request from the global queue
+      delete activeRequests[requestId];
+      io.emit('request_removed', requestId); 
+      
+      // Tell the specific client their chat was accepted
+      io.to(room).emit('chat_started', { room });
+    }
+  });
+
+  // 3. Client joins their own room on connect
+  socket.on('join_room', (room) => {
+    socket.join(room);
+  });
+
+  // 4. Handle sending messages back and forth
+  socket.on('send_message', (data) => {
+    // data = { room, text, sender: 'user' | 'ai' }
+    io.to(data.room).emit('receive_message', {
+      id: Date.now(),
+      text: data.text,
+      sender: data.sender,
+      timestamp: new Date()
+    });
+  });
+
+  // 5. Cleanup when someone closes the tab
+  socket.on('disconnect', () => {
+    if (activeRequests[socket.id]) {
+      delete activeRequests[socket.id];
+      io.emit('request_removed', socket.id);
+    }
+    console.log('User disconnected:', socket.id);
+  });
+});
 
 // ==========================================
 // AUTH MIDDLEWARE
@@ -109,7 +186,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   const client = await pool.connect();
   try {
     if (event.type === 'checkout.session.completed') {
-      // Client Subscription Paid
       const session = event.data.object;
       await client.query(
         `UPDATE users SET subscription_status = 'active' WHERE stripe_customer_id = $1`, 
@@ -117,7 +193,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
       );
     } 
     else if (event.type === 'customer.subscription.deleted') {
-      // Client Subscription Canceled
       const subscription = event.data.object;
       await client.query(
         `UPDATE users SET subscription_status = 'canceled' WHERE stripe_customer_id = $1`, 
@@ -125,10 +200,8 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
       );
     } 
     else if (event.type === 'identity.verification_session.verified') {
-      // Worker Identity Verified via Stripe Identity
       const session = event.data.object;
       const userId = session.metadata.userId; 
-      
       if (userId) {
         await client.query(`UPDATE users SET is_verified = true WHERE id = $1`, [userId]);
       }
@@ -145,7 +218,9 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 // ==========================================
 // STANDARD API ROUTES
 // ==========================================
-app.use(express.json()); // Enable JSON parsing for all routes below this line
+// Increase payload size in case of large requests
+app.use(express.json({ limit: '50mb' })); 
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // --- AUTH ROUTES ---
 app.post('/auth/register', async (req, res) => {
@@ -164,7 +239,6 @@ app.post('/auth/register', async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     const apiKey = role === 'worker' ? crypto.randomBytes(24).toString('hex') : null;
     
-    // is_active is set to TRUE by default so they can log in immediately
     const result = await client.query(
       `INSERT INTO users (email, password_hash, role, api_key, is_active) VALUES ($1, $2, $3, $4, true) RETURNING id, email, role`,
       [email, hash, role, apiKey]
@@ -224,10 +298,10 @@ app.post('/create-checkout-session', authenticate, requireRole('client'), async 
     }
     client.release();
     
-    // --- FIX: Safely construct the domain with https:// ---
+    // Safely construct the domain to ensure it has https://
     let domain = process.env.CLIENT_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:3000';
-    if (!domain.startsWith('http')) domain = `https://${domain}`; // Force https if missing
-    if (domain.endsWith('/')) domain = domain.slice(0, -1);       // Remove trailing slash if present
+    if (!domain.startsWith('http')) domain = `https://${domain}`;
+    if (domain.endsWith('/')) domain = domain.slice(0, -1);
     
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -249,18 +323,17 @@ app.post('/create-checkout-session', authenticate, requireRole('client'), async 
 // --- WORKER VERIFICATION ROUTE (Stripe Identity) ---
 app.post('/api/worker/create-verification-session', authenticate, requireRole('worker'), async (req, res) => {
   try {
-    // --- FIX: Safely construct the domain with https:// ---
+    // Safely construct the domain to ensure it has https://
     let domain = process.env.CLIENT_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:3000';
-    if (!domain.startsWith('http')) domain = `https://${domain}`; // Force https if missing
-    if (domain.endsWith('/')) domain = domain.slice(0, -1);       // Remove trailing slash if present
+    if (!domain.startsWith('http')) domain = `https://${domain}`;
+    if (domain.endsWith('/')) domain = domain.slice(0, -1);
     
-    // Create the Stripe Identity Session
     const verificationSession = await stripe.identity.verificationSessions.create({
       type: 'document',
       metadata: {
-        userId: req.user.id.toString() // Attach DB ID to session
+        userId: req.user.id.toString() 
       },
-      return_url: `${domain}/verification?verified=true`, // Where to send them after completion
+      return_url: `${domain}/verification?verified=true`, 
     });
     
     res.json({ url: verificationSession.url });
@@ -269,16 +342,17 @@ app.post('/api/worker/create-verification-session', authenticate, requireRole('w
     res.status(500).json({ error: 'Failed to start verification' });
   }
 });
+
 // ==========================================
 // SERVE FRONTEND IN PRODUCTION (RAILWAY FIX)
 // ==========================================
-// Serve the static files built by Vite
 app.use(express.static(path.join(__dirname, 'client', 'dist')));
 
-// Catch-all route: Send any request that doesn't match the API to React's index.html
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'client', 'dist', 'index.html'));
 });
 
 // ==========================================
-app.listen(port, () => console.log(`🚀 Server running on port ${port}`));
+// START SERVER (Using HTTP server for WebSockets)
+// ==========================================
+server.listen(port, () => console.log(`🚀 Server & WebSockets running on port ${port}`));
