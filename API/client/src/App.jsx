@@ -1,4 +1,3 @@
-// client/src/App.jsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Main from './Main';
@@ -11,29 +10,22 @@ import Terminal from './terminal';
 import Login from './login';
 
 function App() {
-  // Check if user is logged in
-  const isAuthenticated = () => {
-    return !!localStorage.getItem('user');
-  };
+  const isAuthenticated = () => !!localStorage.getItem('user');
   
-  // Check if user is a client with active subscription
   const isClient = () => {
     const userStr = localStorage.getItem('user');
     if (!userStr) return false;
-    
     const user = JSON.parse(userStr);
-    return user.role === 'client' && 
-           user.subscription && 
-           user.subscription.status === 'active';
+    // FIX: Using the real DB column name 'subscription_status'
+    return user.role === 'client' && user.subscription_status === 'active';
   };
   
-  // Check if user is a worker and verified
   const isWorker = () => {
     const userStr = localStorage.getItem('user');
     if (!userStr) return false;
-    
     const user = JSON.parse(userStr);
-    return user.role === 'worker' && user.is_verified;
+    // FIX: Using the real DB column name 'is_verified'
+    return user.role === 'worker' && user.is_verified === true;
   };
 
   return (
