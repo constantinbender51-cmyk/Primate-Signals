@@ -20,41 +20,45 @@ export default function Terminal() {
       return;
     }
 
-    // Fetch initial history
-    api.get('/api/worker/history').then(res => setHistory(res.data));
+    api.get('/api/worker/history').then(res => setHistory(res.data)).catch(console.error);
 
     const socket = io({ transports: ['websocket'], auth: { token } });
     socketRef.current = socket;
 
     socket.on('connect', () => console.log('Worker Socket Connected:', socket.id));
     socket.on('disconnect', () => console.log('Worker Socket Disconnected'));
+    
+    // Use the full list update event
+    socket.on('update_requests_list', (allRequests) => {
+        console.log('Received updated requests list:', allRequests);
+        setRequests(allRequests);
+    });
 
-    const onNewRequest = (req) => {
-      console.log('Received new request:', req);
-      setRequests(prev => [req, ...prev.filter(r => r.id !== req.id)]);
-    };
-    const onRequestRemoved = (reqId) => setRequests(prev => prev.filter(r => r.id !== reqId));
-    const onReceiveMessage = (msg) => {
+    socket.on('request_removed', (reqId) => setRequests(prev => prev.filter(r => r.id !== reqId)));
+    
+    socket.on('receive_message', (msg) => {
       if (msg.sender === 'user' && msg.room) {
         setActiveChats(prev => ({
           ...prev,
           [msg.room]: { ...prev[msg.room], messages: [...(prev[msg.room]?.messages || []), msg] }
         }));
       }
-    };
-    const onInitialRequests = (initialReqs) => {
-        console.log('Received initial requests:', initialReqs);
-        setRequests(initialReqs);
-    };
-    const onChatEnded = () => {
-      if(selectedChat) handleEndChat(selectedChat, true);
-    };
+    });
 
-    socket.on('new_request', onNewRequest);
-    socket.on('request_removed', onRequestRemoved);
-    socket.on('receive_message', onReceiveMessage);
-    socket.on('initial_requests', onInitialRequests);
-    socket.on('chat_ended', onChatEnded);
+    socket.on('initial_requests', (initialReqs) => setRequests(initialReqs));
+
+    // New listener for active chats on connection
+    socket.on('initial_active_chats', (initialActive) => {
+        const chatsObj = initialActive.reduce((obj, chat) => {
+            obj[chat.room] = chat;
+            return obj;
+        }, {});
+        setActiveChats(chatsObj);
+    });
+
+    socket.on('chat_ended', () => {
+      if(selectedChat) handleEndChat(selectedChat, true);
+    });
 
     return () => socket.disconnect();
   }, [navigate]);
@@ -78,7 +82,7 @@ export default function Terminal() {
     if (!chatId) return;
     const chatToArchive = activeChats[chatId];
     if (chatToArchive) {
-      setHistory(prev => [{...chatToArchive, updated_at: new Date(), message_count: chatToArchive.messages.length}, ...prev]);
+        setHistory(prev => [{...chatToArchive, room: chatId, updated_at: new Date(), message_count: chatToArchive.messages.length}, ...prev]);
     }
     const newActive = { ...activeChats };
     delete newActive[chatId];
