@@ -207,15 +207,17 @@ app.post('/create-checkout-session', authenticate, requireRole('client'), async 
     }
     client.release();
     
-    // Automatically uses Railway domain if deployed, otherwise localhost
-    const domain = process.env.CLIENT_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:3000');
+    // --- FIX: Safely construct the domain with https:// ---
+    let domain = process.env.CLIENT_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:3000';
+    if (!domain.startsWith('http')) domain = `https://${domain}`; // Force https if missing
+    if (domain.endsWith('/')) domain = domain.slice(0, -1);       // Remove trailing slash if present
     
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       customer: customerId,
       line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
       mode: 'subscription',
-      success_url: `$subscription?success=true`,
+      success_url: `${domain}/subscription?success=true`,
       cancel_url: `${domain}/subscription?canceled=true`,
       subscription_data: { trial_period_days: 7 }
     });
@@ -230,7 +232,10 @@ app.post('/create-checkout-session', authenticate, requireRole('client'), async 
 // --- WORKER VERIFICATION ROUTE (Stripe Identity) ---
 app.post('/api/worker/create-verification-session', authenticate, requireRole('worker'), async (req, res) => {
   try {
-    const domain = process.env.CLIENT_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:3000');
+    // --- FIX: Safely construct the domain with https:// ---
+    let domain = process.env.CLIENT_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:3000';
+    if (!domain.startsWith('http')) domain = `https://${domain}`; // Force https if missing
+    if (domain.endsWith('/')) domain = domain.slice(0, -1);       // Remove trailing slash if present
     
     // Create the Stripe Identity Session
     const verificationSession = await stripe.identity.verificationSessions.create({
@@ -247,7 +252,6 @@ app.post('/api/worker/create-verification-session', authenticate, requireRole('w
     res.status(500).json({ error: 'Failed to start verification' });
   }
 });
-
 // ==========================================
 // SERVE FRONTEND IN PRODUCTION (RAILWAY FIX)
 // ==========================================
