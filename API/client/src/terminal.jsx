@@ -1,9 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
-
-// FIX 1: Initialize outside component & Force WebSockets
-const socket = io({ transports: ['websocket'], autoConnect: false });
 
 export default function Terminal() {
   const [activeTab, setActiveTab] = useState('requests');
@@ -13,56 +10,53 @@ export default function Terminal() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [input, setInput] = useState('');
   const navigate = useNavigate();
+  const socketRef = useRef(null);
 
   useEffect(() => {
-    const userStr = localStorage.getItem('user');
-    if (!userStr) return navigate('/login');
+    const token = localStorage.getItem('user');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
 
-    // Connect to WebSocket
-    socket.connect();
+    const socket = io({ transports: ['websocket'], auth: { token } });
+    socketRef.current = socket;
 
-    socket.on('new_request', (req) => {
+    const onNewRequest = (req) => {
       setRequests(prev => {
-        // Prevent duplicate requests
         if (prev.find(r => r.id === req.id)) return prev;
         return [...prev, req];
       });
-    });
-
-    socket.on('request_removed', (reqId) => {
-      setRequests(prev => prev.filter(r => r.id !== reqId));
-    });
-
-    socket.on('receive_message', (msg) => {
-      if (msg.sender === 'user') {
+    };
+    const onRequestRemoved = (reqId) => setRequests(prev => prev.filter(r => r.id !== reqId));
+    const onReceiveMessage = (msg) => {
+      if (msg.sender === 'user' && msg.room) {
         setActiveChats(prev => ({
           ...prev,
-          [msg.room]: {
-            ...prev[msg.room],
-            messages: [...(prev[msg.room]?.messages || []), msg]
-          }
+          [msg.room]: { ...prev[msg.room], messages: [...(prev[msg.room]?.messages || []), msg] }
         }));
       }
-    });
-
-    return () => {
-      socket.off('new_request');
-      socket.off('request_removed');
-      socket.off('receive_message');
     };
+    const onInitialRequests = (initialReqs) => setRequests(initialReqs);
+    const onChatEnded = () => {
+      if(selectedChat) handleEndChat(selectedChat, true); // Mark as ended by other party
+    };
+
+    socket.on('new_request', onNewRequest);
+    socket.on('request_removed', onRequestRemoved);
+    socket.on('receive_message', onReceiveMessage);
+    socket.on('initial_requests', onInitialRequests);
+    socket.on('chat_ended', onChatEnded);
+
+    return () => socket.disconnect();
   }, [navigate]);
 
   const handleAcceptRequest = (req) => {
-    socket.emit('accept_request', req.id);
+    socketRef.current?.emit('accept_request', req.id);
     
     setActiveChats(prev => ({
       ...prev,
-      [req.id]: {
-        room: req.id,
-        user: req.user,
-        topic: req.topic,
-        messages: [{ id: Date.now(), sender: 'user', text: req.message, timestamp: new Date() }]
-      }
+      [req.id]: { room: req.id, user: req.user, topic: req.topic, messages: [{ id: Date.now(), sender: 'user', text: req.message, timestamp: new Date() }] }
     }));
     
     setRequests(prev => prev.filter(r => r.id !== req.id));
@@ -70,18 +64,24 @@ export default function Terminal() {
     setSelectedChat(req.id);
   };
 
-  const handleDeclineRequest = (requestId) => {
-    setRequests(prev => prev.filter(r => r.id !== requestId));
-  };
+  const handleDeclineRequest = (requestId) => setRequests(prev => prev.filter(r => r.id !== requestId));
 
-  const handleEndChat = () => {
-    if (!selectedChat) return;
-    const chatToArchive = activeChats[selectedChat];
-    setHistory(prev => [chatToArchive, ...prev]);
+  const handleEndChat = (chatId, fromEvent = false) => {
+    if (!chatId) return;
+    const chatToArchive = activeChats[chatId];
+    if (chatToArchive) {
+        setHistory(prev => [chatToArchive, ...prev]);
+    }
     const newActive = { ...activeChats };
-    delete newActive[selectedChat];
+    delete newActive[chatId];
     setActiveChats(newActive);
-    setSelectedChat(null);
+    
+    if (selectedChat === chatId) {
+        setSelectedChat(null);
+    }
+    if (!fromEvent) {
+      socketRef.current?.emit('end_chat', chatId);
+    }
   };
 
   const handleSendMessage = (e) => {
@@ -90,23 +90,13 @@ export default function Terminal() {
 
     const newMsg = { id: Date.now(), sender: 'ai', text: input, room: selectedChat, timestamp: new Date() };
     
-    setActiveChats(prev => ({
-      ...prev,
-      [selectedChat]: {
-        ...prev[selectedChat],
-        messages: [...prev[selectedChat].messages, newMsg]
-      }
-    }));
-
-    socket.emit('send_message', newMsg);
+    setActiveChats(prev => ({ ...prev, [selectedChat]: { ...prev[selectedChat], messages: [...prev[selectedChat].messages, newMsg] } }));
+    socketRef.current?.emit('send_message', newMsg);
     setInput('');
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
   };
 
   const renderRequests = () => (
@@ -131,7 +121,7 @@ export default function Terminal() {
                     <div className="text-sm text-gray-500">{request.topic}</div>
                   </div>
                 </div>
-                <span className="text-sm text-gray-500">{request.time}</span>
+                <span className="text-sm text-gray-500">{new Date(request.time).toLocaleTimeString()}</span>
               </div>
               <p className="text-gray-700 mb-3 line-clamp-2">{request.message}</p>
               <div className="flex space-x-2">
@@ -224,7 +214,7 @@ export default function Terminal() {
                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-800 font-bold mr-3">{activeChats[selectedChat].user.charAt(0).toUpperCase()}</div>
                 <div><h3 className="font-medium text-gray-900">{activeChats[selectedChat].user}</h3><div className="text-sm text-gray-500">{activeChats[selectedChat].topic} • Active</div></div>
               </div>
-              <button onClick={handleEndChat} className="text-sm bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-md font-medium">End Chat</button>
+              <button onClick={() => handleEndChat(selectedChat)} className="text-sm bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-md font-medium">End Chat</button>
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
