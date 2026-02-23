@@ -1,15 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from './api';
 
 export default function Subscription() {
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Intercept the return from Stripe
+  useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    
+    if (query.get('success')) {
+      // 1. Get current user from memory
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        // 2. Optimistically upgrade them to active
+        user.subscription_status = 'active';
+        localStorage.setItem('user', JSON.stringify(user));
+      }
+      // 3. Send them to the chat dashboard
+      navigate('/chat');
+    }
+    
+    if (query.get('canceled')) {
+      alert("Checkout was canceled.");
+    }
+  }, [location, navigate]);
 
   const handleSubscribe = async () => {
     setLoading(true);
     try {
-      // Calls your actual backend to get a Stripe Checkout Session
       const res = await api.post('/create-checkout-session');
-      // Redirects user to actual Stripe page
       window.location.href = res.data.url;
     } catch (err) {
       setLoading(false);
@@ -26,7 +49,7 @@ export default function Subscription() {
         <button
           onClick={handleSubscribe}
           disabled={loading}
-          className="w-full py-3 px-4 rounded bg-emerald-600 text-white font-bold hover:bg-emerald-700"
+          className="w-full py-3 px-4 rounded bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors"
         >
           {loading ? 'Connecting to Stripe...' : 'Subscribe via Stripe'}
         </button>
