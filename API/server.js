@@ -40,7 +40,7 @@ const setupDatabase = async () => {
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW()
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       )
     `);
 
@@ -55,7 +55,28 @@ const setupDatabase = async () => {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_data JSONB;
     `);
 
-    // 3. SEED MASTER ACCOUNTS FOR TESTING
+    // 3. NEW: Create persistent chat tables
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS chats (
+        id SERIAL PRIMARY KEY,
+        client_user_id INTEGER NOT NULL REFERENCES users(id),
+        worker_user_id INTEGER REFERENCES users(id),
+        status VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending, active, closed
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        chat_id INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+        sender_user_id INTEGER NOT NULL REFERENCES users(id),
+        text TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+
+
+    // 4. SEED MASTER ACCOUNTS FOR TESTING
     const testPassword = await bcrypt.hash('master123', 10);
 
     // Insert Master Client (Bypasses Payment)
@@ -74,7 +95,7 @@ const setupDatabase = async () => {
       SET is_verified = true, is_active = true, role = 'worker';
     `, [testPassword]);
 
-    console.log("✅ Database tables checked and Master accounts seeded.");
+    console.log("✅ Database tables checked/created and Master accounts seeded.");
   } catch (err) {
     console.error("❌ Database setup failed:", err);
   } finally {
@@ -83,68 +104,101 @@ const setupDatabase = async () => {
 };
 setupDatabase();
 
+
 // ==========================================
 // REAL-TIME WEBSOCKET LOGIC (CHAT)
 // ==========================================
-const activeRequests = {}; // Holds pending chat requests
 
-io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
-
-  // 1. Client sends a request for an AI chat
-  socket.on('request_chat', (data) => {
-    const request = {
-      id: socket.id, // Using socket ID as the room/request ID
-      user: data.user || 'Anonymous User',
-      topic: data.topic || 'General Inquiry',
-      message: data.message,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      priority: 'normal'
-    };
-    activeRequests[socket.id] = request;
-    
-    // Broadcast to all connected workers
-    io.emit('new_request', request);
+// Authenticate socket connections
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    return next(new Error('Authentication error: No token'));
+  }
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) return next(new Error('Authentication error: Invalid token'));
+    socket.user = decoded; // Attach user data to the socket
+    next();
   });
+});
 
-  // 2. Worker accepts the chat
-  socket.on('accept_request', (requestId) => {
-    if (activeRequests[requestId]) {
-      const room = requestId; 
-      socket.join(room); // Worker joins the specific chat room
-      
-      // Remove request from the global queue
-      delete activeRequests[requestId];
-      io.emit('request_removed', requestId); 
-      
-      // Tell the specific client their chat was accepted
-      io.to(room).emit('chat_started', { room });
+io.on('connection', async (socket) => {
+  console.log('Authenticated user connected:', socket.user.email);
+  const client = await pool.connect();
+
+  try {
+    // Have user join a room named after their user ID for direct notifications
+    socket.join(socket.user.id.toString());
+
+    // --- On Connection: Load existing state for user ---
+    if (socket.user.role === 'worker') {
+      const requestsRes = await client.query("SELECT c.id, u.email as user, 'General' as topic, m.text as message, c.created_at as time FROM chats c JOIN users u ON c.client_user_id = u.id JOIN messages m ON m.chat_id = c.id WHERE c.status = 'pending' AND m.id IN (SELECT MIN(id) FROM messages GROUP BY chat_id)");
+      socket.emit('initial_requests', requestsRes.rows);
     }
-  });
+    if (socket.user.role === 'client') {
+      const chatRes = await client.query("SELECT * FROM chats WHERE client_user_id = $1 AND status = 'active' LIMIT 1", [socket.user.id]);
+      if (chatRes.rows.length > 0) {
+        const activeChat = chatRes.rows[0];
+        const messagesRes = await client.query("SELECT m.id, m.text, u.role as sender_role FROM messages m JOIN users u ON m.sender_user_id = u.id WHERE m.chat_id = $1 ORDER BY m.created_at ASC", [activeChat.id]);
+        const messages = messagesRes.rows.map(m => ({...m, sender: m.sender_role === 'client' ? 'user' : 'ai'}));
+        socket.emit('active_chat_data', { room: activeChat.id, messages });
+        socket.join(activeChat.id.toString());
+      }
+    }
 
-  // 3. Client joins their own room on connect
-  socket.on('join_room', (room) => {
-    socket.join(room);
-  });
-
-  // 4. Handle sending messages back and forth
-  socket.on('send_message', (data) => {
-    // data = { room, text, sender: 'user' | 'ai' }
-    io.to(data.room).emit('receive_message', {
-      id: Date.now(),
-      text: data.text,
-      sender: data.sender,
-      timestamp: new Date()
+    // 1. Client sends the first message to request a chat
+    socket.on('request_chat', async (data) => {
+      const { user_id, text } = data;
+      const chatRes = await client.query("INSERT INTO chats (client_user_id, status) VALUES ($1, 'pending') RETURNING id, client_user_id, created_at", [socket.user.id]);
+      const newChat = chatRes.rows[0];
+      await client.query("INSERT INTO messages (chat_id, sender_user_id, text) VALUES ($1, $2, $3)", [newChat.id, socket.user.id, text]);
+      
+      const request = { id: newChat.id, user: socket.user.email, topic: 'General', message: text, time: newChat.created_at };
+      io.emit('new_request', request); // Broadcast to all workers
     });
-  });
 
-  // 5. Cleanup when someone closes the tab
+    // 2. Worker accepts a chat request
+    socket.on('accept_request', async (chatId) => {
+      const chatRes = await client.query("UPDATE chats SET worker_user_id = $1, status = 'active', updated_at = NOW() WHERE id = $2 AND status = 'pending' RETURNING id, client_user_id", [socket.user.id, chatId]);
+      if (chatRes.rows.length > 0) {
+        const chat = chatRes.rows[0];
+        io.emit('request_removed', chatId); // Tell all workers to remove this request
+        socket.join(chat.id.toString()); // Worker joins the chat room
+        io.to(chat.client_user_id.toString()).emit('chat_started', { room: chat.id }); // Notify the specific client
+      }
+    });
+
+    // 3. Client joins room after being notified that chat started
+    socket.on('join_chat_room', (roomId) => {
+        socket.join(roomId.toString());
+    });
+
+    // 4. Handle sending messages back and forth
+    socket.on('send_message', async (data) => {
+      const { room, text, sender } = data; // sender is 'user' or 'ai'
+      const senderUserId = socket.user.id;
+      
+      await client.query("INSERT INTO messages (chat_id, sender_user_id, text) VALUES ($1, $2, $3)", [room, senderUserId, text]);
+      
+      const messagePayload = { id: Date.now(), text, sender, room, timestamp: new Date() };
+      io.to(room.toString()).emit('receive_message', messagePayload);
+    });
+
+    // 5. Worker ends a chat session
+    socket.on('end_chat', async (chatId) => {
+        await client.query("UPDATE chats SET status = 'closed', updated_at = NOW() WHERE id = $1 AND worker_user_id = $2", [chatId, socket.user.id]);
+        io.to(chatId.toString()).emit('chat_ended');
+        // Sockets automatically leave the room on disconnect
+    });
+
+  } catch(err) {
+    console.error("Socket error:", err);
+  } finally {
+    client.release();
+  }
+
   socket.on('disconnect', () => {
-    if (activeRequests[socket.id]) {
-      delete activeRequests[socket.id];
-      io.emit('request_removed', socket.id);
-    }
-    console.log('User disconnected:', socket.id);
+    console.log('User disconnected:', socket.user.email);
   });
 });
 
@@ -272,6 +326,7 @@ app.post('/auth/login', async (req, res) => {
     res.json({ 
       token, 
       user: { 
+        id: user.id, // For client-side reference
         email: user.email, 
         role: user.role, 
         is_verified: user.is_verified, 
