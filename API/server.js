@@ -34,7 +34,7 @@ const setupDatabase = async () => {
       )
     `);
 
-    // 2. Safely add new columns if they are missing (prevents crashes on existing databases)
+    // 2. Safely add new columns if they are missing
     await client.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(10) DEFAULT 'client';
       ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) UNIQUE;
@@ -45,7 +45,24 @@ const setupDatabase = async () => {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_data JSONB;
     `);
 
-    console.log("✅ Database tables checked and updated.");
+    // 3. SEED MASTER ACCOUNTS FOR TESTING
+    const testPassword = await bcrypt.hash('master123', 10); // Password is: master123
+
+    // Insert Master Client (Bypasses Payment)
+    await client.query(`
+      INSERT INTO users (email, password_hash, role, subscription_status, is_active)
+      VALUES ('client@test.com', $1, 'client', 'active', true)
+      ON CONFLICT (email) DO NOTHING;
+    `, [testPassword]);
+
+    // Insert Master Worker (Bypasses Verification)
+    await client.query(`
+      INSERT INTO users (email, password_hash, role, is_verified, is_active)
+      VALUES ('worker@test.com', $1, 'worker', true, true)
+      ON CONFLICT (email) DO NOTHING;
+    `, [testPassword]);
+
+    console.log("✅ Database tables checked and Master accounts seeded.");
   } catch (err) {
     console.error("❌ Database setup failed:", err);
   } finally {
