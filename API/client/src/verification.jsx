@@ -1,16 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from './api';
 
 export default function Verification() {
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Intercept the return from Stripe Identity
+  useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    
+    if (query.get('verified')) {
+      // 1. Get current user from memory
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        // 2. Optimistically update them to verified
+        user.is_verified = true;
+        localStorage.setItem('user', JSON.stringify(user));
+      }
+      // 3. Send them to the worker dashboard
+      navigate('/terminal');
+    }
+  }, [location, navigate]);
 
   const handleStartVerification = async () => {
     setLoading(true);
     try {
-      // Call our new backend route
       const res = await api.post('/api/worker/create-verification-session');
-      
-      // Redirect the user to Stripe's secure identity portal
       window.location.href = res.data.url;
     } catch (err) {
       console.error(err);
@@ -37,21 +55,10 @@ export default function Verification() {
           You will need a government-issued ID and your device's camera.
         </p>
 
-        <div className="bg-gray-50 rounded-md p-4 mb-8 text-sm text-left text-gray-600 border border-gray-200">
-          <p className="font-semibold text-gray-800 mb-2">Stripe will securely collect:</p>
-          <ul className="list-disc pl-5 space-y-1">
-            <li>A photo of your Government ID</li>
-            <li>A live selfie to match your ID</li>
-          </ul>
-          <p className="mt-3 text-xs text-gray-500">
-            Your data is processed securely by Stripe and is not stored on our servers.
-          </p>
-        </div>
-
         <button 
           onClick={handleStartVerification} 
           disabled={loading}
-          className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-75 disabled:cursor-not-allowed transition-colors"
+          className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-75 transition-colors"
         >
           {loading ? 'Connecting to Stripe...' : 'Start Verification'}
         </button>
