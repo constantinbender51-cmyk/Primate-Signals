@@ -215,7 +215,7 @@ app.post('/create-checkout-session', authenticate, requireRole('client'), async 
       customer: customerId,
       line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
       mode: 'subscription',
-      success_url: `${domain}/chat?success=true`,
+      success_url: `$subscription?success=true`,
       cancel_url: `${domain}/subscription?canceled=true`,
       subscription_data: { trial_period_days: 7 }
     });
