@@ -1,75 +1,92 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
-
-// FIX 1: Initialize outside component & Force WebSockets to prevent upgrade disconnects
-const socket = io({ transports: ['websocket'], autoConnect: false });
 
 export default function Chat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isWaiting, setIsWaiting] = useState(false);
-  const [room, setRoom] = useState(null);
+  const [room, setRoom] = useState(null); // room is the chatId
   const navigate = useNavigate();
+  const socketRef = useRef(null);
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
-    if (!userStr) return navigate('/login');
-    
-    // Connect to WebSocket
-    socket.connect();
+    if (!token || !userStr) {
+      navigate('/login');
+      return;
+    }
+    const user = JSON.parse(userStr);
 
-    // Listeners
-    socket.on('connect', () => {
-      socket.emit('join_room', socket.id);
-    });
+    // Initialize socket connection with auth token
+    const socket = io({ transports: ['websocket'], auth: { token } });
+    socketRef.current = socket;
 
-    socket.on('chat_started', (data) => {
+    // --- Event Handlers ---
+    const onChatStarted = (data) => {
       setIsWaiting(false);
       setRoom(data.room);
+      socket.emit('join_chat_room', data.room);
       setMessages(prev => [...prev, {
         id: Date.now(),
         sender: 'system',
         text: 'A Human AI Provider has connected.',
         timestamp: new Date()
       }]);
-    });
+    };
 
-    socket.on('receive_message', (msg) => {
+    const onReceiveMessage = (msg) => {
       if (msg.sender === 'ai') {
         setMessages(prev => [...prev, msg]);
       }
-    });
+    };
 
-    // Cleanup listeners on unmount (but don't sever the connection)
+    const onActiveChatData = (data) => {
+        setRoom(data.room);
+        setMessages(data.messages);
+        socket.emit('join_chat_room', data.room);
+    };
+
+    const onChatEnded = () => {
+        setMessages(prev => [...prev, { id: Date.now(), sender: 'system', text: 'The chat has ended.'}]);
+        setRoom(null);
+    }
+
+    // --- Attach Listeners ---
+    socket.on('chat_started', onChatStarted);
+    socket.on('receive_message', onReceiveMessage);
+    socket.on('active_chat_data', onActiveChatData);
+    socket.on('chat_ended', onChatEnded);
+
+
     return () => {
-      socket.off('connect');
-      socket.off('chat_started');
-      socket.off('receive_message');
+      socket.disconnect();
     };
   }, [navigate]);
 
   const handleSend = (e) => {
     if (e) e.preventDefault();
     if (!input.trim()) return;
+
+    const user = JSON.parse(localStorage.getItem('user'));
     
     const newMsg = { id: Date.now(), sender: 'user', text: input, timestamp: new Date() };
     setMessages(prev => [...prev, newMsg]);
 
-    if (!room) {
-      // First message = creates a request for workers
-      setIsWaiting(true);
-      socket.emit('request_chat', {
-        user: JSON.parse(localStorage.getItem('user')).email.split('@')[0],
-        message: input
-      });
-    } else {
-      // Already in a room, send directly
-      socket.emit('send_message', {
-        room: room,
-        text: input,
-        sender: 'user'
-      });
+    const socket = socketRef.current;
+    if (socket) {
+        if (!room) {
+          setIsWaiting(true);
+          socket.emit('request_chat', { text: input });
+        } else {
+          socket.emit('send_message', { room, text: input, sender: 'user' });
+        }
     }
     setInput('');
   };
@@ -98,11 +115,12 @@ export default function Chat() {
                  <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">{m.text}</span>
                ) : (
                 <div className={`max-w-[70%] rounded-lg p-3 ${m.sender === 'user' ? 'bg-emerald-600 text-white rounded-tr-none' : 'bg-white text-gray-900 shadow rounded-tl-none'}`}>
-                  {m.text}
+                  <p className="break-words">{m.text}</p>
                 </div>
                )}
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
 
         <div className="bg-white border-t p-4 flex">
@@ -111,10 +129,11 @@ export default function Chat() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="Ask anything..."
+            placeholder={room ? "Type your message..." : "Ask your first question to find a provider..."}
             className="flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            disabled={room && isWaiting}
           />
-          <button onClick={handleSend} className="ml-3 bg-emerald-600 text-white p-2 rounded-full w-10 h-10 flex items-center justify-center">
+          <button onClick={handleSend} className="ml-3 bg-emerald-600 text-white p-2 rounded-full w-10 h-10 flex items-center justify-center hover:bg-emerald-700 disabled:bg-gray-300" disabled={room && isWaiting}>
             ↑
           </button>
         </div>
