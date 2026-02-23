@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 
+// FIX 1: Initialize outside component & Force WebSockets
 const socket = io({ transports: ['websocket'], autoConnect: false });
 
 export default function Terminal() {
@@ -17,45 +18,37 @@ export default function Terminal() {
     const userStr = localStorage.getItem('user');
     if (!userStr) return navigate('/login');
 
-    if (!socket.connected) {
-      socket.connect();
-    }
+    // Connect to WebSocket
+    socket.connect();
 
-    const onNewRequest = (req) => {
+    socket.on('new_request', (req) => {
       setRequests(prev => {
+        // Prevent duplicate requests
         if (prev.find(r => r.id === req.id)) return prev;
         return [...prev, req];
       });
-    };
+    });
 
-    const onRequestRemoved = (reqId) => {
+    socket.on('request_removed', (reqId) => {
       setRequests(prev => prev.filter(r => r.id !== reqId));
-    };
+    });
 
-    const onReceiveMessage = (msg) => {
-      if (msg.sender === 'user' && msg.room) {
-        setActiveChats(prev => {
-          // If room doesn't exist locally, ignore
-          if (!prev[msg.room]) return prev;
-          return {
-            ...prev,
-            [msg.room]: {
-              ...prev[msg.room],
-              messages: [...prev[msg.room].messages, msg]
-            }
-          };
-        });
+    socket.on('receive_message', (msg) => {
+      if (msg.sender === 'user') {
+        setActiveChats(prev => ({
+          ...prev,
+          [msg.room]: {
+            ...prev[msg.room],
+            messages: [...(prev[msg.room]?.messages || []), msg]
+          }
+        }));
       }
-    };
-
-    socket.on('new_request', onNewRequest);
-    socket.on('request_removed', onRequestRemoved);
-    socket.on('receive_message', onReceiveMessage);
+    });
 
     return () => {
-      socket.off('new_request', onNewRequest);
-      socket.off('request_removed', onRequestRemoved);
-      socket.off('receive_message', onReceiveMessage);
+      socket.off('new_request');
+      socket.off('request_removed');
+      socket.off('receive_message');
     };
   }, [navigate]);
 
