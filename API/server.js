@@ -6,12 +6,12 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const crypto = require('crypto');
-const path = require('path'); // Required to serve React files
+const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// CORS Middleware (Do not put express.json() here yet!)
+// CORS Middleware (Must be before Webhook)
 app.use(cors());
 
 // ==========================================
@@ -91,19 +91,35 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   
   const client = await pool.connect();
   try {
+    // 1. Handle Subscriptions (Clients)
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
       await client.query(
         `UPDATE users SET subscription_status = 'active' WHERE stripe_customer_id = $1`, 
         [session.customer]
       );
-    } else if (event.type === 'customer.subscription.deleted') {
+    } 
+    else if (event.type === 'customer.subscription.deleted') {
       const subscription = event.data.object;
       await client.query(
         `UPDATE users SET subscription_status = 'canceled' WHERE stripe_customer_id = $1`, 
         [subscription.customer]
       );
     }
+    // 2. Handle Identity Verification (Workers)
+    else if (event.type === 'identity.verification_session.verified') {
+      const session = event.data.object;
+      const userId = session.metadata.userId; 
+      
+      if (userId) {
+        await client.query(
+          `UPDATE users SET is_verified = true WHERE id = $1`, 
+          [userId]
+        );
+        console.log(`✅ User ${userId} successfully verified via Stripe Identity.`);
+      }
+    }
+
     res.json({ received: true });
   } catch (err) {
     console.error('Webhook Database Error:', err);
@@ -116,10 +132,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 // ==========================================
 // STANDARD API ROUTES (JSON ENABLED)
 // ==========================================
-// Increase payload limit to 50MB to allow Base64 image uploads
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-for all routes below this line
+app.use(express.json());
 
 // --- AUTH ROUTES ---
 app.post('/auth/register', async (req, res) => {
@@ -183,7 +196,7 @@ app.post('/auth/login', async (req, res) => {
   }
 });
 
-// --- CLIENT STRIPE ROUTES ---
+// --- CLIENT STRIPE CHECKOUT ROUTE ---
 app.post('/create-checkout-session', authenticate, requireRole('client'), async (req, res) => {
   try {
     const client = await pool.connect();
@@ -197,7 +210,6 @@ app.post('/create-checkout-session', authenticate, requireRole('client'), async 
     }
     client.release();
     
-    // Create checkout session using Railway assigned URL or fallback to localhost
     const domain = process.env.CLIENT_URL || `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` || 'http://localhost:3000';
     
     const session = await stripe.checkout.sessions.create({
@@ -212,35 +224,36 @@ app.post('/create-checkout-session', authenticate, requireRole('client'), async 
     
     res.json({ url: session.url });
   } catch (err) {
-    console.error("Stripe Error:", err);
+    console.error("Stripe Checkout Error:", err);
     res.status(500).json({ error: 'Checkout failed' });
   }
 });
 
-// --- WORKER VERIFICATION ROUTES ---
-app.post('/api/worker/verification', authenticate, requireRole('worker'), async (req, res) => {
-  const { idFront, idBack, selfie } = req.body;
+// --- WORKER STRIPE IDENTITY ROUTE ---
+app.post('/api/worker/create-verification-session', authenticate, requireRole('worker'), async (req, res) => {
   try {
-    const client = await pool.connect();
-    await client.query(
-      `UPDATE users SET verification_data = $1, is_verified = false WHERE id = $2`,
-      [JSON.stringify({ idFront, idBack, selfie }), req.user.id]
-    );
-    client.release();
-    res.json({ message: 'Verification submitted successfully' });
+    const domain = process.env.CLIENT_URL || `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` || 'http://localhost:3000';
+    
+    const verificationSession = await stripe.identity.verificationSessions.create({
+      type: 'document',
+      metadata: {
+        userId: req.user.id.toString() 
+      },
+      return_url: `${domain}/terminal?verified=true`, 
+    });
+    
+    res.json({ url: verificationSession.url });
   } catch (err) {
-    console.error("Verification Error:", err);
-    res.status(500).json({ error: 'Verification submission failed' });
+    console.error("Stripe Identity Error:", err);
+    res.status(500).json({ error: 'Failed to start verification' });
   }
 });
 
 // ==========================================
 // SERVE FRONTEND IN PRODUCTION (RAILWAY FIX)
 // ==========================================
-// Serve the static files built by Vite
 app.use(express.static(path.join(__dirname, 'client', 'dist')));
 
-// Catch-all route: Send any request that doesn't match the API to React's index.html
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'client', 'dist', 'index.html'));
 });
