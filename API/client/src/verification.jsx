@@ -1,52 +1,59 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from './api';
 
 export default function Verification() {
-  const [idFront, setIdFront] = useState(null);
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
-  // Simple mock file handler for demo (You'd likely use FormData in a real large app)
-  const handleFileUpload = (e) => {
-    if (e.target.files.length > 0) {
-      const reader = new FileReader();
-      reader.onloadend = () => setIdFront(reader.result); // sets base64 string
-      reader.readAsDataURL(e.target.files[0]);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!idFront) return alert("Please upload an ID");
-    
+  const handleStartVerification = async () => {
     setLoading(true);
     try {
-      // Send to actual backend
-      await api.post('/api/worker/verification', { idFront, idBack: null, selfie: null });
+      // Call our new backend route
+      const res = await api.post('/api/worker/create-verification-session');
       
-      alert("Verification Submitted! Awaiting admin approval.");
-      navigate('/terminal'); // Navigate to their dashboard
+      // Redirect the user to Stripe's secure identity portal
+      window.location.href = res.data.url;
     } catch (err) {
-      alert("Submission failed");
-    } finally {
+      console.error(err);
+      alert("Failed to connect to verification provider. Please try again.");
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow p-8 text-center">
-        <h2 className="text-2xl font-bold mb-4">Upload ID</h2>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
+        <div className="mb-6 flex justify-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </div>
+        </div>
+
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">Verify Your Identity</h2>
         
-        <input type="file" onChange={handleFileUpload} className="mb-6 w-full" />
-        {idFront && <img src={idFront} alt="Preview" className="h-32 mx-auto mb-6 object-contain" />}
+        <p className="text-gray-600 mb-8">
+          To ensure the safety of our platform, we require all AI Providers to verify their identity. 
+          You will need a government-issued ID and your device's camera.
+        </p>
+
+        <div className="bg-gray-50 rounded-md p-4 mb-8 text-sm text-left text-gray-600 border border-gray-200">
+          <p className="font-semibold text-gray-800 mb-2">Stripe will securely collect:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>A photo of your Government ID</li>
+            <li>A live selfie to match your ID</li>
+          </ul>
+          <p className="mt-3 text-xs text-gray-500">
+            Your data is processed securely by Stripe and is not stored on our servers.
+          </p>
+        </div>
 
         <button 
-          onClick={handleSubmit} 
-          disabled={loading || !idFront}
-          className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          onClick={handleStartVerification} 
+          disabled={loading}
+          className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-75 disabled:cursor-not-allowed transition-colors"
         >
-          {loading ? 'Uploading...' : 'Submit Verification'}
+          {loading ? 'Connecting to Stripe...' : 'Start Verification'}
         </button>
       </div>
     </div>
