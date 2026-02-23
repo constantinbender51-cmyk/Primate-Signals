@@ -116,7 +116,10 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 // ==========================================
 // STANDARD API ROUTES (JSON ENABLED)
 // ==========================================
-app.use(express.json()); // Enable JSON parsing for all routes below this line
+// Increase payload limit to 50MB to allow Base64 image uploads
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+for all routes below this line
 
 // --- AUTH ROUTES ---
 app.post('/auth/register', async (req, res) => {
