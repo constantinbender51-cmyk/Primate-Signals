@@ -13,17 +13,14 @@ export default function Login() {
     setLoading(true);
     setError('');
     
-    // Wipe old cache before logging in
     localStorage.clear(); 
     
     try {
       const res = await api.post('/auth/login', { email, password });
       
-      // Save Real JWT & User Data
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       
-      // HARD REDIRECT: Forces React to re-mount with the fresh localStorage data
       if (res.data.user.role === 'client') {
         window.location.href = res.data.user.subscription_status === 'active' ? '/chat' : '/subscription';
       } else {
