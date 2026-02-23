@@ -11,7 +11,6 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// CORS Middleware (Must be before Webhook)
 app.use(cors());
 
 // ==========================================
@@ -25,7 +24,7 @@ const pool = new Pool({
 const setupDatabase = async () => {
   const client = await pool.connect();
   try {
-    // 1. Create the base table if it's a completely blank database
+    // 1. Create the base table if it doesn't exist
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -35,7 +34,7 @@ const setupDatabase = async () => {
       )
     `);
 
-    // 2. Force add the new columns if they are missing (Upgrading from the old app)
+    // 2. Safely add new columns if they are missing (prevents crashes on existing databases)
     await client.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(10) DEFAULT 'client';
       ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) UNIQUE;
@@ -82,6 +81,7 @@ const requireRole = (role) => (req, res, next) => {
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
+
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
@@ -91,8 +91,8 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   
   const client = await pool.connect();
   try {
-    // 1. Handle Subscriptions (Clients)
     if (event.type === 'checkout.session.completed') {
+      // Client Subscription Paid
       const session = event.data.object;
       await client.query(
         `UPDATE users SET subscription_status = 'active' WHERE stripe_customer_id = $1`, 
@@ -100,26 +100,22 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
       );
     } 
     else if (event.type === 'customer.subscription.deleted') {
+      // Client Subscription Canceled
       const subscription = event.data.object;
       await client.query(
         `UPDATE users SET subscription_status = 'canceled' WHERE stripe_customer_id = $1`, 
         [subscription.customer]
       );
-    }
-    // 2. Handle Identity Verification (Workers)
+    } 
     else if (event.type === 'identity.verification_session.verified') {
+      // Worker Identity Verified via Stripe Identity
       const session = event.data.object;
       const userId = session.metadata.userId; 
       
       if (userId) {
-        await client.query(
-          `UPDATE users SET is_verified = true WHERE id = $1`, 
-          [userId]
-        );
-        console.log(`✅ User ${userId} successfully verified via Stripe Identity.`);
+        await client.query(`UPDATE users SET is_verified = true WHERE id = $1`, [userId]);
       }
     }
-
     res.json({ received: true });
   } catch (err) {
     console.error('Webhook Database Error:', err);
@@ -130,9 +126,9 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 });
 
 // ==========================================
-// STANDARD API ROUTES (JSON ENABLED)
+// STANDARD API ROUTES
 // ==========================================
-app.use(express.json());
+app.use(express.json()); // Enable JSON parsing for all routes below this line
 
 // --- AUTH ROUTES ---
 app.post('/auth/register', async (req, res) => {
@@ -151,6 +147,7 @@ app.post('/auth/register', async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     const apiKey = role === 'worker' ? crypto.randomBytes(24).toString('hex') : null;
     
+    // is_active is set to TRUE by default so they can log in immediately
     const result = await client.query(
       `INSERT INTO users (email, password_hash, role, api_key, is_active) VALUES ($1, $2, $3, $4, true) RETURNING id, email, role`,
       [email, hash, role, apiKey]
@@ -196,7 +193,7 @@ app.post('/auth/login', async (req, res) => {
   }
 });
 
-// --- CLIENT STRIPE CHECKOUT ROUTE ---
+// --- CLIENT STRIPE ROUTES (Checkout) ---
 app.post('/create-checkout-session', authenticate, requireRole('client'), async (req, res) => {
   try {
     const client = await pool.connect();
@@ -210,7 +207,8 @@ app.post('/create-checkout-session', authenticate, requireRole('client'), async 
     }
     client.release();
     
-    const domain = process.env.CLIENT_URL || `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` || 'http://localhost:3000';
+    // Automatically uses Railway domain if deployed, otherwise localhost
+    const domain = process.env.CLIENT_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:3000');
     
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -224,22 +222,23 @@ app.post('/create-checkout-session', authenticate, requireRole('client'), async 
     
     res.json({ url: session.url });
   } catch (err) {
-    console.error("Stripe Checkout Error:", err);
+    console.error("Stripe Error:", err);
     res.status(500).json({ error: 'Checkout failed' });
   }
 });
 
-// --- WORKER STRIPE IDENTITY ROUTE ---
+// --- WORKER VERIFICATION ROUTE (Stripe Identity) ---
 app.post('/api/worker/create-verification-session', authenticate, requireRole('worker'), async (req, res) => {
   try {
-    const domain = process.env.CLIENT_URL || `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` || 'http://localhost:3000';
+    const domain = process.env.CLIENT_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:3000');
     
+    // Create the Stripe Identity Session
     const verificationSession = await stripe.identity.verificationSessions.create({
       type: 'document',
       metadata: {
-        userId: req.user.id.toString() 
+        userId: req.user.id.toString() // Attach DB ID to session
       },
-      return_url: `${domain}/terminal?verified=true`, 
+      return_url: `${domain}/terminal?verified=true`, // Where to send them after completion
     });
     
     res.json({ url: verificationSession.url });
@@ -252,8 +251,10 @@ app.post('/api/worker/create-verification-session', authenticate, requireRole('w
 // ==========================================
 // SERVE FRONTEND IN PRODUCTION (RAILWAY FIX)
 // ==========================================
+// Serve the static files built by Vite
 app.use(express.static(path.join(__dirname, 'client', 'dist')));
 
+// Catch-all route: Send any request that doesn't match the API to React's index.html
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'client', 'dist', 'index.html'));
 });
