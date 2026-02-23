@@ -28,7 +28,6 @@ export default function Terminal() {
     socket.on('connect', () => console.log('Worker Socket Connected:', socket.id));
     socket.on('disconnect', () => console.log('Worker Socket Disconnected'));
     
-    // Use the full list update event
     socket.on('update_requests_list', (allRequests) => {
         console.log('Received updated requests list:', allRequests);
         setRequests(allRequests);
@@ -47,7 +46,6 @@ export default function Terminal() {
 
     socket.on('initial_requests', (initialReqs) => setRequests(initialReqs));
 
-    // New listener for active chats on connection
     socket.on('initial_active_chats', (initialActive) => {
         const chatsObj = initialActive.reduce((obj, chat) => {
             obj[chat.room] = chat;
@@ -72,6 +70,8 @@ export default function Terminal() {
     }));
     
     setRequests(prev => prev.filter(r => r.id !== req.id));
+    
+    // FIX: Make the switch to the active chat view explicit
     setActiveTab('active');
     setSelectedChat(req.id);
   };
