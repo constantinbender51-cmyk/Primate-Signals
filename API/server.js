@@ -134,6 +134,7 @@ io.on('connection', (socket) => {
       id: Date.now(),
       text: data.text,
       sender: data.sender,
+      room: data.room, // <--- FIX: This was missing!
       timestamp: new Date()
     });
   });
