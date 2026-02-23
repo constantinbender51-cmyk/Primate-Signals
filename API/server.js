@@ -6,13 +6,17 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const crypto = require('crypto');
+const path = require('path'); // Required to serve React files
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+// CORS Middleware (Do not put express.json() here yet!)
 app.use(cors());
 
+// ==========================================
 // DATABASE SETUP
+// ==========================================
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
@@ -31,7 +35,7 @@ const setupDatabase = async () => {
         stripe_customer_id VARCHAR(255),
         subscription_status VARCHAR(20) DEFAULT 'inactive',
         is_verified BOOLEAN DEFAULT false,
-        is_active BOOLEAN DEFAULT true, -- SET TO TRUE SO USERS CAN LOG IN
+        is_active BOOLEAN DEFAULT true, -- Default true so users can login immediately
         verification_data JSONB,
         created_at TIMESTAMP DEFAULT NOW()
       )
@@ -45,7 +49,9 @@ const setupDatabase = async () => {
 };
 setupDatabase();
 
+// ==========================================
 // AUTH MIDDLEWARE
+// ==========================================
 const authenticate = async (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Authentication required' });
@@ -65,7 +71,7 @@ const requireRole = (role) => (req, res, next) => {
 };
 
 // ==========================================
-// 1. STRIPE WEBHOOK (MUST BE BEFORE EXPRESS.JSON)
+// STRIPE WEBHOOK (MUST BE BEFORE express.json())
 // ==========================================
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
@@ -73,6 +79,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
+    console.error('Webhook signature verification failed:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
   
@@ -80,11 +87,20 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      await client.query(`UPDATE users SET subscription_status = 'active' WHERE stripe_customer_id = $1`, [session.customer]);
-    } 
-    // ... handles other events (deleted, updated, etc)
+      await client.query(
+        `UPDATE users SET subscription_status = 'active' WHERE stripe_customer_id = $1`, 
+        [session.customer]
+      );
+    } else if (event.type === 'customer.subscription.deleted') {
+      const subscription = event.data.object;
+      await client.query(
+        `UPDATE users SET subscription_status = 'canceled' WHERE stripe_customer_id = $1`, 
+        [subscription.customer]
+      );
+    }
     res.json({ received: true });
   } catch (err) {
+    console.error('Webhook Database Error:', err);
     res.status(500).send('Server Error');
   } finally {
     client.release();
@@ -92,11 +108,11 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 });
 
 // ==========================================
-// 2. STANDARD API ROUTES (JSON ENABLED)
+// STANDARD API ROUTES (JSON ENABLED)
 // ==========================================
-app.use(express.json());
+app.use(express.json()); // Enable JSON parsing for all routes below this line
 
-// AUTHENTICATION
+// --- AUTH ROUTES ---
 app.post('/auth/register', async (req, res) => {
   const { email, password, role } = req.body;
   if (!['client', 'worker'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
@@ -120,6 +136,7 @@ app.post('/auth/register', async (req, res) => {
     client.release();
     res.status(201).json({ message: 'User created', user: result.rows[0] });
   } catch (err) {
+    console.error("Register Error:", err);
     res.status(500).json({ error: 'Registration failed' });
   }
 });
@@ -144,14 +161,20 @@ app.post('/auth/login', async (req, res) => {
     
     res.json({ 
       token, 
-      user: { email: user.email, role: user.role, is_verified: user.is_verified, subscription_status: user.subscription_status } 
+      user: { 
+        email: user.email, 
+        role: user.role, 
+        is_verified: user.is_verified, 
+        subscription_status: user.subscription_status 
+      } 
     });
   } catch (err) {
+    console.error("Login Error:", err);
     res.status(500).json({ error: 'Login error' });
   }
 });
 
-// CLIENT SUBSCRIPTION (STRIPE)
+// --- CLIENT STRIPE ROUTES ---
 app.post('/create-checkout-session', authenticate, requireRole('client'), async (req, res) => {
   try {
     const client = await pool.connect();
@@ -165,24 +188,27 @@ app.post('/create-checkout-session', authenticate, requireRole('client'), async 
     }
     client.release();
     
+    // Create checkout session using Railway assigned URL or fallback to localhost
+    const domain = process.env.CLIENT_URL || `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` || 'http://localhost:3000';
+    
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       customer: customerId,
       line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
       mode: 'subscription',
-      success_url: `${process.env.CLIENT_URL}/chat?success=true`,
-      cancel_url: `${process.env.CLIENT_URL}/subscription?canceled=true`,
+      success_url: `${domain}/chat?success=true`,
+      cancel_url: `${domain}/subscription?canceled=true`,
       subscription_data: { trial_period_days: 7 }
     });
     
-    // Return the actual URL to redirect to
     res.json({ url: session.url });
   } catch (err) {
+    console.error("Stripe Error:", err);
     res.status(500).json({ error: 'Checkout failed' });
   }
 });
 
-// WORKER VERIFICATION
+// --- WORKER VERIFICATION ROUTES ---
 app.post('/api/worker/verification', authenticate, requireRole('worker'), async (req, res) => {
   const { idFront, idBack, selfie } = req.body;
   try {
@@ -194,8 +220,21 @@ app.post('/api/worker/verification', authenticate, requireRole('worker'), async 
     client.release();
     res.json({ message: 'Verification submitted successfully' });
   } catch (err) {
+    console.error("Verification Error:", err);
     res.status(500).json({ error: 'Verification submission failed' });
   }
 });
 
-app.listen(port, () => console.log(`Server running on port ${port}`));
+// ==========================================
+// SERVE FRONTEND IN PRODUCTION (RAILWAY FIX)
+// ==========================================
+// Serve the static files built by Vite
+app.use(express.static(path.join(__dirname, 'client', 'dist')));
+
+// Catch-all route: Send any request that doesn't match the API to React's index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client', 'dist', 'index.html'));
+});
+
+// ==========================================
+app.listen(port, () => console.log(`🚀 Server running on port ${port}`));
