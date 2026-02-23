@@ -261,3 +261,112 @@ export default function Terminal() {
                   <span className="text-blue-800 font-bold text-xs">{chat.user.charAt(0).toUpperCase()}</span>
                 </div>
               )}
+              
+              <div className={`max-w-[70%] rounded-lg p-3 ${
+                message.sender === 'user' 
+                  ? 'bg-white text-gray-900 rounded-tl-none shadow-sm border border-gray-100' 
+                  : 'bg-emerald-600 text-white rounded-tr-none shadow-sm'
+              }`}>
+                <p className="break-words">{message.text}</p>
+              </div>
+              
+              {message.sender === 'ai' && (
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center ml-2 flex-shrink-0">
+                  <span className="text-emerald-800 font-bold text-xs">AI</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        
+        {/* Input */}
+        <div className="border-t border-gray-200 px-4 py-3 bg-white">
+          <div className="flex items-center space-x-2">
+            <textarea
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type your response as the AI..."
+              rows="1"
+              className="flex-1 border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-emerald-500 px-4 py-2 resize-none"
+            />
+            <button 
+              onClick={handleSendMessage}
+              disabled={!input.trim()}
+              className={`p-2 rounded-full h-10 w-10 flex items-center justify-center ${
+                input.trim() ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-200 text-gray-400'
+              }`}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex h-screen overflow-hidden">
+      {/* LEFT SIDEBAR */}
+      <div className="w-80 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+        
+        {/* Profile Summary */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center mb-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold mr-3">AI</div>
+            <div>
+              <div className="font-medium text-gray-900">Provider Terminal</div>
+              <div className="text-xs text-green-600 font-medium flex items-center">
+                <span className="w-2 h-2 rounded-full bg-green-500 mr-1"></span> Live Socket Connected
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Navigation Tabs */}
+        <nav className="p-2 border-b border-gray-200 flex space-x-1">
+          <button onClick={() => setActiveTab('requests')} className={`flex-1 py-2 text-xs font-medium rounded-md ${activeTab === 'requests' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-500 hover:bg-gray-50'}`}>
+            Requests {requests.length > 0 && <span className="ml-1 bg-red-500 text-white px-1.5 rounded-full">{requests.length}</span>}
+          </button>
+          <button onClick={() => setActiveTab('active')} className={`flex-1 py-2 text-xs font-medium rounded-md ${activeTab === 'active' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-500 hover:bg-gray-50'}`}>
+            Active {Object.keys(activeChats).length > 0 && <span className="ml-1 bg-emerald-500 text-white px-1.5 rounded-full">{Object.keys(activeChats).length}</span>}
+          </button>
+          <button onClick={() => setActiveTab('history')} className={`flex-1 py-2 text-xs font-medium rounded-md ${activeTab === 'history' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-500 hover:bg-gray-50'}`}>
+            History
+          </button>
+        </nav>
+        
+        {/* Dynamic List Area */}
+        <div className="flex-1 overflow-y-auto bg-gray-50/50">
+          {activeTab === 'requests' && renderRequests()}
+          {activeTab === 'active' && renderActiveChats()}
+          {activeTab === 'history' && renderHistory()}
+        </div>
+
+      </div>
+      
+      {/* RIGHT CONTENT AREA (CHAT) */}
+      <div className="flex-1 flex flex-col bg-white">
+        {activeTab === 'active' && selectedChat ? (
+          renderChatInterface()
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 p-6 bg-gray-50">
+            <div className="text-6xl mb-4 opacity-50">
+              {activeTab === 'requests' ? '📡' : activeTab === 'history' ? '📚' : '🤖'}
+            </div>
+            <h3 className="text-xl font-medium text-gray-700 mb-2">
+              {activeTab === 'requests' ? 'Listening for Users...' : activeTab === 'history' ? 'Session History' : 'Select a Chat'}
+            </h3>
+            <p className="text-center text-gray-500 max-w-sm">
+              {activeTab === 'requests' 
+                ? 'When a user needs AI assistance, their request will appear in the sidebar.' 
+                : 'Choose an active conversation from the sidebar to start replying as the AI.'}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
