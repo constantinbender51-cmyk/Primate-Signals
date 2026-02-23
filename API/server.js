@@ -216,7 +216,7 @@ app.post('/create-checkout-session', authenticate, requireRole('client'), async 
       mode: 'subscription',
       success_url: `${process.env.CLIENT_URL}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/subscription/cancel`,
-      subscription_ {
+      subscription_data {
         trial_period_days: 7
       }
     });
