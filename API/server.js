@@ -1,516 +1,325 @@
-require('dotenv').config();
-const express = require('express');
-const { Pool } = require('pg');
-const cors = require('cors');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const crypto = require('crypto');
-const path = require('path');
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
+import api from './api';
 
-const http = require('http');
-const { Server } = require('socket.io');
+export default function Chat() {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [isWaiting, setIsWaiting] = useState(false);
+  const [room, setRoom] = useState(null);
+  const [chats, setChats] = useState([]);
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const socketRef = useRef(null);
+  const messagesEndRef = useRef(null);
 
-const app = express();
-const port = process.env.PORT || 3000;
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*' }
-});
+  // Fetch all chats on component mount
+  useEffect(() => {
+    const fetchChats = async () => {
+      try {
+        const res = await api.get('/api/client/chats');
+        setChats(res.data);
+      } catch (err) {
+        console.error('Failed to fetch chats:', err);
+      }
+    };
+    fetchChats();
+  }, []);
 
-app.use(cors());
-
-// ==========================================
-// DATABASE SETUP
-// ==========================================
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
-
-const setupDatabase = async () => {
-  const client = await pool.connect();
-  try {
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        role VARCHAR(10) DEFAULT 'client',
-        api_key VARCHAR(255) UNIQUE,
-        stripe_customer_id VARCHAR(255),
-        subscription_status VARCHAR(20) DEFAULT 'inactive',
-        is_verified BOOLEAN DEFAULT false,
-        is_active BOOLEAN DEFAULT true,
-        verification_data JSONB
-      );
-
-      CREATE TABLE IF NOT EXISTS chats (
-        id SERIAL PRIMARY KEY,
-        client_user_id INTEGER NOT NULL REFERENCES users(id),
-        worker_user_id INTEGER REFERENCES users(id),
-        status VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending, active, closed
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-
-      CREATE TABLE IF NOT EXISTS messages (
-        id SERIAL PRIMARY KEY,
-        chat_id INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-        sender_user_id INTEGER NOT NULL REFERENCES users(id),
-        text TEXT NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-
-    const testPassword = await bcrypt.hash('master123', 10);
-    await client.query(`
-      INSERT INTO users (email, password_hash, role, subscription_status, is_active)
-      VALUES ('client@test.com', $1, 'client', 'active', true)
-      ON CONFLICT (email) DO UPDATE SET subscription_status = 'active', is_active = true, role = 'client';
-    `, [testPassword]);
-    await client.query(`
-      INSERT INTO users (email, password_hash, role, is_verified, is_active)
-      VALUES ('worker@test.com', $1, 'worker', true, true)
-      ON CONFLICT (email) DO UPDATE SET is_verified = true, is_active = true, role = 'worker';
-    `, [testPassword]);
-    console.log("✅ Database tables checked/created and Master accounts seeded.");
-  } catch (err) {
-    console.error("❌ Database setup failed:", err);
-  } finally {
-    client.release();
-  }
-};
-setupDatabase();
-
-
-// ==========================================
-// WEBSOCKET LOGIC (DATABASE-DRIVEN)
-// ==========================================
-io.use((socket, next) => {
-  const token = socket.handshake.auth.token;
-  if (!token) return next(new Error('Authentication error: No token'));
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) return next(new Error('Authentication error: Invalid token'));
-    socket.user = decoded;
-    next();
-  });
-});
-
-io.on('connection', async (socket) => {
-    console.log(`Authenticated user connected: ${socket.user.email} (Role: ${socket.user.role})`);
-    socket.join(socket.user.id.toString()); // Private room for user-specific events
-
-    if (socket.user.role === 'worker') {
-        socket.join('workers');
-        try {
-            const requestsRes = await pool.query(`
-                SELECT c.id, u.email as user, 'General' as topic, m.text as message, c.created_at as time
-                FROM chats c
-                JOIN users u ON c.client_user_id = u.id
-                JOIN messages m ON m.id = (SELECT MIN(id) FROM messages WHERE chat_id = c.id)
-                WHERE c.status = 'pending' ORDER BY c.created_at ASC
-            `);
-            socket.emit('initial_requests', requestsRes.rows);
-
-            const activeChatsRes = await pool.query("SELECT id, client_user_id FROM chats WHERE worker_user_id = $1 AND status = 'active'", [socket.user.id]);
-            if (activeChatsRes.rows.length > 0) {
-                const activeChatsWithMessages = await Promise.all(activeChatsRes.rows.map(async (chat) => {
-                    const messagesRes = await pool.query("SELECT m.id, m.text, u.role as sender_role FROM messages m JOIN users u ON m.sender_user_id = u.id WHERE m.chat_id = $1 ORDER BY m.created_at ASC", [chat.id]);
-                    const clientUserRes = await pool.query("SELECT email FROM users WHERE id = $1", [chat.client_user_id]);
-                    socket.join(chat.id.toString());
-                    return {
-                        room: chat.id,
-                        user: clientUserRes.rows[0].email,
-                        topic: 'General',
-                        messages: messagesRes.rows.map(m => ({ ...m, sender: m.sender_role === 'client' ? 'user' : 'ai' }))
-                    };
-                }));
-                socket.emit('initial_active_chats', activeChatsWithMessages);
-            }
-        } catch (e) { console.error("Error sending initial worker data:", e); }
+  // Fetch messages when a chat is selected
+  useEffect(() => {
+    if (selectedChat) {
+      fetchChatMessages(selectedChat);
     }
+  }, [selectedChat]);
 
-    if (socket.user.role === 'client') {
-        try {
-            const chatRes = await pool.query("SELECT * FROM chats WHERE client_user_id = $1 AND status = 'active' ORDER BY updated_at DESC LIMIT 1", [socket.user.id]);
-            if (chatRes.rows.length > 0) {
-                const activeChat = chatRes.rows[0];
-                const messagesRes = await pool.query("SELECT m.id, m.text, u.role as sender_role FROM messages m JOIN users u ON m.sender_user_id = u.id WHERE m.chat_id = $1 ORDER BY m.created_at ASC", [activeChat.id]);
-                const messages = messagesRes.rows.map(m => ({ ...m, sender: m.sender_role === 'client' ? 'user' : 'ai' }));
-                socket.emit('active_chat_data', { room: activeChat.id, messages });
-                socket.join(activeChat.id.toString());
-            }
-        } catch(e) { console.error("Error fetching active client chat:", e); }
+  const fetchChatMessages = async (chatId) => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/api/client/chats/${chatId}/messages`);
+      setMessages(res.data);
+      setRoom(chatId);
+      
+      // Join the socket room
+      const socket = socketRef.current;
+      if (socket) {
+        socket.emit('join_chat_room', chatId);
+      }
+    } catch (err) {
+      console.error('Failed to fetch messages:', err);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    socket.on('request_chat', async (data) => {
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-            const chatRes = await client.query("INSERT INTO chats (client_user_id, status) VALUES ($1, 'pending') RETURNING id", [socket.user.id]);
-            const newChatId = chatRes.rows[0].id;
-            await client.query("INSERT INTO messages (chat_id, sender_user_id, text) VALUES ($1, $2, $3)", [newChatId, socket.user.id, data.text]);
-            await client.query('COMMIT');
+  const startNewChat = () => {
+    setSelectedChat(null);
+    setMessages([]);
+    setRoom(null);
+    setIsWaiting(false);
+    setInput('');
+  };
 
-            const requestsRes = await client.query(`
-                SELECT c.id, u.email as user, 'General' as topic, m.text as message, c.created_at as time
-                FROM chats c JOIN users u ON c.client_user_id = u.id JOIN messages m ON m.id = (SELECT MIN(id) FROM messages WHERE chat_id = c.id)
-                WHERE c.status = 'pending' ORDER BY c.created_at ASC
-            `);
-            io.to('workers').emit('update_requests_list', requestsRes.rows);
-        } catch (e) {
-            await client.query('ROLLBACK');
-            console.error('Failed to create chat request:', e);
-        } finally {
-            client.release();
-        }
-    });
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    if (!token || !userStr) {
+      navigate('/login');
+      return;
+    }
+    const user = JSON.parse(userStr);
 
-    socket.on('accept_request', async (chatId) => {
-        const chatRes = await pool.query("UPDATE chats SET worker_user_id = $1, status = 'active', updated_at = NOW() WHERE id = $2 AND status = 'pending' RETURNING id, client_user_id", [socket.user.id, chatId]);
-        if (chatRes.rows.length > 0) {
-            const chat = chatRes.rows[0];
-            io.to('workers').emit('request_removed', chatId);
-            socket.join(chat.id.toString());
-            io.to(chat.client_user_id.toString()).emit('chat_started', { room: chat.id });
-        }
-    });
+    // Initialize socket connection with auth token
+    const socket = io({ transports: ['websocket'], auth: { token } });
+    socketRef.current = socket;
 
-    socket.on('join_chat_room', (roomId) => socket.join(roomId.toString()));
+    // --- Event Handlers ---
+    const onChatStarted = (data) => {
+      setIsWaiting(false);
+      setRoom(data.room);
+      socket.emit('join_chat_room', data.room);
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        sender: 'system',
+        text: 'A Human AI Provider has connected.',
+        timestamp: new Date()
+      }]);
+      
+      // Refresh chats list
+      api.get('/api/client/chats').then(res => setChats(res.data)).catch(console.error);
+    };
 
-    socket.on('send_message', async (data) => {
-        const { room, text, sender } = data;
-        await pool.query("INSERT INTO messages (chat_id, sender_user_id, text) VALUES ($1, $2, $3)", [room, socket.user.id, text]);
-        const messagePayload = { id: Date.now(), text, sender, room, timestamp: new Date() };
-        
-        // Send to everyone in the room EXCEPT the sender.
-        socket.to(room.toString()).emit('receive_message', messagePayload);
-    });
+    const onReceiveMessage = (msg) => {
+      if (msg.sender === 'ai') {
+        setMessages(prev => [...prev, msg]);
+      }
+    };
 
-    socket.on('end_chat', async (chatId) => {
-        await pool.query("UPDATE chats SET status = 'closed', updated_at = NOW() WHERE id = $1 AND worker_user_id = $2", [chatId, socket.user.id]);
-        io.to(chatId.toString()).emit('chat_ended');
-        
-        // Clean up room
-        const socketsInRoom = await io.in(chatId.toString()).fetchSockets();
-        socketsInRoom.forEach(s => s.leave(chatId.toString()));
-    });
+    const onActiveChatData = (data) => {
+      setRoom(data.room);
+      setMessages(data.messages);
+      setSelectedChat(data.room);
+      socket.emit('join_chat_room', data.room);
+    };
 
-    // Handle chat resumed event
-    socket.on('chat_resumed', (data) => {
-        // Join the room when chat is resumed
-        socket.join(data.room.toString());
-        console.log(`Worker ${socket.user.email} rejoined room ${data.room}`);
-    });
+    const onChatEnded = () => {
+      setMessages(prev => [...prev, { 
+        id: Date.now(), 
+        sender: 'system', 
+        text: 'The chat has ended.' 
+      }]);
+      setRoom(null);
+      setSelectedChat(null);
+      
+      // Refresh chats list
+      api.get('/api/client/chats').then(res => setChats(res.data)).catch(console.error);
+    };
 
-    socket.on('disconnect', () => console.log('User disconnected:', socket.user.email));
-});
+    // --- Attach Listeners ---
+    socket.on('chat_started', onChatStarted);
+    socket.on('receive_message', onReceiveMessage);
+    socket.on('active_chat_data', onActiveChatData);
+    socket.on('chat_ended', onChatEnded);
 
-// ==========================================
-// AUTH & API MIDDLEWARE
-// ==========================================
-const authenticate = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Authentication required' });
-  try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-};
-const requireRole = (role) => (req, res, next) => {
-  if (req.user.role !== role) return res.status(403).json({ error: `Requires ${role} role` });
-  next();
-};
+    return () => {
+      socket.disconnect();
+    };
+  }, [navigate]);
 
-app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-  const client = await pool.connect();
-  try {
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      await client.query(`UPDATE users SET subscription_status = 'active' WHERE stripe_customer_id = $1`, [session.customer]);
-    } 
-    else if (event.type === 'customer.subscription.deleted') {
-      const subscription = event.data.object;
-      await client.query(`UPDATE users SET subscription_status = 'canceled' WHERE stripe_customer_id = $1`, [subscription.customer]);
-    } 
-    else if (event.type === 'identity.verification_session.verified') {
-      const session = event.data.object;
-      const userId = session.metadata.userId; 
-      if (userId) {
-        await client.query(`UPDATE users SET is_verified = true WHERE id = $1`, [userId]);
+  const handleSend = (e) => {
+    if (e) e.preventDefault();
+    if (!input.trim()) return;
+
+    const newMsg = { 
+      id: Date.now(), 
+      sender: 'user', 
+      text: input, 
+      timestamp: new Date() 
+    };
+    
+    setMessages(prev => [...prev, newMsg]);
+
+    const socket = socketRef.current;
+    if (socket) {
+      if (!room && !selectedChat) {
+        setIsWaiting(true);
+        socket.emit('request_chat', { text: input });
+      } else {
+        socket.emit('send_message', { room: room || selectedChat, text: input, sender: 'user' });
       }
     }
-    res.json({ received: true });
-  } catch (err) {
-    console.error('Webhook Database Error:', err);
-    res.status(500).send('Server Error');
-  } finally {
-    client.release();
-  }
-});
+    setInput('');
+  };
 
-app.use(express.json({ limit: '50mb' })); 
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-// --- AUTH ROUTES ---
-app.post('/auth/register', async (req, res) => {
-  const { email, password, role } = req.body;
-  if (!['client', 'worker'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
-  if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-  const client = await pool.connect();
-  try {
-    const userCheck = await client.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (userCheck.rows.length > 0) return res.status(409).json({ error: 'Email already in use' });
-    const hash = await bcrypt.hash(password, 10);
-    const apiKey = role === 'worker' ? crypto.randomBytes(24).toString('hex') : null;
-    const result = await client.query(`INSERT INTO users (email, password_hash, role, api_key, is_active) VALUES ($1, $2, $3, $4, true) RETURNING id, email, role`, [email, hash, role, apiKey]);
-    res.status(201).json({ message: 'User created', user: result.rows[0] });
-  } catch (err) {
-    console.error("Register Error:", err);
-    res.status(500).json({ error: 'Registration failed' });
-  } finally {
-    client.release();
-  }
-});
-
-app.post('/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    const user = rows[0];
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) return res.status(401).json({ error: 'Invalid credentials' });
-    if (!user.is_active) return res.status(403).json({ error: 'Account disabled' });
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, user: { id: user.id, email: user.email, role: user.role, is_verified: user.is_verified, subscription_status: user.subscription_status }});
-  } catch (err) {
-    console.error("Login Error:", err);
-    res.status(500).json({ error: 'Login error' });
-  }
-});
-
-// --- WORKER HISTORY ENDPOINT ---
-app.get('/api/worker/history', authenticate, requireRole('worker'), async (req, res) => {
-    try {
-        const result = await pool.query(
-            `SELECT c.id as room, c.updated_at, u.email as user, 
-             (SELECT COUNT(*) FROM messages WHERE chat_id = c.id) as message_count
-             FROM chats c
-             JOIN users u ON c.client_user_id = u.id
-             WHERE c.worker_user_id = $1 AND c.status = 'closed'
-             ORDER BY c.updated_at DESC`,
-            [req.user.id]
-        );
-        res.json(result.rows);
-    } catch(err) {
-        console.error("Error fetching worker history:", err);
-        res.status(500).json({ error: 'Server error' });
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
-});
+  };
 
-// ==========================================
-// CLIENT CHAT HISTORY ENDPOINTS
-// ==========================================
-app.get('/api/client/chats', authenticate, requireRole('client'), async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT 
-        c.id, 
-        c.status, 
-        c.created_at, 
-        c.updated_at,
-        u.email as provider_name,
-        (SELECT COUNT(*) FROM messages WHERE chat_id = c.id) as message_count,
-        (SELECT text FROM messages WHERE chat_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message
-      FROM chats c
-      LEFT JOIN users u ON c.worker_user_id = u.id
-      WHERE c.client_user_id = $1 
-        AND c.status != 'pending'
-      ORDER BY c.updated_at DESC`,
-      [req.user.id]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching client chat history:", err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
-app.get('/api/client/chats/:chatId/messages', authenticate, requireRole('client'), async (req, res) => {
-  const { chatId } = req.params;
-  try {
-    // Verify the chat belongs to this client
-    const chatCheck = await pool.query(
-      'SELECT id FROM chats WHERE id = $1 AND client_user_id = $2',
-      [chatId, req.user.id]
-    );
-    
-    if (chatCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'Access denied' });
+  const getChatTitle = (chat) => {
+    if (chat.provider_name) {
+      return `Chat with ${chat.provider_name}`;
     }
-
-    const result = await pool.query(
-      `SELECT 
-        m.id, 
-        m.text, 
-        m.created_at as timestamp,
-        u.role as sender_role
-      FROM messages m
-      JOIN users u ON m.sender_user_id = u.id
-      WHERE m.chat_id = $1
-      ORDER BY m.created_at ASC`,
-      [chatId]
-    );
-
-    const messages = result.rows.map(m => ({
-      id: m.id,
-      text: m.text,
-      sender: m.sender_role === 'client' ? 'user' : 'ai',
-      timestamp: m.timestamp
-    }));
-
-    res.json(messages);
-  } catch (err) {
-    console.error("Error fetching chat messages:", err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-app.post('/api/client/chats/:chatId/resume', authenticate, requireRole('client'), async (req, res) => {
-  const { chatId } = req.params;
-  const client = await pool.connect();
-  
-  try {
-    await client.query('BEGIN');
-    
-    // Verify the chat belongs to this client and is closed
-    const chatCheck = await client.query(
-      'SELECT id, worker_user_id FROM chats WHERE id = $1 AND client_user_id = $2 AND status = $3',
-      [chatId, req.user.id, 'closed']
-    );
-    
-    if (chatCheck.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Chat not found or not eligible for resumption' });
+    if (chat.last_message) {
+      return chat.last_message.substring(0, 30) + (chat.last_message.length > 30 ? '...' : '');
     }
+    return `Chat from ${formatDate(chat.created_at)}`;
+  };
 
-    // Check if the worker is still active
-    const workerCheck = await client.query(
-      'SELECT is_active FROM users WHERE id = $1',
-      [chatCheck.rows[0].worker_user_id]
-    );
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-6xl mx-auto flex flex-col h-screen">
+        {/* Header */}
+        <div className="bg-white shadow-sm border-b px-4 py-3 flex items-center justify-between">
+          <h2 className="text-lg font-bold">HumanAI Assistant</h2>
+          <button
+            onClick={startNewChat}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-sm font-medium flex items-center"
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+            </svg>
+            New Chat
+          </button>
+        </div>
 
-    if (workerCheck.rows.length === 0 || !workerCheck.rows[0].is_active) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Previous provider is no longer available' });
-    }
+        <div className="flex-1 flex overflow-hidden">
+          {/* Chat List Sidebar */}
+          <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
+            {chats.length === 0 ? (
+              <div className="p-4 text-center text-gray-500">
+                <p>No chats yet</p>
+                <p className="text-sm mt-2">Click "New Chat" to start a conversation</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {chats.map(chat => (
+                  <div
+                    key={chat.id}
+                    onClick={() => setSelectedChat(chat.id)}
+                    className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
+                      selectedChat === chat.id ? 'bg-emerald-50 border-l-4 border-emerald-500' : ''
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-1">
+                      <h3 className="font-medium text-gray-900 truncate flex-1">
+                        {getChatTitle(chat)}
+                      </h3>
+                      <span className="text-xs text-gray-500 ml-2">
+                        {new Date(chat.updated_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {chat.last_message && (
+                      <p className="text-sm text-gray-600 truncate">
+                        {chat.last_message}
+                      </p>
+                    )}
+                    <div className="flex items-center mt-2">
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        chat.status === 'active' 
+                          ? 'bg-green-100 text-green-700' 
+                          : chat.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {chat.message_count || 0} messages • {chat.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-    // Update chat status to active
-    await client.query(
-      'UPDATE chats SET status = $1, updated_at = NOW() WHERE id = $2',
-      ['active', chatId]
-    );
+          {/* Chat Area */}
+          <div className="flex-1 flex flex-col bg-white">
+            {selectedChat ? (
+              <>
+                {/* Chat Header */}
+                <div className="border-b border-gray-200 px-4 py-3 bg-white">
+                  <h3 className="font-medium text-gray-900">
+                    {chats.find(c => c.id === selectedChat)?.provider_name 
+                      ? `Chat with ${chats.find(c => c.id === selectedChat)?.provider_name}`
+                      : 'Chat'
+                    }
+                  </h3>
+                </div>
 
-    // Fetch all messages
-    const messagesRes = await client.query(
-      `SELECT 
-        m.id, 
-        m.text, 
-        m.created_at as timestamp,
-        u.role as sender_role
-      FROM messages m
-      JOIN users u ON m.sender_user_id = u.id
-      WHERE m.chat_id = $1
-      ORDER BY m.created_at ASC`,
-      [chatId]
-    );
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {loading ? (
+                    <div className="text-center text-gray-500">Loading messages...</div>
+                  ) : messages.length === 0 ? (
+                    <div className="text-center text-gray-500">No messages yet</div>
+                  ) : (
+                    messages.map(m => (
+                      <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : m.sender === 'system' ? 'justify-center' : 'justify-start'}`}>
+                        {m.sender === 'system' ? (
+                          <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">{m.text}</span>
+                        ) : (
+                          <div className={`max-w-[70%] rounded-lg p-3 ${
+                            m.sender === 'user' 
+                              ? 'bg-emerald-600 text-white rounded-tr-none' 
+                              : 'bg-gray-100 text-gray-900 rounded-tl-none'
+                          }`}>
+                            <p className="break-words">{m.text}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
 
-    await client.query('COMMIT');
-
-    const messages = messagesRes.rows.map(m => ({
-      id: m.id,
-      text: m.text,
-      sender: m.sender_role === 'client' ? 'user' : 'ai',
-      timestamp: m.timestamp
-    }));
-
-    // Notify the worker via socket if they're online
-    const workerId = chatCheck.rows[0].worker_user_id;
-    io.to(workerId.toString()).emit('chat_resumed', { 
-      room: parseInt(chatId),
-      clientId: req.user.id 
-    });
-
-    res.json({ success: true, messages });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error("Error resuming chat:", err);
-    res.status(500).json({ error: 'Server error' });
-  } finally {
-    client.release();
-  }
-});
-
-// --- STRIPE ROUTES ---
-app.post('/create-checkout-session', authenticate, requireRole('client'), async (req, res) => {
-  try {
-    const {rows} = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
-    const user = rows[0];
-    let customerId = user.stripe_customer_id;
-    if (!customerId) {
-      const customer = await stripe.customers.create({ email: user.email });
-      await pool.query('UPDATE users SET stripe_customer_id = $1 WHERE id = $2', [customer.id, user.id]);
-      customerId = customer.id;
-    }
-    let domain = process.env.CLIENT_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:5173';
-    if (!domain.startsWith('http')) domain = `https://${domain}`;
-    if (domain.endsWith('/')) domain = domain.slice(0, -1);
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      customer: customerId,
-      line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
-      mode: 'subscription',
-      success_url: `${domain}/subscription?success=true`,
-      cancel_url: `${domain}/subscription?canceled=true`,
-      subscription_data: { trial_period_days: 7 }
-    });
-    res.json({ url: session.url });
-  } catch (err) {
-    console.error("Stripe Error:", err);
-    res.status(500).json({ error: 'Checkout failed' });
-  }
-});
-
-app.post('/api/worker/create-verification-session', authenticate, requireRole('worker'), async (req, res) => {
-  try {
-    let domain = process.env.CLIENT_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:5173';
-    if (!domain.startsWith('http')) domain = `https://${domain}`;
-    if (domain.endsWith('/')) domain = domain.slice(0, -1);
-    const verificationSession = await stripe.identity.verificationSessions.create({
-      type: 'document',
-      metadata: { userId: req.user.id.toString() },
-      return_url: `${domain}/verification?verified=true`, 
-    });
-    res.json({ url: verificationSession.url });
-  } catch (err) {
-    console.error("Stripe Identity Error:", err);
-    res.status(500).json({ error: 'Failed to start verification' });
-  }
-});
-
-// SERVE FRONTEND & START SERVER
-app.use(express.static(path.join(__dirname, 'client', 'dist')));
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'client', 'dist', 'index.html')));
-server.listen(port, () => console.log(`🚀 Server & WebSockets running on port ${port}`));
+                {/* Input */}
+                <div className="border-t border-gray-200 p-4 bg-white">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={e => setInput(e.target.value)}
+                      onKeyDown={handleKeyPress}
+                      placeholder={isWaiting ? "Searching for provider..." : "Type your message..."}
+                      className="flex-1 border border-gray-300 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      disabled={isWaiting}
+                    />
+                    <button
+                      onClick={handleSend}
+                      disabled={isWaiting || !input.trim()}
+                      className="bg-emerald-600 text-white p-2 rounded-full w-10 h-10 flex items-center justify-center hover:bg-emerald-700 disabled:bg-gray-300"
+                    >
+                      ↑
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-gray-400">
+                <div className="text-center">
+                  <svg className="mx-auto h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <p className="text-lg">Select a chat or start a new one</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
