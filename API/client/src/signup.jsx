@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import api from './api';
 
 export default function Signup() {
@@ -8,13 +8,12 @@ export default function Signup() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
   const location = useLocation();
   const role = new URLSearchParams(location.search).get('role') || 'client';
   
   useEffect(() => {
-    if (!['client', 'worker'].includes(role)) navigate('/');
-  }, [role, navigate]);
+    if (!['client', 'worker'].includes(role)) window.location.href = '/';
+  }, [role]);
   
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,13 +31,15 @@ export default function Signup() {
       localStorage.setItem('token', loginRes.data.token);
       localStorage.setItem('user', JSON.stringify(loginRes.data.user));
       
-      // 3. Navigate
-      if (role === 'client') navigate('/subscription');
-      else navigate('/verification');
+      // 3. HARD REDIRECT
+      if (role === 'client') {
+        window.location.href = '/subscription';
+      } else {
+        window.location.href = '/verification';
+      }
       
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create account.');
-    } finally {
       setLoading(false);
     }
   };
