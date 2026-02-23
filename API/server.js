@@ -85,6 +85,7 @@ const setupDatabase = async () => {
 };
 setupDatabase();
 
+
 // ==========================================
 // WEBSOCKET LOGIC (DATABASE-DRIVEN)
 // ==========================================
@@ -185,7 +186,6 @@ io.on('connection', async (socket) => {
         await pool.query("INSERT INTO messages (chat_id, sender_user_id, text) VALUES ($1, $2, $3)", [room, socket.user.id, text]);
         const messagePayload = { id: Date.now(), text, sender, room, timestamp: new Date() };
         
-        // --- KEY FIX ---
         // Send to everyone in the room EXCEPT the sender.
         socket.to(room.toString()).emit('receive_message', messagePayload);
     });
@@ -197,6 +197,13 @@ io.on('connection', async (socket) => {
         // Clean up room
         const socketsInRoom = await io.in(chatId.toString()).fetchSockets();
         socketsInRoom.forEach(s => s.leave(chatId.toString()));
+    });
+
+    // Handle chat resumed event
+    socket.on('chat_resumed', (data) => {
+        // Join the room when chat is resumed
+        socket.join(data.room.toString());
+        console.log(`Worker ${socket.user.email} rejoined room ${data.room}`);
     });
 
     socket.on('disconnect', () => console.log('User disconnected:', socket.user.email));
@@ -258,6 +265,61 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// --- AUTH ROUTES ---
+app.post('/auth/register', async (req, res) => {
+  const { email, password, role } = req.body;
+  if (!['client', 'worker'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  const client = await pool.connect();
+  try {
+    const userCheck = await client.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (userCheck.rows.length > 0) return res.status(409).json({ error: 'Email already in use' });
+    const hash = await bcrypt.hash(password, 10);
+    const apiKey = role === 'worker' ? crypto.randomBytes(24).toString('hex') : null;
+    const result = await client.query(`INSERT INTO users (email, password_hash, role, api_key, is_active) VALUES ($1, $2, $3, $4, true) RETURNING id, email, role`, [email, hash, role, apiKey]);
+    res.status(201).json({ message: 'User created', user: result.rows[0] });
+  } catch (err) {
+    console.error("Register Error:", err);
+    res.status(500).json({ error: 'Registration failed' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = rows[0];
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user.is_active) return res.status(403).json({ error: 'Account disabled' });
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    res.json({ token, user: { id: user.id, email: user.email, role: user.role, is_verified: user.is_verified, subscription_status: user.subscription_status }});
+  } catch (err) {
+    console.error("Login Error:", err);
+    res.status(500).json({ error: 'Login error' });
+  }
+});
+
+// --- WORKER HISTORY ENDPOINT ---
+app.get('/api/worker/history', authenticate, requireRole('worker'), async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT c.id as room, c.updated_at, u.email as user, 
+             (SELECT COUNT(*) FROM messages WHERE chat_id = c.id) as message_count
+             FROM chats c
+             JOIN users u ON c.client_user_id = u.id
+             WHERE c.worker_user_id = $1 AND c.status = 'closed'
+             ORDER BY c.updated_at DESC`,
+            [req.user.id]
+        );
+        res.json(result.rows);
+    } catch(err) {
+        console.error("Error fetching worker history:", err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // ==========================================
 // CLIENT CHAT HISTORY ENDPOINTS
 // ==========================================
@@ -274,7 +336,8 @@ app.get('/api/client/chats', authenticate, requireRole('client'), async (req, re
         (SELECT text FROM messages WHERE chat_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message
       FROM chats c
       LEFT JOIN users u ON c.worker_user_id = u.id
-      WHERE c.client_user_id = $1 AND c.status IN ('closed', 'pending')
+      WHERE c.client_user_id = $1 
+        AND c.status != 'pending'
       ORDER BY c.updated_at DESC`,
       [req.user.id]
     );
@@ -400,62 +463,7 @@ app.post('/api/client/chats/:chatId/resume', authenticate, requireRole('client')
   }
 });
 
-// --- AUTH ROUTES ---
-app.post('/auth/register', async (req, res) => {
-  const { email, password, role } = req.body;
-  if (!['client', 'worker'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
-  if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-  const client = await pool.connect();
-  try {
-    const userCheck = await client.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (userCheck.rows.length > 0) return res.status(409).json({ error: 'Email already in use' });
-    const hash = await bcrypt.hash(password, 10);
-    const apiKey = role === 'worker' ? crypto.randomBytes(24).toString('hex') : null;
-    const result = await client.query(`INSERT INTO users (email, password_hash, role, api_key, is_active) VALUES ($1, $2, $3, $4, true) RETURNING id, email, role`, [email, hash, role, apiKey]);
-    res.status(201).json({ message: 'User created', user: result.rows[0] });
-  } catch (err) {
-    console.error("Register Error:", err);
-    res.status(500).json({ error: 'Registration failed' });
-  } finally {
-    client.release();
-  }
-});
-
-app.post('/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    const user = rows[0];
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) return res.status(401).json({ error: 'Invalid credentials' });
-    if (!user.is_active) return res.status(403).json({ error: 'Account disabled' });
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, user: { id: user.id, email: user.email, role: user.role, is_verified: user.is_verified, subscription_status: user.subscription_status }});
-  } catch (err) {
-    console.error("Login Error:", err);
-    res.status(500).json({ error: 'Login error' });
-  }
-});
-
-// --- NEW WORKER HISTORY ENDPOINT ---
-app.get('/api/worker/history', authenticate, requireRole('worker'), async (req, res) => {
-    try {
-        const result = await pool.query(
-            `SELECT c.id as room, c.updated_at, u.email as user, 
-             (SELECT COUNT(*) FROM messages WHERE chat_id = c.id) as message_count
-             FROM chats c
-             JOIN users u ON c.client_user_id = u.id
-             WHERE c.worker_user_id = $1 AND c.status = 'closed'
-             ORDER BY c.updated_at DESC`,
-            [req.user.id]
-        );
-        res.json(result.rows);
-    } catch(err) {
-        console.error("Error fetching worker history:", err);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// --- STRIPE & OTHER ROUTES ---
+// --- STRIPE ROUTES ---
 app.post('/create-checkout-session', authenticate, requireRole('client'), async (req, res) => {
   try {
     const {rows} = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
@@ -484,6 +492,7 @@ app.post('/create-checkout-session', authenticate, requireRole('client'), async 
     res.status(500).json({ error: 'Checkout failed' });
   }
 });
+
 app.post('/api/worker/create-verification-session', authenticate, requireRole('worker'), async (req, res) => {
   try {
     let domain = process.env.CLIENT_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:5173';
