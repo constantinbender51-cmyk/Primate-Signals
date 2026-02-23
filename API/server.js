@@ -25,22 +25,28 @@ const pool = new Pool({
 const setupDatabase = async () => {
   const client = await pool.connect();
   try {
+    // 1. Create the base table if it's a completely blank database
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
-        role VARCHAR(10) NOT NULL CHECK (role IN ('client', 'worker')),
-        api_key VARCHAR(255) UNIQUE,
-        stripe_customer_id VARCHAR(255),
-        subscription_status VARCHAR(20) DEFAULT 'inactive',
-        is_verified BOOLEAN DEFAULT false,
-        is_active BOOLEAN DEFAULT true, -- Default true so users can login immediately
-        verification_data JSONB,
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log("✅ Database tables checked.");
+
+    // 2. Force add the new columns if they are missing (Upgrading from the old app)
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(10) DEFAULT 'client';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) UNIQUE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(20) DEFAULT 'inactive';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT false;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_data JSONB;
+    `);
+
+    console.log("✅ Database tables checked and updated.");
   } catch (err) {
     console.error("❌ Database setup failed:", err);
   } finally {
