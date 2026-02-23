@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
+import api from './api';
 
 export default function Terminal() {
   const [activeTab, setActiveTab] = useState('requests');
@@ -13,20 +14,24 @@ export default function Terminal() {
   const socketRef = useRef(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
     if (!token) {
       navigate('/login');
       return;
     }
 
+    // Fetch initial history
+    api.get('/api/worker/history').then(res => setHistory(res.data));
+
     const socket = io({ transports: ['websocket'], auth: { token } });
     socketRef.current = socket;
 
+    socket.on('connect', () => console.log('Worker Socket Connected:', socket.id));
+    socket.on('disconnect', () => console.log('Worker Socket Disconnected'));
+
     const onNewRequest = (req) => {
-      setRequests(prev => {
-        if (prev.find(r => r.id === req.id)) return prev;
-        return [...prev, req];
-      });
+      console.log('Received new request:', req);
+      setRequests(prev => [req, ...prev.filter(r => r.id !== req.id)]);
     };
     const onRequestRemoved = (reqId) => setRequests(prev => prev.filter(r => r.id !== reqId));
     const onReceiveMessage = (msg) => {
@@ -37,9 +42,12 @@ export default function Terminal() {
         }));
       }
     };
-    const onInitialRequests = (initialReqs) => setRequests(initialReqs);
+    const onInitialRequests = (initialReqs) => {
+        console.log('Received initial requests:', initialReqs);
+        setRequests(initialReqs);
+    };
     const onChatEnded = () => {
-      if(selectedChat) handleEndChat(selectedChat, true); // Mark as ended by other party
+      if(selectedChat) handleEndChat(selectedChat, true);
     };
 
     socket.on('new_request', onNewRequest);
@@ -70,18 +78,14 @@ export default function Terminal() {
     if (!chatId) return;
     const chatToArchive = activeChats[chatId];
     if (chatToArchive) {
-        setHistory(prev => [chatToArchive, ...prev]);
+      setHistory(prev => [{...chatToArchive, updated_at: new Date(), message_count: chatToArchive.messages.length}, ...prev]);
     }
     const newActive = { ...activeChats };
     delete newActive[chatId];
     setActiveChats(newActive);
     
-    if (selectedChat === chatId) {
-        setSelectedChat(null);
-    }
-    if (!fromEvent) {
-      socketRef.current?.emit('end_chat', chatId);
-    }
+    if (selectedChat === chatId) setSelectedChat(null);
+    if (!fromEvent) socketRef.current?.emit('end_chat', chatId);
   };
 
   const handleSendMessage = (e) => {
@@ -121,7 +125,7 @@ export default function Terminal() {
                     <div className="text-sm text-gray-500">{request.topic}</div>
                   </div>
                 </div>
-                <span className="text-sm text-gray-500">{new Date(request.time).toLocaleTimeString()}</span>
+                <span className="text-sm text-gray-500">{new Date(request.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
               </div>
               <p className="text-gray-700 mb-3 line-clamp-2">{request.message}</p>
               <div className="flex space-x-2">
@@ -166,12 +170,12 @@ export default function Terminal() {
       {history.length === 0 ? (
          <div className="text-center py-12 text-gray-500"><div className="text-4xl mb-4">📜</div><h3 className="text-lg font-medium text-gray-900 mb-1">No History</h3></div>
       ) : (
-        history.map((chat, i) => (
-          <div key={i} className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 opacity-75">
+        history.map((chat) => (
+          <div key={chat.room} className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 opacity-75">
             <div className="p-3">
               <div className="flex justify-between items-start mb-1">
-                <div><div className="font-medium text-gray-900">{chat.user} • {chat.topic}</div><div className="text-sm text-gray-500">{chat.messages.length} messages exchanged</div></div>
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">Completed</span>
+                <div><div className="font-medium text-gray-900">{chat.user}</div><div className="text-sm text-gray-500">{chat.message_count} messages</div></div>
+                <span className="text-xs text-gray-500">{new Date(chat.updated_at).toLocaleDateString()}</span>
               </div>
             </div>
           </div>
