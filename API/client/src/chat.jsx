@@ -11,6 +11,7 @@ export default function Chat() {
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isNewChatMode, setIsNewChatMode] = useState(false);
   const navigate = useNavigate();
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -37,6 +38,7 @@ export default function Chat() {
   useEffect(() => {
     if (selectedChat) {
       fetchChatMessages(selectedChat);
+      setIsNewChatMode(false);
     }
   }, [selectedChat]);
 
@@ -61,6 +63,7 @@ export default function Chat() {
 
   const startNewChat = () => {
     setSelectedChat(null);
+    setIsNewChatMode(true);
     setMessages([]);
     setRoom(null);
     setIsWaiting(false);
@@ -83,7 +86,9 @@ export default function Chat() {
     // --- Event Handlers ---
     const onChatStarted = (data) => {
       setIsWaiting(false);
+      setIsNewChatMode(false);
       setRoom(data.room);
+      setSelectedChat(data.room);
       socket.emit('join_chat_room', data.room);
       setMessages(prev => [...prev, {
         id: Date.now(),
@@ -92,13 +97,19 @@ export default function Chat() {
         timestamp: new Date()
       }]);
       
-      // Refresh chats list
-      api.get('/api/client/chats').then(res => setChats(res.data)).catch(console.error);
+      // Refresh chats list and select the new chat
+      api.get('/api/client/chats').then(res => {
+        setChats(res.data);
+        setSelectedChat(data.room);
+      }).catch(console.error);
     };
 
     const onReceiveMessage = (msg) => {
       if (msg.sender === 'ai') {
         setMessages(prev => [...prev, msg]);
+        
+        // Refresh chats list to update last message
+        api.get('/api/client/chats').then(res => setChats(res.data)).catch(console.error);
       }
     };
 
@@ -106,6 +117,7 @@ export default function Chat() {
       setRoom(data.room);
       setMessages(data.messages);
       setSelectedChat(data.room);
+      setIsNewChatMode(false);
       socket.emit('join_chat_room', data.room);
     };
 
@@ -117,6 +129,7 @@ export default function Chat() {
       }]);
       setRoom(null);
       setSelectedChat(null);
+      setIsNewChatMode(false);
       
       // Refresh chats list
       api.get('/api/client/chats').then(res => setChats(res.data)).catch(console.error);
@@ -148,10 +161,12 @@ export default function Chat() {
 
     const socket = socketRef.current;
     if (socket) {
-      if (!room && !selectedChat) {
+      // If we're in new chat mode or no room/selected chat, create a new chat
+      if (isNewChatMode || (!room && !selectedChat)) {
         setIsWaiting(true);
         socket.emit('request_chat', { text: input });
       } else {
+        // Send message to existing chat
         socket.emit('send_message', { room: room || selectedChat, text: input, sender: 'user' });
       }
     }
@@ -247,16 +262,22 @@ export default function Chat() {
 
           {/* Chat Area */}
           <div className="flex-1 flex flex-col bg-white">
-            {selectedChat ? (
+            {selectedChat || isNewChatMode ? (
               <>
                 {/* Chat Header */}
                 <div className="border-b border-gray-200 px-4 py-3 bg-white">
                   <h3 className="font-medium text-gray-900">
-                    {chats.find(c => c.id === selectedChat)?.provider_name 
-                      ? `Chat with ${chats.find(c => c.id === selectedChat)?.provider_name}`
-                      : 'Chat'
-                    }
+                    {isNewChatMode ? (
+                      'New Chat'
+                    ) : (
+                      chats.find(c => c.id === selectedChat)?.provider_name 
+                        ? `Chat with ${chats.find(c => c.id === selectedChat)?.provider_name}`
+                        : 'Chat'
+                    )}
                   </h3>
+                  {isWaiting && (
+                    <p className="text-sm text-yellow-600 mt-1">Searching for a provider...</p>
+                  )}
                 </div>
 
                 {/* Messages */}
@@ -264,7 +285,16 @@ export default function Chat() {
                   {loading ? (
                     <div className="text-center text-gray-500">Loading messages...</div>
                   ) : messages.length === 0 ? (
-                    <div className="text-center text-gray-500">No messages yet</div>
+                    <div className="text-center text-gray-500">
+                      {isNewChatMode ? (
+                        <div>
+                          <p className="mb-2">Start a new conversation</p>
+                          <p className="text-sm">Type your message below to find a provider</p>
+                        </div>
+                      ) : (
+                        'No messages yet'
+                      )}
+                    </div>
                   ) : (
                     messages.map(m => (
                       <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : m.sender === 'system' ? 'justify-center' : 'justify-start'}`}>
@@ -296,6 +326,7 @@ export default function Chat() {
                       placeholder={isWaiting ? "Searching for provider..." : "Type your message..."}
                       className="flex-1 border border-gray-300 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       disabled={isWaiting}
+                      autoFocus
                     />
                     <button
                       onClick={handleSend}
