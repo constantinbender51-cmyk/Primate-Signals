@@ -3,178 +3,119 @@ import { Link } from 'react-router-dom';
 
 export default function LandingPage() {
   return (
-    <div style={{ paddingBottom: '80px', animation: 'fadeIn 0.6s ease-out' }}>
+    <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <section style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        textAlign: 'center',
-        padding: '80px 20px',
-        background: `linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.95)), url('https://i.postimg.cc/HLmpLKr1/ai-background.jpg')`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}>
-        <h1 style={{
-          fontSize: '3.5rem',
-          fontWeight: '800',
-          color: '#111827',
-          marginBottom: '1.5rem',
-          maxWidth: '900px'
-        }}>
-          Human Intelligence, AI Experience
-        </h1>
-        <p style={{
-          fontSize: '1.25rem',
-          color: '#4b5563',
-          maxWidth: '700px',
-          marginBottom: '2.5rem'
-        }}>
-          Connect with real people who power our AI chatbots. Get authentic, human responses with the convenience of AI.
-        </p>
-        <div style={{
-          display: 'flex',
-          gap: '1rem',
-          justifyContent: 'center'
-        }}>
-          <Link to="/register" style={{
-            padding: '12px 24px',
-            backgroundColor: '#10b981',
-            color: 'white',
-            borderRadius: '6px',
-            fontWeight: '600',
-            textDecoration: 'none'
-          }}>
-            Sign Up as User
-          </Link>
-          <Link to="/verification" style={{
-            padding: '12px 24px',
-            backgroundColor: '#3b82f6',
-            color: 'white',
-            borderRadius: '6px',
-            fontWeight: '600',
-            textDecoration: 'none'
-          }}>
-            Become an AI Provider
-          </Link>
+      <section className="py-20 px-4 bg-gradient-to-b from-white to-gray-50">
+        <div className="max-w-6xl mx-auto text-center">
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+            Human Intelligence, AI Experience
+          </h1>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-10">
+            Connect with real people who power our AI chatbots. Get authentic, human responses with the convenience of AI.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link to="/signup/user" className="px-8 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition">
+              Sign Up as User
+            </Link>
+            <Link to="/signup/ai-provider" className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
+              Become an AI Provider
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* How It Works Section */}
-      <section style={{
-        padding: '60px 20px',
-        maxWidth: '1200px',
-        margin: '0 auto'
-      }}>
-        <h2 style={{
-          fontSize: '2.25rem',
-          fontWeight: '700',
-          textAlign: 'center',
-          marginBottom: '3rem',
-          color: '#111827'
-        }}>
-          How Human AI Works
-        </h2>
-        
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-          gap: '2rem'
-        }}>
-          {[
-            { title: 'Choose Your AI', desc: 'Select from specialized human AI providers based on expertise and ratings.' },
-            { title: 'Start Chatting', desc: 'Begin a conversation just like with any AI chatbot - but with real human responses.' },
-            { title: 'Get Real Answers', desc: 'Receive thoughtful, nuanced responses from actual people behind the scenes.' },
-            { title: 'Rate Your Experience', desc: 'Help maintain quality by rating your interactions and providing feedback.' }
-          ].map((item, i) => (
-            <div key={i} style={{
-              padding: '1.5rem',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              backgroundColor: '#fff',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-            }}>
-              <div style={{
-                fontSize: '2rem',
-                fontWeight: 'bold',
-                color: '#10b981',
-                marginBottom: '1rem'
-              }}>
-                {i + 1}
+      {/* How It Works */}
+      <section className="py-16 px-4">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">How It Works</h2>
+          
+          <div className="grid md:grid-cols-2 gap-12">
+            <div>
+              <h3 className="text-2xl font-bold text-blue-600 mb-4">For AI Providers</h3>
+              <div className="space-y-6">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-4">1</div>
+                  <div>
+                    <h4 className="font-bold text-lg mb-2">Verify Your Identity</h4>
+                    <p className="text-gray-600">Complete ID verification to become a trusted AI provider</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-4">2</div>
+                  <div>
+                    <h4 className="font-bold text-lg mb-2">Set Up Your Profile</h4>
+                    <p className="text-gray-600">Create your AI persona and specify your expertise areas</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-4">3</div>
+                  <div>
+                    <h4 className="font-bold text-lg mb-2">Start Earning</h4>
+                    <p className="text-gray-600">Get paid for each chat session you complete as an AI provider</p>
+                  </div>
+                </div>
               </div>
-              <h3 style={{
-                fontSize: '1.25rem',
-                fontWeight: '600',
-                marginBottom: '0.75rem',
-                color: '#111827'
-              }}>
-                {item.title}
-              </h3>
-              <p style={{
-                color: '#4b5563',
-                lineHeight: '1.5'
-              }}>
-                {item.desc}
-              </p>
             </div>
-          ))}
+            
+            <div>
+              <h3 className="text-2xl font-bold text-emerald-600 mb-4">For Users</h3>
+              <div className="space-y-6">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 bg-emerald-100 text-emerald-600 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-4">1</div>
+                  <div>
+                    <h4 className="font-bold text-lg mb-2">Choose a Plan</h4>
+                    <p className="text-gray-600">Select a subscription plan that fits your needs</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 bg-emerald-100 text-emerald-600 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-4">2</div>
+                  <div>
+                    <h4 className="font-bold text-lg mb-2">Find the Right AI</h4>
+                    <p className="text-gray-600">Browse and select AI providers based on expertise and ratings</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 bg-emerald-100 text-emerald-600 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-4">3</div>
+                  <div>
+                    <h4 className="font-bold text-lg mb-2">Chat & Get Answers</h4>
+                    <p className="text-gray-600">Get authentic, thoughtful responses from real human experts</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
-
-      {/* Benefits Section */}
-      <section style={{
-        padding: '60px 20px',
-        backgroundColor: '#f9fafb'
-      }}>
-        <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: '2rem'
-        }}>
-          {[
-            { title: 'Authentic Responses', desc: 'No generic AI answers - get thoughtful, human responses tailored to your needs.' },
-            { title: 'Specialized Knowledge', desc: 'Connect with experts in specific fields who can provide deep domain knowledge.' },
-            { title: 'Privacy Protected', desc: 'Your identity remains anonymous while interacting with human AI providers.' },
-            { title: 'Quality Guaranteed', desc: 'Providers are verified and rated to ensure consistent, high-quality interactions.' }
-          ].map((item, i) => (
-            <div key={i} style={{
-              display: 'flex',
-              gap: '16px'
-            }}>
-              <div style={{
-                minWidth: '24px',
-                height: '24px',
-                background: '#ecfdf5',
-                color: '#059669',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 'bold',
-                fontSize: '14px'
-              }}>
-                ✓
-              </div>
-              <div>
-                <h3 style={{
-                  fontSize: '1.1rem',
-                  fontWeight: '600',
-                  marginBottom: '0.5rem',
-                  color: '#111827'
-                }}>
-                  {item.title}
-                </h3>
-                <p style={{
-                  color: '#4b5563',
-                  fontSize: '0.95rem'
-                }}>
-                  {item.desc}
-                </p>
-              </div>
+      
+      {/* Value Proposition */}
+      <section className="py-16 px-4 bg-gray-50">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">Why Choose Human AI?</h2>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="bg-white p-6 rounded-xl shadow-sm">
+              <div className="text-3xl mb-4">🧠</div>
+              <h3 className="text-xl font-bold mb-2">Authentic Intelligence</h3>
+              <p className="text-gray-600">No generic AI answers - get thoughtful, human responses tailored to your needs</p>
             </div>
-          ))}
+            
+            <div className="bg-white p-6 rounded-xl shadow-sm">
+              <div className="text-3xl mb-4">🔍</div>
+              <h3 className="text-xl font-bold mb-2">Specialized Knowledge</h3>
+              <p className="text-gray-600">Connect with experts in specific fields who can provide deep domain knowledge</p>
+            </div>
+            
+            <div className="bg-white p-6 rounded-xl shadow-sm">
+              <div className="text-3xl mb-4">🔒</div>
+              <h3 className="text-xl font-bold mb-2">Privacy Protected</h3>
+              <p className="text-gray-600">Your identity remains anonymous while interacting with human AI providers</p>
+            </div>
+          </div>
         </div>
       </section>
     </div>
